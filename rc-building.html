@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RC Building · MIDAS Gen NX</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+:root{
+  --bg:#0a0e1a;--panel:#111726;--panel2:#0d1320;--border:#1f2a3d;
+  --txt:#c9d4e8;--muted:#6b7a99;--dim:#445069;
+  --cyan:#38e1d6;--blue:#4cc2ff;--amber:#ffb454;--red:#ff6b6b;--green:#5ee6a8;--violet:#9b8cff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--txt);
+  background-image:linear-gradient(rgba(56,225,214,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(56,225,214,.025) 1px,transparent 1px);
+  background-size:32px 32px;display:flex;flex-direction:column;height:100vh;overflow:hidden;
+}
+header{display:flex;align-items:center;gap:14px;padding:12px 20px;
+  background:linear-gradient(180deg,rgba(17,23,38,.95),rgba(13,19,32,.85));
+  border-bottom:1px solid var(--border);backdrop-filter:blur(6px);flex-shrink:0;z-index:10;}
+.mark{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#1a0d2e,#2a1040);border:1px solid var(--violet);
+  box-shadow:0 0 14px rgba(155,140,255,.25);font-family:'IBM Plex Mono';font-weight:700;color:var(--violet);font-size:.9rem;}
+header h1{font-size:.98rem;font-weight:600;letter-spacing:.3px}
+header h1 small{display:block;font-size:.64rem;color:var(--muted);font-weight:400;letter-spacing:1.5px;margin-top:2px;text-transform:uppercase}
+.spacer{flex:1}
+.pill{font-family:'IBM Plex Mono';font-size:.7rem;padding:5px 11px;border-radius:20px;border:1px solid var(--border);
+  display:flex;align-items:center;gap:7px;color:var(--muted);cursor:pointer;transition:.2s;white-space:nowrap;}
+.pill:hover{border-color:var(--dim)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--dim);transition:.3s}
+.pill.on .dot{background:var(--green);box-shadow:0 0 8px var(--green)}
+.pill.err .dot{background:var(--red);box-shadow:0 0 8px var(--red)}
+.gear{cursor:pointer;color:var(--muted);font-size:1.2rem;padding:4px 8px;border-radius:6px;transition:.2s}
+.gear:hover{color:var(--violet);background:rgba(155,140,255,.08)}
+main{flex:1;display:grid;grid-template-columns:1fr 1.05fr;gap:1px;background:var(--border);overflow:hidden}
+@media(max-width:880px){main{grid-template-columns:1fr;grid-template-rows:1fr 1fr}}
+.chat{background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+.msgs{flex:1;overflow-y:auto;padding:22px 20px;display:flex;flex-direction:column;gap:16px}
+.msg{max-width:88%;font-size:.9rem;line-height:1.55;animation:rise .3s ease}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.msg.user{align-self:flex-end}
+.msg.user .bubble{background:linear-gradient(135deg,#1a1040,#221455);border:1px solid #2a1a66;color:#dff3ff;border-radius:14px 14px 4px 14px}
+.msg.bot .bubble{background:var(--panel);border:1px solid var(--border);border-radius:14px 14px 14px 4px}
+.bubble{padding:11px 15px}
+.msg .who{font-family:'IBM Plex Mono';font-size:.62rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.msg.user .who{text-align:right;color:var(--violet)}
+.msg.bot .who{color:var(--cyan)}
+.bubble b{color:var(--cyan);font-weight:600}
+.bubble code{font-family:'IBM Plex Mono';background:rgba(56,225,214,.1);color:var(--cyan);padding:1px 5px;border-radius:4px;font-size:.84em}
+.bubble .plan{margin-top:9px;border-left:2px solid var(--violet);padding:7px 0 7px 12px;font-family:'IBM Plex Mono';font-size:.78rem;color:var(--muted);line-height:1.7}
+.bubble .plan .k{color:var(--amber)}
+.confirm-row{display:flex;gap:8px;margin-top:12px}
+.typing{display:inline-flex;gap:4px;padding:4px 0}
+.typing span{width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:blink 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,60%,100%{opacity:.25}30%{opacity:1}}
+.composer{border-top:1px solid var(--border);padding:14px 16px;background:var(--panel2)}
+.composer .row{display:flex;gap:10px;align-items:flex-end}
+.composer textarea{flex:1;resize:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;
+  color:var(--txt);font-family:'IBM Plex Sans';font-size:.9rem;padding:11px 13px;line-height:1.4;max-height:120px;}
+.composer textarea:focus{outline:none;border-color:var(--violet);box-shadow:0 0 0 3px rgba(155,140,255,.1)}
+.send{background:linear-gradient(135deg,var(--violet),#7b6ddd);color:#fff;border:none;border-radius:10px;
+  width:44px;height:44px;font-size:1.1rem;cursor:pointer;flex-shrink:0;transition:.2s;font-weight:700;}
+.send:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(155,140,255,.35)}
+.send:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px}
+.chip{font-family:'IBM Plex Mono';font-size:.72rem;padding:5px 11px;border:1px solid var(--border);border-radius:18px;
+  color:var(--muted);cursor:pointer;background:transparent;transition:.2s}
+.chip:hover{border-color:var(--violet);color:var(--violet)}
+.right{background:var(--panel2);display:flex;flex-direction:column;overflow:hidden}
+.tabbar{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--panel)}
+.tab{flex:1;padding:11px;text-align:center;font-family:'IBM Plex Mono';font-size:.74rem;letter-spacing:.5px;
+  color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:.2s;text-transform:uppercase}
+.tab:hover{color:var(--txt)}
+.tab.on{color:var(--violet);border-color:var(--violet);background:rgba(155,140,255,.04)}
+.panel{flex:1;overflow:auto;padding:16px;display:none}
+.panel.on{display:block}
+#log{font-family:'IBM Plex Mono';font-size:.78rem;line-height:1.75}
+#log .ln{display:flex;gap:9px;padding:2px 0;animation:rise .2s ease}
+#log .ts{color:var(--dim);flex-shrink:0}
+#log .ln.ok .m{color:var(--green)}#log .ln.err .m{color:var(--red)}
+#log .ln.info .m{color:var(--blue)}#log .ln.api .m{color:var(--muted)}#log .ln.warn .m{color:var(--amber)}
+#log .ln .m b{color:var(--cyan)}
+#log .empty{color:var(--dim);font-style:italic}
+.scard{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+.scard h3{font-family:'IBM Plex Mono';font-size:.7rem;letter-spacing:1.5px;color:var(--violet);text-transform:uppercase;margin-bottom:10px}
+.kv{display:flex;justify-content:space-between;padding:4px 0;font-size:.84rem;border-bottom:1px dashed rgba(255,255,255,.04)}
+.kv:last-child{border:none}.kv .k{color:var(--muted)}.kv .v{font-family:'IBM Plex Mono';color:var(--txt)}.kv .v.hi{color:var(--violet)}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.stat{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.stat .n{font-family:'IBM Plex Mono';font-size:1.5rem;font-weight:700;color:var(--violet)}
+.stat .l{font-size:.66rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:3px}
+table{width:100%;border-collapse:collapse;font-size:.78rem;font-family:'IBM Plex Mono'}
+th{background:var(--panel);color:var(--violet);text-align:left;padding:7px 9px;border-bottom:1px solid var(--border);font-weight:600;position:sticky;top:0}
+td{padding:6px 9px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--txt)}
+td.pos{color:var(--green)}td.neg{color:var(--red)}
+.res-empty{color:var(--dim);font-style:italic;text-align:center;padding:30px}
+.scrim{position:fixed;inset:0;background:rgba(4,7,14,.6);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.25s;z-index:40}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100%;width:400px;max-width:90vw;background:var(--panel);
+  border-left:1px solid var(--border);transform:translateX(100%);transition:.3s cubic-bezier(.2,.8,.2,1);z-index:50;
+  display:flex;flex-direction:column;box-shadow:-20px 0 40px rgba(0,0,0,.4)}
+.drawer.on{transform:none}
+.drawer header{background:transparent;border-bottom:1px solid var(--border)}
+.drawer .body{padding:20px;overflow-y:auto;flex:1}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:.74rem;color:var(--muted);margin-bottom:6px;font-family:'IBM Plex Mono';letter-spacing:.5px}
+.field input,.field select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--txt);
+  border-radius:8px;padding:9px 11px;font-family:'IBM Plex Mono';font-size:.82rem}
+.field input:focus,.field select:focus{outline:none;border-color:var(--violet)}
+.field .hint{font-size:.7rem;color:var(--dim);margin-top:5px;line-height:1.5}
+.sec-divider{font-family:'IBM Plex Mono';font-size:.68rem;letter-spacing:2px;color:var(--dim);text-transform:uppercase;
+  margin:8px 0 16px;display:flex;align-items:center;gap:10px}
+.sec-divider::after{content:"";flex:1;height:1px;background:var(--border)}
+.btn{padding:9px 16px;border-radius:8px;font-family:'IBM Plex Mono';font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.2s}
+.btn-v{background:var(--violet);color:#fff}.btn-v:hover{filter:brightness(1.1)}
+.btn-c{background:var(--cyan);color:#06121a}.btn-c:hover{filter:brightness(1.1)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}.btn-ghost:hover{border-color:var(--dim);color:var(--txt)}
+.test-out{margin-top:10px;font-family:'IBM Plex Mono';font-size:.76rem;padding:9px 11px;border-radius:7px;display:none}
+.test-out.ok{display:block;background:rgba(94,230,168,.08);color:var(--green);border:1px solid rgba(94,230,168,.2)}
+.test-out.err{display:block;background:rgba(255,107,107,.08);color:var(--red);border:1px solid rgba(255,107,107,.2)}
+.mode-tag{font-family:'IBM Plex Mono';font-size:.7rem;padding:3px 9px;border-radius:6px;border:1px solid var(--border);color:var(--violet);border-color:#33305c}
+::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--dim)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mark">RC</div>
+  <h1>RC Building<small>MIDAS Gen NX · 철근콘크리트 빌딩 모델러</small></h1>
+  <div class="spacer"></div>
+  <span class="mode-tag" id="modeTag">DIRECT</span>
+  <div class="pill" id="connPill" onclick="openSettings()"><span class="dot"></span><span id="connTxt">미연결</span></div>
+  <div class="gear" onclick="openSettings()">⚙</div>
+</header>
+
+<main>
+  <section class="chat">
+    <div class="msgs" id="msgs"></div>
+    <div class="composer">
+      <div class="chips" id="chips"></div>
+      <div class="row">
+        <textarea id="input" rows="1" placeholder="예) 5층 RC 빌딩 만들어  /  4x2 bay, 층고 350cm  /  기둥 60x60  /  해석 돌려"></textarea>
+        <button class="send" id="sendBtn" onclick="onSend()">➤</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="right">
+    <div class="tabbar">
+      <div class="tab on" data-p="logP" onclick="tab('logP')">⬡ Activity</div>
+      <div class="tab" data-p="modelP" onclick="tab('modelP')">▣ Model</div>
+      <div class="tab" data-p="viewP" onclick="tab('viewP');draw3D()">◈ 3D</div>
+      <div class="tab" data-p="resP" onclick="tab('resP')">∑ Results</div>
+    </div>
+    <div class="panel on" id="logP"><div id="log"><div class="empty">// MIDAS API 통신 로그</div></div></div>
+    <div class="panel" id="modelP"><div id="modelState"></div></div>
+    <div class="panel" id="viewP"><div id="plot" style="width:100%;height:100%;min-height:380px"></div></div>
+    <div class="panel" id="resP"><div id="results"><div class="res-empty">// 해석 후 결과가 표시됩니다</div></div></div>
+  </section>
+</main>
+
+<div class="scrim" id="scrim" onclick="closeSettings()"></div>
+<div class="drawer" id="drawer">
+  <header style="padding:12px 20px">
+    <h1 style="font-size:.9rem">⚙ 연결 설정<small>Connection Settings</small></h1>
+    <span class="spacer"></span>
+    <span class="gear" onclick="closeSettings()">✕</span>
+  </header>
+  <div class="body">
+    <div class="sec-divider">연결 모드</div>
+    <div class="field">
+      <label>MODE</label>
+      <select id="connMode" onchange="syncMode()">
+        <option value="direct">DIRECT — Gen NX 직접 연결 (로컬)</option>
+        <option value="backend">BACKEND — Vercel 서버 경유</option>
+      </select>
+      <div class="hint">Direct: Gen NX가 실행 중이어야 합니다. Backend: 배포된 Vercel URL 사용.</div>
+    </div>
+
+    <div id="directFields">
+      <div class="sec-divider">MIDAS Gen NX (MAPI)</div>
+      <div class="field">
+        <label>BASE URL</label>
+        <input id="baseUrl" value="https://moa-engineers.midasit.com:443/gen">
+      </div>
+      <div class="field">
+        <label>MAPI-KEY</label>
+        <input id="mapiKey" type="password" placeholder="Gen NX → API Settings 에서 복사">
+        <div class="hint">Gen NX가 실행 중이고 API 상태가 <b style="color:var(--cyan)">Connect</b> 여야 합니다.</div>
+      </div>
+    </div>
+
+    <div id="backendFields" style="display:none">
+      <div class="sec-divider">Vercel Backend</div>
+      <div class="field">
+        <label>BACKEND URL</label>
+        <input id="backendUrl" value="https://gen-nx-api-rc.vercel.app">
+      </div>
+      <div class="field">
+        <label>PRODUCT</label>
+        <select id="product">
+          <option value="gen">gen</option>
+          <option value="civil">civil</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>MAPI-KEY</label>
+        <input id="backendKey" type="password" placeholder="MAPI Key">
+      </div>
+    </div>
+
+    <button class="btn btn-c" onclick="testConn()" style="margin-bottom:8px">연결 테스트</button>
+    <div class="test-out" id="testOut"></div>
+
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn btn-v" onclick="saveSettings()">저장</button>
+      <button class="btn btn-ghost" onclick="closeSettings()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════════════ */
+const S = {
+  connected: false,
+  mode: 'direct',      // 'direct' | 'backend'
+  model: {
+    spec: null,
+    nodes: [], cols: [], beams: [],
+    sections: [], baseNodes: [],
+    loadCases: [], zCoords: [],
+    results: { react: null, disp: null, force: null }
+  }
+};
+
+const DEFAULT_SPEC = {
+  xSpans:       [800, 800, 800, 800],   // cm
+  ySpans:       [700, 700],             // cm
+  storyHeights: [400, 350, 350, 350, 350],  // cm
+  concGrade:    'C24',
+  colSects:  [{ H: 60, B: 60, fromFloor: 1, toFloor: 3 }, { H: 50, B: 50, fromFloor: 4, toFloor: 5 }],
+  beamSects: [{ H: 60, B: 35, fromFloor: 1, toFloor: 5 }],
+  loadCases: [
+    { id: 1, NO: 1, NAME: 'D',   TYPE: 'D', DESC: '고정하중' },
+    { id: 2, NO: 2, NAME: 'L',   TYPE: 'L', DESC: '활하중' },
+    { id: 3, NO: 3, NAME: 'EQX', TYPE: 'E', DESC: '지진하중 X' },
+    { id: 4, NO: 4, NAME: 'EQY', TYPE: 'E', DESC: '지진하중 Y' }
+  ]
+};
+
+/* ════════════════════════════════════════════════════════════
+   UI HELPERS
+════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+function tab(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  $(id).classList.add('on');
+  document.querySelector(`.tab[data-p="${id}"]`).classList.add('on');
+}
+function openSettings()  { $('scrim').classList.add('on');  $('drawer').classList.add('on'); }
+function closeSettings() { $('scrim').classList.remove('on'); $('drawer').classList.remove('on'); }
+function syncMode() {
+  S.mode = $('connMode').value;
+  $('directFields').style.display  = S.mode === 'direct'  ? '' : 'none';
+  $('backendFields').style.display = S.mode === 'backend' ? '' : 'none';
+  $('modeTag').textContent = S.mode.toUpperCase();
+}
+function saveSettings() { syncMode(); closeSettings(); }
+function nowTs() { return new Date().toTimeString().slice(0, 8); }
+function log(msg, type = 'api') {
+  const box = $('log'); const e = box.querySelector('.empty'); if (e) e.remove();
+  const ln = document.createElement('div'); ln.className = 'ln ' + type;
+  ln.innerHTML = `<span class="ts">${nowTs()}</span><span class="m">${msg}</span>`;
+  box.appendChild(ln); box.parentElement.scrollTop = box.parentElement.scrollHeight;
+}
+function addMsg(role, html) {
+  const m = document.createElement('div'); m.className = 'msg ' + role;
+  m.innerHTML = `<div class="who">${role === 'user' ? 'YOU' : 'AGENT'}</div><div class="bubble">${html}</div>`;
+  $('msgs').appendChild(m); $('msgs').scrollTop = $('msgs').scrollHeight; return m;
+}
+function thinking() {
+  return addMsg('bot', '<span class="typing"><span></span><span></span><span></span></span>');
+}
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+/* ════════════════════════════════════════════════════════════
+   MIDAS API — DIRECT mode
+════════════════════════════════════════════════════════════ */
+function directCfg() { return { base: $('baseUrl').value.replace(/\/$/, ''), key: $('mapiKey').value }; }
+
+async function mapi(method, path, body) {
+  const { base, key } = directCfg();
+  const ep = path.startsWith('/') ? path : `/db/${path}`;
+  log(`<span style="color:var(--blue)">${method}</span> ${ep}`, 'api');
+  const res = await fetch(`${base}${ep}`, {
+    method,
+    headers: { 'MAPI-Key': key, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  let json = {}; try { json = await res.json(); } catch (_) {}
+  if (!res.ok) { const m = json?.error?.message || `HTTP ${res.status}`; log(`└ <b style="color:var(--red)">실패</b> ${m}`, 'err'); throw new Error(m); }
+  return json;
+}
+
+async function clearModel() {
+  for (const ep of ['/db/cons', '/db/stld', '/db/elem', '/db/node', '/db/sect', '/db/matl'])
+    try { await mapi('DELETE', ep); } catch (_) {}
+  log('└ <b>기존 모델 초기화 완료</b>', 'ok');
+}
+
+async function runAnalysis() {
+  log('해석 실행 중…', 'info');
+  await mapi('POST', '/doc/anal', {});
+  log('└ <b>해석 완료</b>', 'ok');
+}
+
+async function fetchTable(type, lcNames) {
+  const body = { Argument: { TABLE_NAME: 'SS', TABLE_TYPE: type, STYLES: { FORMAT: 'Fixed', PLACE: 4 }, LOAD_CASE_NAMES: lcNames } };
+  const j = await mapi('POST', '/post/table', body);
+  return (j?.SS?.HEAD && j?.SS?.DATA) ? { head: j.SS.HEAD, data: j.SS.DATA } : null;
+}
+
+/* ════════════════════════════════════════════════════════════
+   RC BUILDING GEOMETRY BUILDER (shared with backend)
+════════════════════════════════════════════════════════════ */
+function buildRCGeometry(p) {
+  const xC = [0]; for (const s of p.xSpans) xC.push(xC[xC.length - 1] + s);
+  const yC = [0]; for (const s of p.ySpans) yC.push(yC[yC.length - 1] + s);
+  const zC = [0]; for (const h of p.storyHeights) zC.push(zC[zC.length - 1] + h);
+  const nX = xC.length, nY = yC.length, nS = p.storyHeights.length;
+
+  const nodes = []; const nodeMap = {}; let nid = 0;
+  for (let iz = 0; iz <= nS; iz++)
+    for (let iy = 0; iy < nY; iy++)
+      for (let ix = 0; ix < nX; ix++) {
+        nid++;
+        nodes.push({ id: nid, X: xC[ix], Y: yC[iy], Z: zC[iz] });
+        nodeMap[`${ix},${iy},${iz}`] = nid;
+      }
+  const N = (ix, iy, iz) => nodeMap[`${ix},${iy},${iz}`];
+
+  const colSects  = p.colSects  || [{ H: 60, B: 60, fromFloor: 1, toFloor: nS }];
+  const beamSects = p.beamSects || [{ H: 60, B: 35, fromFloor: 1, toFloor: nS }];
+  const sections = [];
+  let sid = 0;
+  const colSF = {}, beamSF = {};
+
+  for (const cs of colSects) {
+    sid++; sections.push({ id: sid, name: `C${cs.H}x${cs.B}`, H: cs.H, B: cs.B });
+    for (let f = cs.fromFloor; f <= cs.toFloor; f++) colSF[f] = sid;
+  }
+  for (const bs of beamSects) {
+    sid++; sections.push({ id: sid, name: `B${bs.H}x${bs.B}`, H: bs.H, B: bs.B });
+    const from = bs.fromFloor || 1, to = bs.toFloor || nS;
+    for (let f = from; f <= to; f++) beamSF[f] = sid;
+  }
+  const fc = sections[0]?.id || 1, fb = sections[colSects.length]?.id || 2;
+  for (let f = 1; f <= nS; f++) { if (!colSF[f]) colSF[f] = fc; if (!beamSF[f]) beamSF[f] = fb; }
+
+  const elements = []; const cols = [], beams = []; let eid = 0;
+  for (let iz = 0; iz < nS; iz++) {
+    const s = colSF[iz + 1];
+    for (let iy = 0; iy < nY; iy++) for (let ix = 0; ix < nX; ix++) {
+      eid++; const n1 = N(ix, iy, iz), n2 = N(ix, iy, iz + 1);
+      elements.push({ id: eid, SECT: s, n1, n2 }); cols.push([n1, n2]);
+    }
+  }
+  for (let iz = 1; iz <= nS; iz++) {
+    const sb = beamSF[iz];
+    for (let iy = 0; iy < nY; iy++) for (let ix = 0; ix < nX - 1; ix++) {
+      eid++; const n1 = N(ix, iy, iz), n2 = N(ix + 1, iy, iz);
+      elements.push({ id: eid, SECT: sb, n1, n2 }); beams.push([n1, n2]);
+    }
+    for (let ix = 0; ix < nX; ix++) for (let iy = 0; iy < nY - 1; iy++) {
+      eid++; const n1 = N(ix, iy, iz), n2 = N(ix, iy + 1, iz);
+      elements.push({ id: eid, SECT: sb, n1, n2 }); beams.push([n1, n2]);
+    }
+  }
+  const baseNodes = nodes.filter(n => n.Z === 0).map(n => n.id);
+  return { nodes, elements, sections, cols, beams, baseNodes, xC, yC, zC, nX, nY, nS };
+}
+
+/* ════════════════════════════════════════════════════════════
+   ACTIONS
+════════════════════════════════════════════════════════════ */
+async function actBuild(spec, doClear = true) {
+  if (!S.connected) throw new Error('먼저 ⚙에서 Gen NX 연결을 설정하세요.');
+
+  if (S.mode === 'backend') {
+    return await actBuildBackend(spec, doClear);
+  }
+
+  // DIRECT mode
+  const geo = buildRCGeometry(spec);
+  if (doClear) await clearModel();
+
+  // Unit (tonf, cm)
+  await mapi('PUT', '/db/unit', { Assign: { 1: { FORCE: 'TONF', DIST: 'CM', HEAT: 'KCAL', TEMPER: 'C' } } });
+  log('└ 단위계 <b>TONF, CM</b>', 'ok');
+
+  // Material (concrete)
+  await mapi('PUT', '/db/MATL', { Assign: { 1: { TYPE: 'CONC', NAME: spec.concGrade || 'C24',
+    PARAM: [{ P_TYPE: 0, STANDARD: 'KS', DB: spec.concGrade || 'C24' }] } } });
+  log(`└ 재료 <b>${spec.concGrade || 'C24'}</b>`, 'ok');
+
+  // Sections
+  const sectAssign = {};
+  for (const s of geo.sections) {
+    sectAssign[String(s.id)] = {
+      SECTTYPE: 'DBUSER', SECT_NAME: s.name,
+      SECT_BEFORE: {
+        OFFSET_PT: 'CC', OFFSET_CENTER: 0, USER_OFFSET_REF: 0,
+        HORZ_OFFSET_OPT: 0, USERDEF_OFFSET_YI: 0, VERT_OFFSET_OPT: 0, USERDEF_OFFSET_ZI: 0,
+        USE_SHEAR_DEFORM: true, USE_WARPING_EFFECT: false,
+        SHAPE: 'SB', DATATYPE: 1,
+        SECT_I: { vSIZE: [s.H, s.B, 0, 0, 0, 0, 0, 0, 0, 0] }
+      }
+    };
+  }
+  await mapi('PUT', '/db/SECT', { Assign: sectAssign });
+  log(`└ 단면 <b>${geo.sections.length}개</b> (${geo.sections.map(s => s.name).join(', ')})`, 'ok');
+
+  // Nodes
+  const na = {}; geo.nodes.forEach(n => na[n.id] = { X: n.X, Y: n.Y, Z: n.Z });
+  await mapi('PUT', '/db/NODE', { Assign: na });
+  log(`└ 절점 <b>${geo.nodes.length}개</b>`, 'ok');
+
+  // Elements
+  const ea = {};
+  geo.elements.forEach(e => ea[e.id] = { TYPE: 'BEAM', MATL: 1, SECT: e.SECT, NODE: [e.n1, e.n2], ANGLE: 0, STYPE: 0 });
+  await mapi('PUT', '/db/ELEM', { Assign: ea });
+  log(`└ 요소 <b>${geo.elements.length}개</b> (기둥 ${geo.cols.length}, 보 ${geo.beams.length})`, 'ok');
+
+  // Stories
+  const sta = {};
+  for (let i = 1; i < geo.zC.length; i++)
+    sta[i] = { STORY_NAME: `F${i}`, STORY_LEVEL: geo.zC[i], bFLOOR_DIAPHRAGM: true,
+      WIND_FLOOR_WIDTH_X: 0, WIND_FLOOR_WIDTH_Y: 0, WIND_CENTER_X: 0, WIND_CENTER_Y: 0,
+      WIND_ECCENT_X: 0, WIND_ECCENT_Y: 0, SEIS_ACC_ECCENT_X: 0, SEIS_ACC_ECCENT_Y: 0,
+      SEIS_INHERENT_ECCENT_X: 0, SEIS_INHERENT_ECCENT_Y: 0,
+      SEIS_TORSIONAL_AMP_FACTOR_X: 0, SEIS_TORSIONAL_AMP_FACTOR_Y: 0 };
+  await mapi('PUT', '/db/STOR', { Assign: sta });
+  log(`└ 층 데이터 <b>${geo.nS}층</b>`, 'ok');
+
+  // Supports
+  const ca = {};
+  geo.baseNodes.forEach(id => ca[id] = { ITEMS: [{ ID: 0, GROUP_NAME: '', CONSTRAINT: '111111' }] });
+  await mapi('PUT', '/db/CONS', { Assign: ca });
+  log(`└ 경계조건 (고정) <b>${geo.baseNodes.length}점</b>`, 'ok');
+
+  // Load cases
+  const lca = {};
+  const lcs = spec.loadCases || DEFAULT_SPEC.loadCases;
+  lcs.forEach(lc => lca[lc.id] = { NO: lc.NO || lc.id, NAME: lc.NAME, TYPE: lc.TYPE, DESC: lc.DESC || '' });
+  await mapi('PUT', '/db/STLD', { Assign: lca });
+  log(`└ 하중케이스 <b>${lcs.map(l => l.NAME).join(', ')}</b>`, 'ok');
+
+  // Save state
+  Object.assign(S.model, {
+    spec, nodes: geo.nodes, cols: geo.cols, beams: geo.beams,
+    sections: geo.sections, baseNodes: geo.baseNodes,
+    loadCases: lcs, zCoords: geo.zC
+  });
+  renderModelState(); draw3D();
+  return geo;
+}
+
+async function actBuildBackend(spec, doClear) {
+  const url = $('backendUrl').value.replace(/\/$/, '');
+  const body = { product: $('product').value, apiKey: $('backendKey').value, rcParams: spec, clearFirst: doClear };
+  log(`POST <b>${url}/api/model</b>`, 'api');
+  const r = await fetch(`${url}/api/model`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json();
+  if (!r.ok || !d.success) throw new Error(d.detail || d.error || `HTTP ${r.status}`);
+  const s = d.summary;
+  log(`└ 절점 ${s.nodes}, 요소 ${s.elements}, 층 ${s.stories}`, 'ok');
+  // store geometry for 3D preview
+  const geo = buildRCGeometry(spec);
+  Object.assign(S.model, {
+    spec, nodes: geo.nodes, cols: geo.cols, beams: geo.beams,
+    sections: geo.sections, baseNodes: geo.baseNodes,
+    loadCases: spec.loadCases || DEFAULT_SPEC.loadCases, zCoords: geo.zC
+  });
+  renderModelState(); draw3D();
+  return geo;
+}
+
+async function actAnalyze() {
+  if (!S.model.nodes.length) throw new Error('모델이 없습니다. 먼저 RC 빌딩을 생성하세요.');
+  if (S.mode === 'backend') {
+    addMsg('bot', '⚠ 해석은 Direct 모드에서만 지원됩니다. ⚙에서 DIRECT로 전환 후 재시도하세요.');
+    return null;
+  }
+  await runAnalysis();
+  const lc = S.model.loadCases.map(l => l.NAME + '(ST)');
+  S.model.results.react = await fetchTable('REACTIONG', lc);
+  S.model.results.disp  = await fetchTable('DISPLACEMENTG', lc);
+  S.model.results.force = await fetchTable('BEAMFORCE', lc);
+  renderResults();
+  return S.model.results;
+}
+
+/* ════════════════════════════════════════════════════════════
+   COMMAND PARSER
+════════════════════════════════════════════════════════════ */
+function num(re, t) { const m = t.match(re); return m ? parseFloat(m[1].replace(/,/g, '')) : null; }
+function parseNums(s) { return s.match(/\d+(\.\d+)?/g)?.map(Number) || []; }
+
+function parseCommand(txt) {
+  const t = txt.toLowerCase();
+
+  if (/초기화|clear|reset|비우/.test(t)) return { intent: 'clear' };
+  if (/해석|분석|돌려|실행|analy|run/.test(t) && !/만들|생성|build/.test(t)) return { intent: 'analyze' };
+  if (/변위|처짐|displacement/.test(t)) return { intent: 'result', which: 'disp' };
+  if (/반력|reaction/.test(t)) return { intent: 'result', which: 'react' };
+  if (/부재력|모멘트|force|moment/.test(t)) return { intent: 'result', which: 'force' };
+  if (/상태|요약|status|현재/.test(t)) return { intent: 'status' };
+
+  if (/만들|생성|build|create|모델링|빌딩|아파트|건물|rc/.test(t)) {
+    const p = JSON.parse(JSON.stringify(DEFAULT_SPEC));
+
+    // Stories: "5층"
+    const stories = num(/(\d+)\s*층/, t);
+    if (stories) p.storyHeights = Array(stories).fill(350);
+
+    // Story height: "층고 400" or "층고 3.5m"
+    const sh = num(/층고\s*([\d.]+)/, t);
+    if (sh) { const cm = sh > 20 ? sh : sh * 100; p.storyHeights = p.storyHeights.map(() => cm); }
+
+    // Bay X: "4베이" or "4x2"
+    const bayX = num(/(\d+)\s*(?:베이|bay)\s*x/i, t) || num(/(\d+)\s*x\s*\d+\s*(?:베이|bay)/i, t);
+    if (bayX) p.xSpans = Array(bayX).fill(p.xSpans[0]);
+    const bayY = num(/\d+\s*x\s*(\d+)\s*(?:베이|bay)/i, t);
+    if (bayY) p.ySpans = Array(bayY).fill(p.ySpans[0]);
+
+    // Span: "스팬 800" or "800cm"
+    const span = num(/스팬\s*([\d.]+)|span\s*([\d.]+)/, t);
+    if (span) { p.xSpans = p.xSpans.map(() => span); p.ySpans = p.ySpans.map(() => span); }
+
+    // Column section: "기둥 60x60"
+    const col = t.match(/기둥\s*(\d+)\s*[x×]\s*(\d+)|column\s*(\d+)\s*[x×]\s*(\d+)/i);
+    if (col) {
+      const H = +(col[1] || col[3]), B = +(col[2] || col[4]);
+      p.colSects = [{ H, B, fromFloor: 1, toFloor: p.storyHeights.length }];
+    }
+
+    // Beam section: "보 60x35"
+    const bm = t.match(/보\s*(\d+)\s*[x×]\s*(\d+)|beam\s*(\d+)\s*[x×]\s*(\d+)/i);
+    if (bm) {
+      const H = +(bm[1] || bm[3]), B = +(bm[2] || bm[4]);
+      p.beamSects = [{ H, B, fromFloor: 1, toFloor: p.storyHeights.length }];
+    }
+
+    // Concrete grade: "c30" or "c24"
+    const conc = t.match(/c(18|21|24|27|30|35|40)/i);
+    if (conc) p.concGrade = 'C' + conc[1];
+
+    return { intent: 'build', params: p };
+  }
+
+  return { intent: 'unknown' };
+}
+
+function planSummary(p) {
+  const nS = p.storyHeights.length;
+  const bX = p.xSpans.length, bY = p.ySpans.length;
+  const totalH = p.storyHeights.reduce((a, b) => a + b, 0);
+  return `<div class="plan">` +
+    `<span class="k">층수</span> ${nS}층 · <span class="k">층고</span> ${p.storyHeights.join('/')} cm<br>` +
+    `<span class="k">평면</span> ${bX}×${bY} bay · X스팬 ${p.xSpans.join('/')} cm<br>` +
+    `<span class="k">기둥</span> ${p.colSects.map(c => `C${c.H}x${c.B}(${c.fromFloor}~${c.toFloor}층)`).join(', ')}<br>` +
+    `<span class="k">보</span> ${p.beamSects.map(b => `B${b.H}x${b.B}`).join(', ')}<br>` +
+    `<span class="k">콘크리트</span> ${p.concGrade} · <span class="k">총 높이</span> ${totalH} cm<br>` +
+    `<span class="k">하중케이스</span> ${p.loadCases.map(l => l.NAME).join(', ')}</div>`;
+}
+
+/* ════════════════════════════════════════════════════════════
+   AGENT DISPATCH
+════════════════════════════════════════════════════════════ */
+let pendingBuild = null;
+
+async function handleLocal(txt) {
+  const cmd = parseCommand(txt);
+
+  if (cmd.intent === 'build') {
+    pendingBuild = cmd.params;
+    addMsg('bot',
+      `아래 사양으로 RC 빌딩 모델을 생성합니다. 확인 후 <b>실행</b>을 눌러주세요.${planSummary(cmd.params)}` +
+      `<div class="confirm-row">` +
+      `<button class="btn btn-v" onclick="confirmBuild()">실행 ▶</button>` +
+      `<button class="btn btn-ghost" onclick="this.closest('.confirm-row').remove()">취소</button></div>`
+    );
+    tab('viewP'); previewSpec(cmd.params);
+    return;
+  }
+
+  if (cmd.intent === 'clear') {
+    const th = thinking();
+    try {
+      await clearModel();
+      S.model.nodes = []; S.model.cols = []; S.model.beams = [];
+      renderModelState(); draw3D(); th.remove();
+      addMsg('bot', '모델을 초기화했습니다.');
+    } catch (e) { th.remove(); addMsg('bot', `⚠ ${esc(e.message)}`); }
+    return;
+  }
+
+  if (cmd.intent === 'analyze') {
+    const th = thinking();
+    try {
+      await actAnalyze(); th.remove();
+      addMsg('bot', resultBrief()); tab('resP');
+    } catch (e) { th.remove(); addMsg('bot', `⚠ ${esc(e.message)}`); }
+    return;
+  }
+
+  if (cmd.intent === 'result') {
+    if (!S.model.results[cmd.which]) { addMsg('bot', '해석 결과가 없습니다. <code>해석 돌려</code>를 먼저 실행하세요.'); return; }
+    tab('resP'); showResult(cmd.which); addMsg('bot', resultBrief(cmd.which)); return;
+  }
+
+  if (cmd.intent === 'status') { addMsg('bot', statusBrief()); tab('modelP'); return; }
+
+  addMsg('bot',
+    '이해하지 못했어요. 예시:<br>' +
+    '<code>5층 RC 빌딩 만들어</code> · <code>4x2 bay 스팬 800cm</code><br>' +
+    '<code>기둥 70x70 c30</code> · <code>해석 돌려</code> · <code>최대 변위 알려줘</code>'
+  );
+}
+
+async function confirmBuild() {
+  if (!pendingBuild) return;
+  document.querySelectorAll('.confirm-row').forEach(r => r.remove());
+  const th = thinking();
+  try {
+    const p = pendingBuild; pendingBuild = null;
+    tab('logP'); await actBuild(p);
+    th.remove();
+    addMsg('bot',
+      `✅ <b>${p.storyHeights.length}층 RC 빌딩</b> 생성 완료.<br>` +
+      `절점 <b>${S.model.nodes.length}</b> · 요소 <b>${S.model.cols.length + S.model.beams.length}</b><br>` +
+      `다음: <code>해석 돌려</code> 또는 <code>최대 변위 알려줘</code>`
+    );
+  } catch (e) { th.remove(); addMsg('bot', `⚠ 생성 실패: ${esc(e.message)}`); }
+}
+
+function resultBrief(which) {
+  const r = S.model.results; let s = '';
+  const ext = (tbl, col) => {
+    if (!tbl) return null;
+    const ci = tbl.head.findIndex(h => h.toUpperCase().includes(col));
+    const ni = tbl.head.findIndex(h => h.toUpperCase().includes('NODE'));
+    if (ci < 0) return null;
+    let best = null;
+    tbl.data.forEach(row => { const v = parseFloat(row[ci]); if (isNaN(v)) return;
+      if (!best || Math.abs(v) > Math.abs(best.v)) best = { v, node: ni >= 0 ? row[ni] : '?' }; });
+    return best;
+  };
+  if ((!which || which === 'disp') && r.disp) { const e = ext(r.disp, 'DZ'); if (e) s += `최대 수직변위 <b>${e.v.toFixed(3)} cm</b> (Node ${e.node})<br>`; }
+  if ((!which || which === 'react') && r.react) { const e = ext(r.react, 'FZ'); if (e) s += `최대 수직반력 <b>${e.v.toFixed(3)} tonf</b> (Node ${e.node})<br>`; }
+  if ((!which || which === 'force') && r.force) s += `부재력 테이블 <b>${r.force.data.length}</b>행<br>`;
+  return (s || '결과 없음') + `<br><span style="color:var(--muted);font-size:.82rem">우측 Results 탭에서 전체 테이블 확인</span>`;
+}
+
+function statusBrief() {
+  const m = S.model;
+  if (!m.nodes.length) return '아직 생성된 모델이 없습니다.';
+  const p = m.spec;
+  return `현재 RC 빌딩: <b>${p.storyHeights.length}층</b> ${p.xSpans.length}×${p.ySpans.length} bay<br>` +
+    `절점 ${m.nodes.length} · 기둥 ${m.cols.length} · 보 ${m.beams.length}<br>` +
+    `단면: ${m.sections.map(s => s.name).join(', ')}<br>` +
+    `콘크리트 ${p.concGrade} · 총높이 ${m.zCoords[m.zCoords.length - 1]} cm`;
+}
+
+/* ════════════════════════════════════════════════════════════
+   SEND
+════════════════════════════════════════════════════════════ */
+async function onSend() {
+  const inp = $('input'), txt = inp.value.trim(); if (!txt) return;
+  inp.value = ''; inp.style.height = 'auto'; addMsg('user', esc(txt));
+  $('sendBtn').disabled = true;
+  try { await handleLocal(txt); } finally { $('sendBtn').disabled = false; inp.focus(); }
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER: Model State / Results / 3D
+════════════════════════════════════════════════════════════ */
+function renderModelState() {
+  const m = S.model;
+  if (!m.nodes.length) { $('modelState').innerHTML = '<div class="res-empty">// 모델이 없습니다</div>'; return; }
+  const p = m.spec;
+  $('modelState').innerHTML =
+    `<div class="statgrid">
+      <div class="stat"><div class="n">${m.nodes.length}</div><div class="l">Nodes</div></div>
+      <div class="stat"><div class="n">${m.cols.length + m.beams.length}</div><div class="l">Elements</div></div>
+      <div class="stat"><div class="n">${m.zCoords[m.zCoords.length - 1]}</div><div class="l">Height cm</div></div>
+    </div>
+    <div class="scard"><h3>▣ Geometry</h3>
+      <div class="kv"><span class="k">층수</span><span class="v hi">${p.storyHeights.length}층</span></div>
+      <div class="kv"><span class="k">평면 (bay)</span><span class="v">${p.xSpans.length} × ${p.ySpans.length}</span></div>
+      <div class="kv"><span class="k">X 스팬 (cm)</span><span class="v">${p.xSpans.join(', ')}</span></div>
+      <div class="kv"><span class="k">Y 스팬 (cm)</span><span class="v">${p.ySpans.join(', ')}</span></div>
+      <div class="kv"><span class="k">층고 (cm)</span><span class="v">${p.storyHeights.join(' / ')}</span></div>
+      <div class="kv"><span class="k">기둥 / 보</span><span class="v">${m.cols.length} / ${m.beams.length}</span></div>
+    </div>
+    <div class="scard"><h3>◫ Properties</h3>
+      <div class="kv"><span class="k">콘크리트</span><span class="v">${p.concGrade}</span></div>
+      ${m.sections.map(s => `<div class="kv"><span class="k">${s.name}</span><span class="v">${s.H}×${s.B} cm</span></div>`).join('')}
+      <div class="kv"><span class="k">경계조건</span><span class="v">고정 ${m.baseNodes.length}점</span></div>
+      <div class="kv"><span class="k">하중케이스</span><span class="v">${m.loadCases.map(l => l.NAME).join(', ')}</span></div>
+    </div>`;
+}
+
+let resultTab = 'react';
+function showResult(which) { resultTab = which; renderResults(); }
+function renderResults() {
+  const box = $('results'), r = S.model.results;
+  if (!r.react && !r.disp && !r.force) { box.innerHTML = '<div class="res-empty">// 해석 후 결과가 표시됩니다</div>'; return; }
+  const tabs = [['react', '반력'], ['disp', '변위'], ['force', '부재력']]
+    .map(([k, l]) => `<button class="chip" style="${resultTab === k ? 'border-color:var(--violet);color:var(--violet)' : ''}" onclick="showResult('${k}')">${l}</button>`).join('');
+  const tbl = r[resultTab];
+  let html = `<div style="display:flex;gap:7px;margin-bottom:12px">${tabs}</div>`;
+  if (!tbl) { html += '<div class="res-empty">// 해당 결과 없음</div>'; box.innerHTML = html; return; }
+  const rows = tbl.data.slice(0, 200);
+  html += '<div style="overflow:auto"><table><thead><tr>' + tbl.head.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+  rows.forEach(row => { html += '<tr>' + row.map(c => { const n = parseFloat(c); const cls = !isNaN(n) ? (n > 0 ? 'pos' : n < 0 ? 'neg' : '') : ''; return `<td class="${cls}">${c}</td>`; }).join('') + '</tr>'; });
+  html += '</tbody></table></div>';
+  if (tbl.data.length > 200) html += `<div style="color:var(--dim);font-size:.74rem;margin-top:8px">… ${tbl.data.length}행 중 200개 표시</div>`;
+  box.innerHTML = html;
+}
+
+/* ════════════════════════════════════════════════════════════
+   3D PREVIEW (Plotly)
+════════════════════════════════════════════════════════════ */
+function previewSpec(p) { const geo = buildRCGeometry(p); plot3D(geo.nodes, geo.cols, geo.beams); }
+function draw3D() {
+  const m = S.model;
+  if (!m.nodes.length) {
+    Plotly.purge('plot');
+    $('plot').innerHTML = '<div class="res-empty" style="padding-top:120px">// 모델 생성 후 표시됩니다</div>';
+    return;
+  }
+  plot3D(m.nodes, m.cols, m.beams);
+}
+
+function plot3D(nodes, cols, beams) {
+  const byId = {}; nodes.forEach(n => byId[n.id] = n);
+  function lines(edges, color, name, w) {
+    const x = [], y = [], z = [];
+    edges.forEach(([a, b]) => {
+      const A = byId[a] || {}, B = byId[b] || {};
+      x.push(A.X, B.X, null); y.push(A.Y, B.Y, null); z.push(A.Z, B.Z, null);
+    });
+    return { type: 'scatter3d', mode: 'lines', x, y, z, name, line: { color, width: w }, hoverinfo: 'name' };
+  }
+  const traces = [
+    lines(cols,  '#9b8cff', '기둥', 4),
+    lines(beams, '#38e1d6', '보',   2)
+  ];
+  Plotly.newPlot('plot', traces, {
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', showlegend: true,
+    legend: { font: { color: '#c9d4e8', family: 'IBM Plex Mono', size: 10 }, orientation: 'h', y: 1.05 },
+    margin: { l: 0, r: 0, t: 0, b: 0 },
+    scene: {
+      aspectmode: 'data',
+      xaxis: gax('X (cm)'), yaxis: gax('Y (cm)'), zaxis: gax('Z (cm)'),
+      camera: { eye: { x: 1.5, y: 1.5, z: 1.0 } }
+    }
+  }, { responsive: true, displayModeBar: false });
+}
+function gax(t) {
+  return { title: t, color: '#445069', gridcolor: '#1f2a3d', zerolinecolor: '#1f2a3d', backgroundcolor: 'rgba(0,0,0,0)', showbackground: true };
+}
+
+/* ════════════════════════════════════════════════════════════
+   CONNECTION
+════════════════════════════════════════════════════════════ */
+async function testConn() {
+  const out = $('testOut');
+  out.className = 'test-out'; out.style.display = 'block'; out.textContent = '연결 테스트 중…';
+  try {
+    if (S.mode === 'backend') {
+      const url = $('backendUrl').value.replace(/\/$/, '');
+      const r = await fetch(`${url}/api/connect`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product: $('product').value, apiKey: $('backendKey').value })
+      });
+      const d = await r.json();
+      if (r.ok && d.success) { S.connected = true; setConn(true); out.className = 'test-out ok'; out.textContent = '✅ Backend → MIDAS 연결 성공'; }
+      else { S.connected = false; setConn(false, true); out.className = 'test-out err'; out.textContent = `❌ ${d.error || 'HTTP ' + r.status}`; }
+    } else {
+      const { base, key } = directCfg();
+      const r = await fetch(`${base}/db/node`, { headers: { 'MAPI-Key': key } });
+      if (r.ok) { S.connected = true; setConn(true); out.className = 'test-out ok'; out.textContent = '✅ Gen NX 직접 연결 성공'; }
+      else { S.connected = false; setConn(false, true); out.className = 'test-out err'; out.textContent = `❌ HTTP ${r.status}`; }
+    }
+  } catch (e) {
+    S.connected = false; setConn(false, true); out.className = 'test-out err';
+    out.textContent = `❌ ${e.message}`;
+  }
+}
+
+function setConn(ok, err) {
+  const p = $('connPill'); p.classList.toggle('on', ok); p.classList.toggle('err', !!err);
+  $('connTxt').textContent = ok ? 'Gen NX 연결됨' : err ? '연결 실패' : '미연결';
+}
+
+/* ════════════════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════════════════ */
+function initChips() {
+  const c = ['5층 RC 빌딩 만들어', '4x2 bay 스팬 800', '기둥 70x70 c30', '층고 400cm', '해석 돌려', '최대 변위 알려줘', '현재 상태'];
+  $('chips').innerHTML = c.map(x => `<button class="chip" onclick="quick('${x}')">${x}</button>`).join('');
+}
+function quick(t) { $('input').value = t; onSend(); }
+$('input').addEventListener('input', e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; });
+$('input').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } });
+
+syncMode(); initChips(); renderModelState(); draw3D();
+addMsg('bot',
+  '<b>RC 빌딩 모델러</b>에 오신 것을 환영합니다.<br><br>' +
+  '⚙ 에서 <b>MIDAS Gen NX 연결</b>을 먼저 설정하세요.<br><br>' +
+  '예시 명령:<br>' +
+  '<code>5층 RC 빌딩 만들어</code><br>' +
+  '<code>4x2 bay, 층고 350cm, 기둥 65x65, c30</code><br>' +
+  '<code>해석 돌려</code> → <code>최대 변위 알려줘</code><br><br>' +
+  '<span style="color:var(--muted);font-size:.82rem">단위계: <b>tonf, cm</b> · 콘크리트 직사각형 단면 SB</span>'
+);
+</script>
+</body>
+</html>
