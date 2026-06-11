@@ -71,6 +71,7 @@
   </div>
   <h1>🏗️ MIDAS RC Modeling Wizard</h1>
   <div class="sub" data-i18n="subtitle"></div>
+  <div class="sub" data-i18n="credit" style="opacity:.65;margin-top:2px"></div>
 </header>
 
 <div class="layout">
@@ -161,7 +162,7 @@ const $ = id => document.getElementById(id);
 /* ───────────────── 다국어 사전 (구조 엔지니어 실무 용어) ───────────────── */
 const LANG = {
   ko: {
-    subtitle:"표준층 기반 신규 RC 빌딩을 MIDAS Gen NX에 즉시 생성 · 대만 CNS560(RC) / TWD-USD112 · 설치 불필요",
+    credit:"개발 Dennis", subtitle:"표준층 기반 신규 RC 빌딩을 MIDAS Gen NX에 즉시 생성 · 대만 CNS560(RC) / TWD-USD112 · 설치 불필요",
     sec1:"1. 연결", product:"제품", unit:"단위계",
     baseUrl:"Base URL (서버 주소)", baseHint:"제품 경로(/gen·/civil)는 자동으로 붙습니다. 지역별 대체 서버 사용 시 변경.",
     keyPill:"Gen NX 앱에서 발급", keyHint:"키는 브라우저 메모리에만 사용되며 어디에도 저장·전송 로깅되지 않습니다.",
@@ -184,7 +185,7 @@ const LANG = {
     netErr:"Gen NX 실행 여부 / 키 / 네트워크를 확인하세요.", done:"🎉 완료! {ok}/{n} 성공 — MIDAS Gen NX 화면을 확인하세요. (Fit View)",
   },
   en: {
-    subtitle:"Generate a new RC building in MIDAS Gen NX from typical floors · Taiwan CNS560(RC) / TWD-USD112 · No install",
+    credit:"Developed by Dennis", subtitle:"Generate a new RC building in MIDAS Gen NX from typical floors · Taiwan CNS560(RC) / TWD-USD112 · No install",
     sec1:"1. Connection", product:"Product", unit:"Units",
     baseUrl:"Base URL (server)", baseHint:"The product path (/gen·/civil) is appended automatically. Change for a regional server.",
     keyPill:"issued in Gen NX app", keyHint:"The key is used only in browser memory — never stored or logged anywhere.",
@@ -207,7 +208,7 @@ const LANG = {
     netErr:"Check Gen NX is running, the key, and the network.", done:"🎉 Done! {ok}/{n} succeeded — check MIDAS Gen NX (Fit View).",
   },
   zh: {
-    subtitle:"以標準層為基礎，於 MIDAS Gen NX 即時建立新建 RC 建築 · 台灣 CNS560(RC) / TWD-USD112 · 免安裝",
+    credit:"開發 Dennis", subtitle:"以標準層為基礎，於 MIDAS Gen NX 即時建立新建 RC 建築 · 台灣 CNS560(RC) / TWD-USD112 · 免安裝",
     sec1:"1. 連線設定", product:"程式", unit:"單位",
     baseUrl:"Base URL (伺服器位址)", baseHint:"程式路徑 (/gen·/civil) 會自動附加。使用區域伺服器時請修改。",
     keyPill:"由 Gen NX 程式發行", keyHint:"金鑰僅用於瀏覽器記憶體，不會儲存或記錄於任何位置。",

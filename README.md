@@ -4,8 +4,9 @@ PDF 규격서(標準層)의 **표준층(Typical Floor)** 개념을 코드로 정
 표준층을 자연층 N개로 전개하여 **MIDAS Gen NX Open API** 모델을 생성한다.
 
 - 대상: **MIDAS Gen NX** / 지역: **대만** / 구조: **RC, Frame**
+- 개발: **Dennis**
 - 설계 문서: [DESIGN.md](DESIGN.md)
-- 현재 단계: **M1 (도메인 모델 + 검증 + 전개기)** — 순수 Python 코어
+- 현재 단계: **M1 + M1.5 완료** — 순수 Python 코어 + Wizard(v1.0.1)
 
 ## 구조
 
