@@ -1748,41 +1748,32 @@ function plot3D(f){
   const traces=[];
   _traceIdx.col=[]; _traceIdx.beam=[]; _traceIdx.node=[]; _traceIdx.floor=[];
 
-  /* ── 1. Columns with height gradient ── */
-  const cx=[],cy=[],cz=[],cc=[];
-  (f.cols||[]).forEach(([a,b])=>{
-    const A=byId[a]||{x:0,y:0,z:0}, B=byId[b]||{x:0,y:0,z:0};
-    const t=((A.z+B.z)/2 - zMin)/zRange;
-    cx.push(A.x,B.x,null); cy.push(A.y,B.y,null); cz.push(A.z,B.z,null);
-    cc.push(t, t, t);
-  });
-  if(cx.length){
+  /* ── 1+2. Columns & beams colored by typical-floor group (role) ── */
+  const ROLE_C3={TYPICAL:'#4cc2ff',PODIUM:'#ffb454',ROOF:'#5ee6a8',TRANSFER:'#ff6b6b',BASEMENT:'#9b8cff'};
+  const grp = f.spec ? deriveFloorGroups(f.spec) : {};
+  const _elev = f.elev || [];
+  const storyOf=(z)=>{ let best=1,bd=1e18; for(let i=1;i<_elev.length;i++){const d=Math.abs(_elev[i]-z); if(d<bd){bd=d;best=i;}} return best; };
+  const roleOf=(z)=>{ const g=grp[storyOf(z)]; return (g&&g.role)||'TYPICAL'; };
+  const colByRole={}, beamByRole={};
+  (f.cols||[]).forEach(([a,b])=>{ const A=byId[a]||{x:0,y:0,z:0}, B=byId[b]||{x:0,y:0,z:0};
+    const r=roleOf(Math.max(A.z,B.z)); const o=(colByRole[r]=colByRole[r]||{x:[],y:[],z:[]});
+    o.x.push(A.x,B.x,null);o.y.push(A.y,B.y,null);o.z.push(A.z,B.z,null); });
+  (f.beams||[]).forEach(([a,b])=>{ const A=byId[a]||{x:0,y:0,z:0}, B=byId[b]||{x:0,y:0,z:0};
+    const r=roleOf(A.z); const o=(beamByRole[r]=beamByRole[r]||{x:[],y:[],z:[]});
+    o.x.push(A.x,B.x,null);o.y.push(A.y,B.y,null);o.z.push(A.z,B.z,null); });
+  // 기둥: 역할별 트레이스 (범례에 표준층/기단부/지붕… 표시)
+  ['BASEMENT','PODIUM','TYPICAL','TRANSFER','ROOF'].forEach(r=>{ const o=colByRole[r]; if(!o) return;
     _traceIdx.col.push(traces.length);
-    traces.push({
-      type:'scatter3d', mode:'lines', name:t('show_col'),
-      x:cx, y:cy, z:cz,
-      visible: _vis3D.col ? true : false,
-      line:{ color:cc, colorscale:COL_CS, cmin:0, cmax:1, width:4, showscale:false },
-      hoverinfo:'skip'
-    });
-  }
-
-  /* ── 2. Beams (flat cyan, floor tint via opacity) ── */
-  const bx=[],by=[],bz=[];
-  (f.beams||[]).forEach(([a,b])=>{
-    const A=byId[a]||{x:0,y:0,z:0}, B=byId[b]||{x:0,y:0,z:0};
-    bx.push(A.x,B.x,null); by.push(A.y,B.y,null); bz.push(A.z,B.z,null);
-  });
-  if(bx.length){
+    traces.push({ type:'scatter3d', mode:'lines',
+      name:(typeof roleLbl==='function'?roleLbl(r):r),
+      x:o.x, y:o.y, z:o.z, visible:_vis3D.col?true:false,
+      line:{ color:ROLE_C3[r]||'#4cc2ff', width:4 }, hoverinfo:'skip' }); });
+  // 보: 같은 역할 색(범례 중복 방지 showlegend:false)
+  Object.keys(beamByRole).forEach(r=>{ const o=beamByRole[r];
     _traceIdx.beam.push(traces.length);
-    traces.push({
-      type:'scatter3d', mode:'lines', name:t('show_beam'),
-      x:bx, y:by, z:bz,
-      visible: _vis3D.beam ? true : false,
-      line:{ color:'#38e1d6', width:2 },
-      hoverinfo:'skip'
-    });
-  }
+    traces.push({ type:'scatter3d', mode:'lines', name:t('show_beam'), showlegend:false,
+      x:o.x, y:o.y, z:o.z, visible:_vis3D.beam?true:false,
+      line:{ color:ROLE_C3[r]||'#38e1d6', width:2 }, hoverinfo:'skip' }); });
 
   /* ── 3. Connecting beams ── */
   const lx=[],ly=[],lz=[];
