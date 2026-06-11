@@ -845,7 +845,10 @@ function cumPos(arr){ const o=[0]; arr.forEach(d=>o.push(o[o.length-1]+(+d||0)))
 function buildFrame(p){
   const nodes=[],cols=[],beams=[],links=[],map={}; let nid=0;
   const colMeta=[],beamMeta=[],linkMeta=[];
-  const elev=[0]; for(let s=1;s<=p.stories;s++) elev.push(elev[s-1]+(s===1?p.h1:p.hTyp));
+  const elev=[0];
+  if(p.groups&&p.groups.length){ const hByS={}; p.groups.forEach(g=>{for(let s=g.from;s<=g.to;s++) hByS[s]=g.h;});
+    for(let s=1;s<=p.stories;s++) elev.push(elev[s-1]+(hByS[s]||p.hTyp||3000)); }
+  else { for(let s=1;s<=p.stories;s++) elev.push(elev[s-1]+(s===1?p.h1:p.hTyp)); }
   const sx=asSpans(p.spanX,p.bayX), sy=asSpans(p.spanY,p.bayY);
   const nbx=sx.length, nby=sy.length;          // 실제 X/Y 跨 수
   const Xp=cumPos(sx), Yp=cumPos(sy);           // 누적 좌표 (길이 = 跨수+1)
@@ -890,7 +893,9 @@ const FLOOR_USE={
 const TYPE_USE={apartment:'Residential',office:'Office',factory:'Industrial',school:'Office',hospital:'Office'};
 function useOf(p){ return TYPE_USE[p.bldgType]||'Residential'; }
 function deriveFloorGroups(p){
-  const g={}; const u=useOf(p);
+  const g={};
+  if(p.groups&&p.groups.length){ p.groups.forEach(gr=>{for(let s=gr.from;s<=gr.to;s++) g[s]={role:gr.role||'TYPICAL',use:gr.use||useOf(p)};}); return g; }
+  const u=useOf(p);
   for(let iz=1;iz<=p.stories;iz++) g[iz]={role:'TYPICAL',use:u};
   if(p.podium) for(let iz=1;iz<=Math.min(p.podium,p.stories);iz++) g[iz]={role:'PODIUM',use:'Commercial'};
   if(p.stories>=2) g[p.stories]={role:'ROOF',use:'Roof'};
@@ -2082,13 +2087,80 @@ function setInputMode(m){
   if(b) b.classList.toggle('on', m==='form');
   if(m==='form') openFormInput();
 }
+const FORM_GROUPS=[{role:'PODIUM',from:1,to:2,h:4500,use:'Commercial'},
+  {role:'TYPICAL',from:3,to:12,h:3200,use:'Residential'},{role:'ROOF',from:13,to:13,h:3200,use:'Roof'}];
+const FG_ROLES=['TYPICAL','PODIUM','TRANSFER','ROOF','BASEMENT'];
+const FG_USES=['Residential','Office','Commercial','Industrial','Roof'];
+const _li=()=>S.lang==='ko'?0:S.lang==='en'?1:2;
+function roleLbl(r){return ({TYPICAL:['표준층','Typical','標準層'],PODIUM:['기단부','Podium','裙樓'],TRANSFER:['전이층','Transfer','轉換層'],ROOF:['지붕','Roof','屋頂'],BASEMENT:['지하','Basement','地下室']}[r]||[r,r,r])[_li()];}
+function useLbl(u){return ({Residential:['주거','Residential','住宅'],Office:['사무','Office','辦公'],Commercial:['상업','Commercial','商業'],Industrial:['공업','Industrial','工業'],Roof:['지붕','Roof','屋頂']}[u]||[u,u,u])[_li()];}
+function fgRow(g){
+  const rs=FG_ROLES.map(r=>`<option value="${r}"${r===g.role?' selected':''}>${roleLbl(r)}</option>`).join('');
+  const us=FG_USES.map(u=>`<option value="${u}"${u===g.use?' selected':''}>${useLbl(u)}</option>`).join('');
+  return `<tr class="fg-row">
+    <td><select class="fg-role" onchange="previewFromForm(this)">${rs}</select></td>
+    <td><input class="fg-from" type="number" value="${g.from}" style="width:44px" onchange="previewFromForm(this)"></td>
+    <td><input class="fg-to" type="number" value="${g.to}" style="width:44px" onchange="previewFromForm(this)"></td>
+    <td><input class="fg-h" type="number" value="${g.h}" style="width:58px" onchange="previewFromForm(this)"></td>
+    <td><select class="fg-use" onchange="previewFromForm(this)">${us}</select></td>
+    <td><button class="btn btn-ghost" style="padding:2px 8px" onclick="this.closest('tr').remove();previewFromForm(this)">×</button></td></tr>`;
+}
+function fgAddRow(btn){ const tb=btn.closest('.plan-editor').querySelector('.fgtable tbody');
+  tb.insertAdjacentHTML('beforeend', fgRow({role:'TYPICAL',from:1,to:1,h:3200,use:'Residential'})); }
+function readForm(card){
+  const gv=k=>card.querySelector(`[data-g="${k}"]`).value;
+  const groups=[...card.querySelectorAll('.fg-row')].map(r=>({role:r.querySelector('.fg-role').value,
+    from:+r.querySelector('.fg-from').value,to:+r.querySelector('.fg-to').value,
+    h:+r.querySelector('.fg-h').value,use:r.querySelector('.fg-use').value})).filter(g=>g.to>=g.from);
+  const stories=Math.max(1,...groups.map(g=>g.to));
+  const colH=+gv('colH'),colB=+gv('colB'),beamH=+gv('beamH'),beamB=+gv('beamB'),matName=gv('matName');
+  const mt=MATERIALS[matName]||{E:24990,poisn:0.18,den:2.4e-9};
+  return {buildings:+gv('buildings'),bayX:+gv('bayX'),bayY:+gv('bayY'),spanX:+gv('spanX'),spanY:+gv('spanY'),
+    stories,h1:(groups[0]?groups[0].h:3200),hTyp:3200,gap:14000,connectFloor:0,bldgType:null,
+    colH,colB,beamH,beamB,colName:`C${colH}x${colB}`,beamName:`B${beamB}x${beamH}`,
+    matName,E:mt.E,poisn:mt.poisn,den:mt.den,groups,diaphragm:true};
+}
+function previewFromForm(el){ const card=el.closest('.msg'); if(!card)return; const sp=readForm(card);
+  pendingBuild=sp; tab('viewP'); previewSpec(sp); }
+async function buildFromForm(btn){
+  const card=btn.closest('.msg'); const sp=readForm(card);
+  card.querySelectorAll('.confirm-row .btn').forEach(b=>b.disabled=true);
+  const th=thinking();
+  try{ tab('logP'); await actBuildFrame(sp); th.remove();
+    const e=S.model.cols.length+S.model.beams.length+S.model.links.length;
+    addMsg('bot',t('build_ok',sp.buildings,sp.stories,S.model.nodes.length,e));
+  }catch(e){ th.remove(); addMsg('bot',t('build_fail',e.message)); }
+}
 function openFormInput(){
-  const sp={...BUILDING_TYPES.apartment, bldgType:'apartment'};
-  pendingBuild=sp;
-  addMsg('bot', t('form_intro')+planEditor(sp)+
-    '<div class="confirm-row"><button class="btn btn-c" onclick="confirmBuild(this)">'+t('exec')+'</button>'+
-    '<button class="btn btn-ghost" onclick="this.closest(\'.confirm-row\').remove()">'+t('cancel')+'</button></div>');
-  tab('viewP'); previewSpec(sp);
+  const G=(k,e,z)=>S.lang==='ko'?k:S.lang==='en'?e:z;
+  const matOpts=Object.keys(MATERIALS).map(m=>`<option${m==='C280'?' selected':''}>${m}</option>`).join('');
+  const gf=(k,lbl,val,unit)=>`<div class="pe-f"><label>${lbl}</label><div class="pe-in"><input data-g="${k}" type="number" value="${val}" onchange="previewFromForm(this)">${unit?`<span class="pe-u">${unit}</span>`:''}</div></div>`;
+  const rows=FORM_GROUPS.map(fgRow).join('');
+  const html=`<div class="plan-editor">
+    <div class="pe-head">📋 <span style="color:var(--cyan);font-weight:700">${G('표준층 테이블 입력','Typical-floor table','標準層表格輸入')}</span></div>
+    <div class="pe-grid">
+      ${gf('buildings',G('동수','Buildings','棟數'),1)}${gf('bayX',G('X베이','X bays','X 跨'),3)}
+      ${gf('bayY',G('Y베이','Y bays','Y 跨'),2)}${gf('spanX',G('X스팬','X span','X 跨距'),6500,'mm')}
+      ${gf('spanY',G('Y스팬','Y span','Y 跨距'),7000,'mm')}
+      <div class="pe-f"><label>${G('재료','Material','材料')}</label><div class="pe-in"><select data-g="matName" onchange="previewFromForm(this)">${matOpts}</select></div></div>
+      ${gf('colH',G('기둥H','Col H','柱 H'),600,'mm')}${gf('colB',G('기둥B','Col B','柱 B'),600,'mm')}
+      ${gf('beamH',G('보H','Beam H','梁 H'),600,'mm')}${gf('beamB',G('보B','Beam B','梁 B'),400,'mm')}
+    </div>
+    <div style="margin-top:12px">
+      <div style="font-size:.68rem;color:var(--amber);font-family:'IBM Plex Mono','Noto Sans TC';letter-spacing:.5px;margin-bottom:5px">${G('표준층 / 특수층 구성 (1:N 매핑)','Typical / special floors (1:N)','標準層 / 特殊層 (1:N)')}</div>
+      <table class="fgtable" style="width:100%"><thead><tr>
+        <th>${G('역할','Role','類型')}</th><th>${G('시작','From','起')}</th><th>${G('끝','To','迄')}</th><th>${G('층고','Ht','層高')}</th><th>${G('용도','Use','用途')}</th><th></th>
+      </tr></thead><tbody>${rows}</tbody></table>
+      <button class="btn btn-ghost" style="margin-top:8px;padding:5px 12px" onclick="fgAddRow(this)">+ ${G('층그룹','Floor group','樓層群')}</button>
+    </div>
+    <div class="pe-tip">${G('역할·층범위·층고·용도를 표로 정의 → 표준층 1개가 자연층 N개로 전개. CNS560·다이어프램·하중조합 자동.','Define role/range/height/use as a table → one typical floor expands to N stories. CNS560·diaphragm·combos auto.','以表格定義 類型/範圍/層高/用途 → 一個標準層展開為 N 自然層。自動套用 CNS560·剛性樓板·載重組合。')}</div>
+  </div>
+  <div class="confirm-row"><button class="btn btn-c" onclick="buildFromForm(this)">${t('exec')}</button>
+    <button class="btn btn-ghost" onclick="previewFromForm(this)">${G('미리보기','Preview','預覽')}</button>
+    <button class="btn btn-ghost" onclick="this.closest('.confirm-row').remove()">${t('cancel')}</button></div>`;
+  addMsg('bot', html);
+  const last=$('msgs').lastElementChild; const sp=readForm(last);
+  pendingBuild=sp; tab('viewP'); previewSpec(sp);
 }
 
 function clearChat(){
