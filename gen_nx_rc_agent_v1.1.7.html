@@ -131,6 +131,10 @@ main{flex:1;display:grid;grid-template-columns:1fr 1.05fr;gap:1px;background:var
   background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 9px;
   cursor:pointer;transition:.15s;white-space:nowrap;flex-shrink:0}
 .clearchat:hover{border-color:var(--red);color:var(--red);background:rgba(255,107,107,.06)}
+.imtog{display:flex;gap:4px;margin-left:6px}
+.imbtn{font-family:'IBM Plex Mono','Noto Sans TC';font-size:.7rem;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;transition:.15s}
+.imbtn:hover{border-color:var(--dim);color:var(--txt)}
+.imbtn.on{border-color:var(--cyan);color:var(--cyan);background:rgba(56,225,214,.08)}
 
 /* ═══════════════════════════════════════════
    GUIDE SIDEBAR — v3
@@ -367,6 +371,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
         <div class="modebar">
           <span data-i18n="mode">MODE</span>
           <span class="tag local" id="modeTag">本地 · 規則式</span>
+          <span class="imtog"><button class="imbtn on" id="imChat" onclick="setInputMode('chat')" data-i18n="im_chat">💬 대화형</button><button class="imbtn" id="imForm" onclick="setInputMode('form')" data-i18n="im_form">📋 테이블형</button></span>
           <span style="flex:1"></span>
           <span id="modelNote" style="opacity:.6"></span>
           <button class="clearchat" onclick="clearChat()" data-i18n="clearchat" data-i18n-title="clearchat_tip">🧹 清除對話</button>
@@ -493,6 +498,8 @@ const I18N = {
     log_empty:'// API 통신 로그가 여기 표시됩니다',
     model_empty:'// 모델이 아직 없습니다', view_empty:'// 모델 생성 후 표시됩니다', res_empty:'// 해석 후 결과가 표시됩니다',
     clearchat:'🧹 대화 비우기', clearchat_tip:'대화창 비우기 (모델·결과는 유지)',
+    im_chat:'💬 대화형', im_form:'📋 테이블형',
+    form_intro:'아래 표에 값을 입력하고 <b>실행</b>을 누르세요. 정확한 CNS560 · 하중조합 · 다이어프램이 적용됩니다.',
     clear_done:'🧹 대화를 비웠습니다. 모델과 해석 결과는 유지됩니다.',
     cam:'시점', cam_iso:'ISO', cam_front:'정면', cam_side:'측면', cam_top:'평면',
     show:'표시', show_col:'기둥', show_beam:'보', show_node:'절점', show_floor:'층선',
@@ -557,6 +564,8 @@ const I18N = {
     log_empty:'// API communication log appears here',
     model_empty:'// No model yet', view_empty:'// Shown after the model is built', res_empty:'// Results appear after analysis',
     clearchat:'🧹 Clear chat', clearchat_tip:'Clear the chat (model & results kept)',
+    im_chat:'💬 Chat', im_form:'📋 Form',
+    form_intro:'Fill the table below and press <b>Run</b>. Accurate CNS560 · load combos · diaphragm are applied.',
     clear_done:'🧹 Chat cleared. The model and analysis results are kept.',
     cam:'View', cam_iso:'ISO', cam_front:'Front', cam_side:'Side', cam_top:'Top',
     show:'Show', show_col:'Columns', show_beam:'Beams', show_node:'Nodes', show_floor:'Floor lines',
@@ -621,6 +630,8 @@ const I18N = {
     log_empty:'// API 通訊記錄將顯示於此',
     model_empty:'// 尚無模型', view_empty:'// 建立模型後將以 3D 顯示', res_empty:'// 分析後將顯示結果',
     clearchat:'🧹 清除對話', clearchat_tip:'清除對話視窗（保留模型與分析結果）',
+    im_chat:'💬 對話', im_form:'📋 表格',
+    form_intro:'於下表輸入數值後按 <b>執行</b>。將套用正確的 CNS560 · 載重組合 · 剛性樓板。',
     clear_done:'🧹 對話已清除。模型與分析結果仍保留，可繼續操作。',
     cam:'視角', cam_iso:'等角', cam_front:'正視', cam_side:'側視', cam_top:'俯視',
     show:'顯示', show_col:'柱', show_beam:'梁', show_node:'節點', show_floor:'樓層線',
@@ -2062,6 +2073,24 @@ function hint(tt){ const i=$('input'); i.value=tt; i.focus(); i.dispatchEvent(ne
 function quick(tt){ $('input').value=tt; onSend(); }
 
 /* 대화창 비우기 — 채팅 메시지·LLM 대화기록만 초기화. 모델·결과·활동로그는 유지 */
+/* M1.7 step3: 입력 방식 토글 (대화형 ↔ 테이블형 폼) */
+let inputMode='chat';
+function setInputMode(m){
+  inputMode=m;
+  const a=document.getElementById('imChat'), b=document.getElementById('imForm');
+  if(a) a.classList.toggle('on', m==='chat');
+  if(b) b.classList.toggle('on', m==='form');
+  if(m==='form') openFormInput();
+}
+function openFormInput(){
+  const sp={...BUILDING_TYPES.apartment, bldgType:'apartment'};
+  pendingBuild=sp;
+  addMsg('bot', t('form_intro')+planEditor(sp)+
+    '<div class="confirm-row"><button class="btn btn-c" onclick="confirmBuild(this)">'+t('exec')+'</button>'+
+    '<button class="btn btn-ghost" onclick="this.closest(\'.confirm-row\').remove()">'+t('cancel')+'</button></div>');
+  tab('viewP'); previewSpec(sp);
+}
+
 function clearChat(){
   $('msgs').innerHTML='';
   S.conv=[];
