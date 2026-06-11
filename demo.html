@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>스토리 기반 MIDAS Gen NX 모델링 — 데모</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#171c24; --panel2:#1e242e; --line:#2a323d;
+    --text:#e6edf3; --muted:#9aa7b4; --accent:#4cc2ff; --accent2:#7ee787;
+    --warn:#ffd33d; --rc:#ff7b72;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,"Malgun Gothic",sans-serif;
+    background:var(--bg);color:var(--text);line-height:1.6}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+  header{padding:54px 0 30px;border-bottom:1px solid var(--line);
+    background:radial-gradient(1200px 300px at 70% -50%,rgba(76,194,255,.18),transparent)}
+  .badge{display:inline-block;font-size:12px;letter-spacing:.5px;color:var(--accent);
+    border:1px solid var(--accent);border-radius:20px;padding:3px 12px;margin-bottom:16px}
+  h1{font-size:34px;margin:0 0 10px;font-weight:700}
+  h1 small{display:block;font-size:16px;color:var(--muted);font-weight:400;margin-top:8px}
+  .tags{margin-top:18px;display:flex;gap:8px;flex-wrap:wrap}
+  .tag{font-size:13px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:6px;padding:4px 10px;color:var(--muted)}
+  .tag b{color:var(--text)}
+  section{padding:38px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:22px;margin:0 0 6px}
+  .lead{color:var(--muted);margin:0 0 22px;max-width:760px}
+  .grid{display:grid;gap:18px}
+  .cols-2{grid-template-columns:1fr 1fr}
+  .cols-3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:820px){.cols-2,.cols-3{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}
+  .card h3{margin:0 0 8px;font-size:16px}
+  .card p{margin:0;color:var(--muted);font-size:14px}
+  .step{display:flex;gap:14px;align-items:flex-start;margin-bottom:14px}
+  .step .n{flex:0 0 30px;height:30px;border-radius:50%;background:var(--accent);
+    color:#04121c;font-weight:700;display:grid;place-items:center;font-size:14px}
+  .step b{display:block}
+  .step span{color:var(--muted);font-size:14px}
+
+  /* 인터랙티브 */
+  .demo{display:grid;grid-template-columns:320px 1fr;gap:22px}
+  @media(max-width:820px){.demo{grid-template-columns:1fr}}
+  .controls label{display:block;font-size:13px;color:var(--muted);margin:16px 0 6px}
+  .controls .val{color:var(--accent2);font-weight:700}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .toggle{margin-top:18px;display:flex;gap:8px}
+  .toggle button{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    padding:8px;border-radius:8px;cursor:pointer;font-size:13px}
+  .toggle button.active{background:var(--accent);color:#04121c;border-color:var(--accent);font-weight:700}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .stat .k{font-size:12px;color:var(--muted)}
+  .stat .v{font-size:24px;font-weight:700;color:var(--accent)}
+  .viz{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:440px}
+  svg{display:block;width:100%;height:auto}
+
+  /* 파이프라인 */
+  .pipe{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .op{font-family:Consolas,monospace;font-size:13px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:6px;padding:6px 10px}
+  .op .m{color:var(--accent2)}
+  .op.save{opacity:.55;border-style:dashed}
+
+  .ok{color:var(--accent2)} .mut{color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600}
+  code{font-family:Consolas,monospace;background:var(--panel2);padding:1px 6px;border-radius:4px;font-size:13px;color:var(--rc)}
+  .road{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:820px){.road{grid-template-columns:1fr 1fr}}
+  .mile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;position:relative}
+  .mile .s{font-size:12px;padding:2px 8px;border-radius:12px;display:inline-block;margin-bottom:8px}
+  .mile.done .s{background:rgba(126,231,135,.15);color:var(--accent2);border:1px solid var(--accent2)}
+  .mile.next .s{background:rgba(255,211,61,.13);color:var(--warn);border:1px solid var(--warn)}
+  .mile.todo .s{background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
+  .mile h4{margin:0 0 6px;font-size:15px} .mile p{margin:0;color:var(--muted);font-size:13px}
+  footer{padding:28px 0 60px;color:var(--muted);font-size:13px}
+  .note{font-size:12px;color:var(--muted);margin-top:10px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <span class="badge">DEMO · M1.5 완료</span>
+    <h1>스토리(표준층) 기반 MIDAS Gen NX 모델링
+      <small>표준층 1개를 정의하면 → 수십 개 자연층의 구조모델이 자동 생성됩니다.</small>
+    </h1>
+    <div class="tags">
+      <span class="tag">대상 <b>MIDAS Gen NX</b></span>
+      <span class="tag">지역 <b>대만 (Taiwan)</b></span>
+      <span class="tag">구조 <b>RC · Frame</b></span>
+      <span class="tag">API <b>NX Open API</b></span>
+    </div>
+  </div>
+</header>
+
+<!-- 무엇을 푸는가 -->
+<section><div class="wrap">
+  <h2>무엇을 해결하나요?</h2>
+  <p class="lead">고층 건물은 4층부터 28층까지 평면·기둥·보가 <b>거의 똑같이</b> 반복됩니다.
+    이런 층을 <b>표준층(Typical Floor)</b> 하나로 묶어 정의하고, 시스템이 알아서 모든 층으로
+    펼쳐 모델을 만듭니다. 엔지니어는 25개 층을 일일이 그리지 않아도 됩니다.</p>
+  <div class="grid cols-3">
+    <div class="card"><h3>① 한 번만 정의</h3><p>표준층의 평면·기둥·보·슬래브·벽·하중을
+      한 번 입력하고 "4~28층" 처럼 적용 범위를 지정합니다.</p></div>
+    <div class="card"><h3>② 자동 전개</h3><p>표준층을 각 층 높이에 맞춰 Z방향으로 복제.
+      같은 위치 절점은 자동 공유(중복 제거)됩니다.</p></div>
+    <div class="card"><h3>③ MIDAS로 생성</h3><p>NX Open API로 절점·부재·하중·지지를
+      실제 MIDAS Gen NX 모델에 한 번에 만듭니다.</p></div>
+  </div>
+</div></section>
+
+<!-- 인터랙티브 -->
+<section><div class="wrap">
+  <h2>직접 만들어 보기</h2>
+  <p class="lead">슬라이더로 표준층 범위·층고·그리드 베이 수를 바꿔 보세요. 통경선 그리드에서
+    기둥·보·슬래브가 자동 생성되고, 표준층 1개가 몇 개의 절점·부재·다이어프램으로
+    펼쳐지는지 실시간으로 계산됩니다. (베이 6m×5m)</p>
+  <div class="demo">
+    <div class="controls card">
+      <label>표준층 시작 층 <span class="val" id="vStart">4</span></label>
+      <input type="range" id="start" min="1" max="20" value="4" />
+      <label>표준층 끝 층 <span class="val" id="vEnd">28</span></label>
+      <input type="range" id="end" min="2" max="40" value="28" />
+      <label>층고 (m) <span class="val" id="vH">3.2</span></label>
+      <input type="range" id="h" min="2.5" max="5" step="0.1" value="3.2" />
+      <label>X 베이 수 (통경선 X) <span class="val" id="vBx">3</span></label>
+      <input type="range" id="bx" min="1" max="6" value="3" />
+      <label>Y 베이 수 (통경선 Y) <span class="val" id="vBy">2</span></label>
+      <input type="range" id="by" min="1" max="5" value="2" />
+      <label>단위계</label>
+      <div class="toggle">
+        <button data-u="TONF" class="active">M · TONF (대만)</button>
+        <button data-u="KN">M · KN (SI)</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">자연층</div><div class="v" id="sFloors">25</div></div>
+        <div class="stat"><div class="k">절점 (Node)</div><div class="v" id="sNodes">416</div></div>
+        <div class="stat"><div class="k">부재 (Element)</div><div class="v" id="sElems">875</div></div>
+        <div class="stat"><div class="k">다이어프램</div><div class="v" id="sDia">25</div></div>
+      </div>
+      <p class="note">그리드에서 기둥·보·슬래브 자동 생성 · 층마다 강성 다이어프램 · 최하단 고정 지지</p>
+    </div>
+    <div class="viz"><svg id="bldg" viewBox="0 0 560 460" preserveAspectRatio="xMidYMid meet"></svg></div>
+  </div>
+</div></section>
+
+<!-- 파이프라인 -->
+<section><div class="wrap">
+  <h2>실제로 전송되는 API 호출</h2>
+  <p class="lead">전개 결과는 아래 순서대로 MIDAS Gen NX에 전송됩니다. (클라우드 서버 →
+    WebSocket → 내 PC의 Gen NX)</p>
+  <div class="pipe" id="pipe"></div>
+  <p class="note">※ <code>/doc/saveas</code>(저장)는 저장 대화상자를 띄울 수 있어 기본 비활성 — 모델은 라이브 세션에 바로 생성됩니다.</p>
+</div></section>
+
+<!-- 검증 결과 -->
+<section><div class="wrap">
+  <h2>실제 MIDAS Gen NX 검증 결과 <span class="ok">✓ 통과</span></h2>
+  <p class="lead">샘플(표준층 4~28층)을 실제 Gen NX로 전송하고 다시 조회해 확인했습니다.</p>
+  <div class="grid cols-2">
+    <div class="card">
+      <h3>전송 결과 <span class="ok">14 / 14 성공</span></h3>
+      <p class="note" style="margin-bottom:6px">그리드 3×2 · 기단부(1~2)+기준층(3~12)+지붕(13)</p>
+      <table>
+        <tr><th>항목</th><th>생성 수</th></tr>
+        <tr><td>절점 (NODE)</td><td class="ok">168</td></tr>
+        <tr><td>부재 (ELEM)</td><td class="ok">455</td></tr>
+        <tr><td>다이어프램 (RIGD)</td><td class="ok">13</td></tr>
+        <tr><td>바닥하중 (FBLA) / 지지 (CONS)</td><td class="ok">13 / 12</td></tr>
+        <tr><td>하중조합 (LCOM-GEN)</td><td class="ok">3</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>대만 규격 — 라이브 검증 완료</h3>
+      <table>
+        <tr><th>구분</th><th>값</th></tr>
+        <tr><td>콘크리트</td><td><code>CNS560(RC)</code> · C210~C420</td></tr>
+        <tr><td>강재</td><td><code>CNS(S)</code> / <code>CNS06(S)</code></td></tr>
+        <tr><td>RC 설계코드</td><td><code>TWD-USD112</code></td></tr>
+        <tr><td>적용 재료</td><td>CNS560(RC) <b>C280</b></td></tr>
+      </table>
+    </div>
+  </div>
+</div></section>
+
+<!-- 로드맵 -->
+<section><div class="wrap">
+  <h2>로드맵</h2>
+  <p class="lead">PDF 규격서의 4개 모듈을 단계별로 구현합니다.</p>
+  <div class="road">
+    <div class="mile done"><span class="s">✓ 완료</span><h4>M1 · 모델 생성</h4>
+      <p>표준층 도메인 + 검증 + 전개기. 실제 Gen NX 생성 검증.</p></div>
+    <div class="mile done"><span class="s">✓ 완료</span><h4>M1.5 · 작성 강화</h4>
+      <p>그리드 자동 골조 · 다중 표준층/특수층 · 다이어프램 · 대만 하중조합.</p></div>
+    <div class="mile next"><span class="s">▶ 다음</span><h4>M2 · 자동 판정</h4>
+      <p>기존 모델에서 표준층 자동 인식(기하·하중 일치, 제외층 필터).</p></div>
+    <div class="mile todo"><span class="s">대기</span><h4>M3 · 구간별 배근</h4>
+      <p>해석 결과 내력 포락선 → 구간별 최적 배근 (TWD-USD112).</p></div>
+    <div class="mile todo"><span class="s">대기</span><h4>M4 · 도면 자동화</h4>
+      <p>"第四層至第二十八層…配筋平面圖" 도명 자동 생성.</p></div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  순수 Python 코어(<code>midas_story</code>) · 표준층 1개 → 자연층 N개 전개 · 본 데모 수치는 코어 전개 로직과 동일하게 계산됩니다.<br/>
+  API 스키마·대만 규격 문자열은 공식 매뉴얼 + 라이브 MIDAS Gen NX로 검증 (2026-06).
+</div></footer>
+
+<script>
+// ── 그리드 기반 골조 (build_frame 규약과 동일) ──
+const BAY_X = 6, BAY_Y = 5; // m
+let unit = "TONF";
+
+function compute(start, end, h, bx, by){
+  const floors = Math.max(0, end - start + 1);
+  const levels = floors + 1;
+  const nx = bx + 1, ny = by + 1;             // 통경선 수
+  const cols = nx * ny;                        // 교점마다 기둥
+  const beams = bx * ny + nx * by;             // X보 + Y보
+  const slabs = bx * by;                       // 베이마다 슬래브
+  const perFloor = cols + beams + slabs;
+  const nodes = cols * levels;                 // 교점 절점 적층(공유)
+  const elems = perFloor * floors;
+  const loads = floors;                         // 층당 바닥하중 면 1
+  const dia = floors;                           // 층당 다이어프램 1
+  const supports = cols;                        // 최하단 고정
+  return {floors, levels, nx, ny, cols, beams, slabs, perFloor, nodes, elems, loads, dia, supports, height:floors*h};
+}
+
+// ── 아이소메트릭 투영 ──
+function iso(x, y, z, s, ox, oy){
+  const c = Math.cos(Math.PI/6), si = Math.sin(Math.PI/6);
+  return [ ox + (x - y) * c * s, oy - z * s + (x + y) * si * s ];
+}
+
+function draw(start, end, h, bx, by){
+  const {floors, nx, ny} = compute(start, end, h, bx, by);
+  const svg = document.getElementById('bldg');
+  const W = 560, H = 460;
+  const gx = [], gy = [];
+  for(let i=0;i<nx;i++) gx.push(i*BAY_X);
+  for(let j=0;j<ny;j++) gy.push(j*BAY_Y);
+  const cx = (nx-1)*BAY_X/2, cy = (ny-1)*BAY_Y/2;
+  // 자동 스케일
+  const plan = Math.max((nx-1)*BAY_X, (ny-1)*BAY_Y, 1);
+  const s = Math.min(16, (H-100)/Math.max(1, floors*h), 360/plan);
+  const ox = 270, oy = H - 36;
+  const P = (x,y,z) => iso(x-cx, y-cy, z, s, ox, oy);
+  let out = '';
+  for(let f=0; f<floors; f++){
+    const zb=f*h, zt=(f+1)*h;
+    // 기둥
+    for(const x of gx) for(const y of gy){
+      const a=P(x,y,zb), b=P(x,y,zt);
+      out += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#4cc2ff" stroke-width="1.2" opacity=".7"/>`;
+    }
+    // 보 (상단 격자) + 다이어프램 느낌의 면
+    for(const y of gy){ const a=P(gx[0],y,zt), b=P(gx[nx-1],y,zt);
+      out += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#7ee787" stroke-width="1" opacity=".7"/>`; }
+    for(const x of gx){ const a=P(x,gy[0],zt), b=P(x,gy[ny-1],zt);
+      out += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#7ee787" stroke-width="1" opacity=".7"/>`; }
+    // 슬래브/다이어프램 면(외곽)
+    const ring=[P(gx[0],gy[0],zt),P(gx[nx-1],gy[0],zt),P(gx[nx-1],gy[ny-1],zt),P(gx[0],gy[ny-1],zt)];
+    out += poly(ring, 'rgba(126,231,135,.0)', 'rgba(126,231,135,.06)');
+  }
+  // 라벨
+  const top = P(cx, cy, floors*h);
+  out += `<text x="${top[0]}" y="${top[1]-10}" fill="#9aa7b4" font-size="13" text-anchor="middle">${start}~${end}층 · ${floors}개층 · ${bx}×${by} 베이</text>`;
+  // 지지(베이스)
+  for(const x of gx) for(const y of gy){ const p=P(x,y,0);
+    out += `<polygon points="${p[0]-4},${p[1]+8} ${p[0]+4},${p[1]+8} ${p[0]},${p[1]}" fill="#ffd33d" opacity=".75"/>`; }
+  svg.innerHTML = out;
+}
+function poly(pts, stroke, fill){
+  return `<polygon points="${pts.map(p=>p[0]+','+p[1]).join(' ')}" fill="${fill}" stroke="${stroke}" stroke-width="1.2"/>`;
+}
+
+function pipeline(){
+  const ops = [
+    ['POST','/doc/new'],['PUT','/db/unit'],['POST','/db/matl'],['POST','/db/sect'],
+    ['POST','/db/thik'],['POST','/db/stld'],['POST','/db/fbld'],['POST','/db/node'],
+    ['POST','/db/elem'],['POST','/db/rigd'],['POST','/db/bodf'],['POST','/db/fbla'],
+    ['POST','/db/cons'],['POST','/db/lcom-gen'],
+  ];
+  let html = ops.map(([m,c]) => `<span class="op"><span class="m">${m}</span> ${c}</span>`).join('');
+  html += `<span class="op save"><span class="m">POST</span> /doc/saveas</span>`;
+  document.getElementById('pipe').innerHTML = html;
+}
+
+function refresh(){
+  const start = +document.getElementById('start').value;
+  let end = +document.getElementById('end').value;
+  const h = +document.getElementById('h').value;
+  const bx = +document.getElementById('bx').value;
+  const by = +document.getElementById('by').value;
+  if(end < start){ end = start; document.getElementById('end').value = end; }
+  const r = compute(start, end, h, bx, by);
+  document.getElementById('vStart').textContent = start;
+  document.getElementById('vEnd').textContent = end;
+  document.getElementById('vH').textContent = h.toFixed(1);
+  document.getElementById('vBx').textContent = bx;
+  document.getElementById('vBy').textContent = by;
+  document.getElementById('sFloors').textContent = r.floors;
+  document.getElementById('sNodes').textContent = r.nodes;
+  document.getElementById('sElems').textContent = r.elems;
+  document.getElementById('sDia').textContent = r.dia;
+  draw(start, end, h, bx, by);
+}
+
+['start','end','h','bx','by'].forEach(id => document.getElementById(id).addEventListener('input', refresh));
+document.querySelectorAll('.toggle button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.toggle button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); unit = b.dataset.u;
+}));
+pipeline();
+refresh();
+</script>
+</body>
+</html>

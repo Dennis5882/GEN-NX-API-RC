@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MIDAS RC Modeling Wizard v1.0.0</title>
+<style>
+  :root{--bg:#0e1116;--panel:#171c24;--panel2:#1e242e;--line:#2a323d;--text:#e6edf3;
+    --muted:#9aa7b4;--accent:#4cc2ff;--ok:#7ee787;--warn:#ffd33d;--err:#ff7b72}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,"Malgun Gothic","Microsoft JhengHei",sans-serif;background:var(--bg);color:var(--text);line-height:1.55}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);background:radial-gradient(900px 200px at 80% -60%,rgba(76,194,255,.18),transparent);position:relative}
+  header h1{margin:0;font-size:22px} header .sub{color:var(--muted);font-size:13px;margin-top:4px;max-width:75%}
+  .topright{position:absolute;top:16px;right:24px;display:flex;align-items:center;gap:10px}
+  .v{color:var(--accent);border:1px solid var(--accent);border-radius:14px;padding:2px 10px;font-size:12px}
+  .lang{display:flex;gap:4px}
+  .lang button{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:4px 9px;font-size:12px;cursor:pointer}
+  .lang button.active{background:var(--accent);color:#04121c;border-color:var(--accent);font-weight:700}
+  .layout{display:grid;grid-template-columns:1.1fr .9fr;min-height:calc(100vh - 70px)}
+  @media(max-width:900px){.layout{grid-template-columns:1fr}}
+  .form{padding:20px 24px;overflow:auto}
+  .side{padding:20px 24px;border-left:1px solid var(--line);background:#0b0e13}
+  @media(max-width:900px){.side{border-left:none;border-top:1px solid var(--line)}}
+  fieldset{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 16px}
+  legend{padding:0 8px;color:var(--accent);font-size:13px;font-weight:600}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+  input,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:7px;padding:8px 10px;font-size:14px;font-family:inherit}
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  .row{display:grid;gap:10px} .r2{grid-template-columns:1fr 1fr} .r3{grid-template-columns:1fr 1fr 1fr}
+  .toggle{display:flex;gap:8px;margin-top:4px}
+  .toggle button{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:8px;border-radius:7px;cursor:pointer;font-size:13px}
+  .toggle button.active{background:var(--accent);color:#04121c;border-color:var(--accent);font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  th,td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left}
+  th{color:var(--muted);font-weight:600;font-size:11px}
+  td input,td select{padding:5px 6px;font-size:13px}
+  .mini{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:5px 9px;cursor:pointer;font-size:12px}
+  .actions{display:flex;gap:10px;margin-top:6px}
+  .btn{flex:1;border:none;border-radius:9px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
+  .btn.preview{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  .btn.go{background:var(--accent);color:#04121c}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 14px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px}
+  .stat .k{font-size:11px;color:var(--muted)} .stat .v2{font-size:21px;font-weight:700;color:var(--accent)}
+  .ops{font-family:Consolas,monospace;font-size:12px}
+  .ops .op{display:flex;justify-content:space-between;padding:5px 8px;border-bottom:1px solid var(--line)}
+  .ops .op .c{color:var(--text)} .ops .op .n{color:var(--muted)}
+  .log{font-family:Consolas,monospace;font-size:12px;background:#0b0e13;border:1px solid var(--line);
+    border-radius:8px;padding:10px;height:230px;overflow:auto;white-space:pre-wrap}
+  .log .ok{color:var(--ok)} .log .err{color:var(--err)} .log .info{color:var(--muted)} .log .hi{color:var(--accent)}
+  h3{font-size:14px;margin:18px 0 6px;color:var(--muted)}
+  .hint{font-size:11px;color:var(--muted);margin-top:4px}
+  .pill{display:inline-block;font-size:11px;border-radius:10px;padding:1px 8px;border:1px solid var(--line);color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div class="topright">
+    <div class="lang">
+      <button data-lang="zh" id="lzh">繁中</button>
+      <button data-lang="ko" id="lko">한국어</button>
+      <button data-lang="en" id="len">EN</button>
+    </div>
+    <span class="v">v1.0.0</span>
+  </div>
+  <h1>🏗️ MIDAS RC Modeling Wizard</h1>
+  <div class="sub" data-i18n="subtitle"></div>
+</header>
+
+<div class="layout">
+  <div class="form">
+    <fieldset>
+      <legend data-i18n="sec1"></legend>
+      <div class="row r2">
+        <div><label data-i18n="product"></label>
+          <select id="product"><option value="gen">MIDAS Gen NX</option><option value="civil">MIDAS Civil NX</option></select></div>
+        <div><label data-i18n="unit"></label>
+          <div class="toggle"><button data-u="TONF" class="active" id="uT">M·TONF</button><button data-u="KN" id="uK">M·KN</button></div></div>
+      </div>
+      <label>MAPI-Key <span class="pill" data-i18n="keyPill"></span></label>
+      <input id="key" type="password" placeholder="MAPI-Key …" autocomplete="off" />
+      <div class="hint" data-i18n="keyHint"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="sec2"></legend>
+      <div class="row r2">
+        <div><label data-i18n="xspans"></label><input id="xspans" value="6,6,6" /></div>
+        <div><label data-i18n="yspans"></label><input id="yspans" value="5,5" /></div>
+      </div>
+      <div class="hint" id="gridInfo"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="sec3"></legend>
+      <div class="row r3">
+        <div><label data-i18n="fc"></label>
+          <select id="fc"><option>210</option><option>245</option><option selected>280</option><option>315</option><option>350</option><option>420</option></select></div>
+        <div><label data-i18n="colbh"></label><div class="row r2"><input id="cb" value="0.7"/><input id="ch" value="0.7"/></div></div>
+        <div><label data-i18n="beambh"></label><div class="row r2"><input id="bb" value="0.4"/><input id="bh" value="0.7"/></div></div>
+      </div>
+      <label data-i18n="slab"></label><input id="slab" value="0.15" style="max-width:140px"/>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="sec4"></legend>
+      <table id="floors"><thead><tr>
+        <th data-i18n="thName"></th><th data-i18n="thRole"></th><th data-i18n="thStart"></th><th data-i18n="thEnd"></th>
+        <th data-i18n="thHt"></th><th data-i18n="thUse"></th><th data-i18n="thDia"></th><th></th>
+      </tr></thead><tbody></tbody></table>
+      <button class="mini" id="addRow"></button>
+      <div class="hint" data-i18n="floorHint"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="sec5"></legend>
+      <label><input type="checkbox" id="optCombo" checked style="width:auto"/> <span data-i18n="optCombo"></span></label>
+      <label><input type="checkbox" id="optBase" checked style="width:auto"/> <span data-i18n="optBase"></span></label>
+    </fieldset>
+
+    <div class="actions">
+      <button class="btn preview" id="btnPreview"></button>
+      <button class="btn go" id="btnGo"></button>
+    </div>
+    <div class="hint" style="margin-top:8px" data-i18n="goHint"></div>
+  </div>
+
+  <div class="side">
+    <h3 data-i18n="summary"></h3>
+    <div class="stats">
+      <div class="stat"><div class="k" data-i18n="stFloors"></div><div class="v2" id="sFloors">–</div></div>
+      <div class="stat"><div class="k" data-i18n="stNodes"></div><div class="v2" id="sNodes">–</div></div>
+      <div class="stat"><div class="k" data-i18n="stElems"></div><div class="v2" id="sElems">–</div></div>
+      <div class="stat"><div class="k" data-i18n="stDia"></div><div class="v2" id="sDia">–</div></div>
+      <div class="stat"><div class="k" data-i18n="stLoads"></div><div class="v2" id="sLoads">–</div></div>
+      <div class="stat"><div class="k" data-i18n="stCombo"></div><div class="v2" id="sCombo">–</div></div>
+    </div>
+    <h3><span data-i18n="opsTitle"></span> <span class="pill" id="opCount"></span></h3>
+    <div class="ops" id="opList"></div>
+    <h3 data-i18n="logTitle"></h3>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+/* ───────────────── 다국어 사전 (구조 엔지니어 실무 용어) ───────────────── */
+const LANG = {
+  ko: {
+    subtitle:"표준층 기반 신규 RC 빌딩을 MIDAS Gen NX에 즉시 생성 · 대만 CNS560(RC) / TWD-USD112 · 설치 불필요",
+    sec1:"1. 연결", product:"제품", unit:"단위계",
+    keyPill:"Gen NX 앱에서 발급", keyHint:"키는 브라우저 메모리에만 사용되며 어디에도 저장·전송 로깅되지 않습니다.",
+    sec2:"2. 그리드 (통경선)", xspans:"X 스팬 (m, 쉼표구분) — 통경선 1,2,3…", yspans:"Y 스팬 (m, 쉼표구분) — 통경선 A,B,C…",
+    sec3:"3. 재료 · 단면", fc:"콘크리트 fc′ (kgf/cm²)", colbh:"기둥 b×h (m)", beambh:"보 b×h (m)", slab:"슬래브 두께 (m)",
+    sec4:"4. 층 구성 (표준층 / 특수층)",
+    thName:"이름", thRole:"역할", thStart:"시작층", thEnd:"끝층", thHt:"층고m", thUse:"용도(하중)", thDia:"다이어프램",
+    addRow:"+ 층 그룹 추가", floorHint:"역할 기단부/전이층/지붕/지하 는 특수층(보통 단일층).",
+    sec5:"5. 옵션", optCombo:"대만 하중조합 자동 생성 (TWD-USD112)", optBase:"최하단 고정 지지 자동 부여",
+    btnPreview:"미리보기 (드라이런)", btnGo:"▶ MIDAS Gen NX에 생성",
+    goHint:"⚠️ 생성하려면 MIDAS Gen NX가 실행 중이어야 합니다. 현재 문서를 새로 만들고(/doc/new) 채웁니다.",
+    summary:"전개 요약", stFloors:"자연층", stNodes:"절점", stElems:"부재", stDia:"다이어프램", stLoads:"바닥하중", stCombo:"하중조합",
+    opsTitle:"API 연산", logTitle:"실행 로그",
+    role_TYPICAL:"표준층", role_PODIUM:"기단부", role_TRANSFER:"전이층", role_ROOF:"지붕", role_BASEMENT:"지하",
+    use_Residential:"주거", use_Office:"사무", use_Commercial:"상업", use_Roof:"지붕",
+    gridInfo:"통경선 X: 1~{nx} ({nx}개) · Y: A~{yl} ({ny}개) · 폭 {w}m × 깊이 {d}m",
+    prompt:"미리보기 또는 생성을 눌러주세요.", dryrun:"드라이런: 전송 없이 연산만 계산했습니다.",
+    inputErr:"입력 오류: ", needKey:"MAPI-Key를 입력하세요.", starting:"시작…",
+    sending:"전송 시작 — {base}  (연산 {n}개)", stopped:"중단되었습니다. 위 오류를 확인하세요.",
+    netErr:"Gen NX 실행 여부 / 키 / 네트워크를 확인하세요.", done:"🎉 완료! {ok}/{n} 성공 — MIDAS Gen NX 화면을 확인하세요. (Fit View)",
+  },
+  en: {
+    subtitle:"Generate a new RC building in MIDAS Gen NX from typical floors · Taiwan CNS560(RC) / TWD-USD112 · No install",
+    sec1:"1. Connection", product:"Product", unit:"Units",
+    keyPill:"issued in Gen NX app", keyHint:"The key is used only in browser memory — never stored or logged anywhere.",
+    sec2:"2. Grid (Gridlines)", xspans:"X spans (m, comma-sep) — gridlines 1,2,3…", yspans:"Y spans (m, comma-sep) — gridlines A,B,C…",
+    sec3:"3. Material · Section", fc:"Concrete f′c (kgf/cm²)", colbh:"Column b×h (m)", beambh:"Beam b×h (m)", slab:"Slab thickness (m)",
+    sec4:"4. Floor Setup (Typical / Special)",
+    thName:"Name", thRole:"Role", thStart:"Start", thEnd:"End", thHt:"Ht(m)", thUse:"Use (Load)", thDia:"Diaphragm",
+    addRow:"+ Add floor group", floorHint:"Roles Podium/Transfer/Roof/Basement are special floors (usually single).",
+    sec5:"5. Options", optCombo:"Auto-generate Taiwan load combinations (TWD-USD112)", optBase:"Auto-add fixed supports at base",
+    btnPreview:"Preview (dry run)", btnGo:"▶ Generate in MIDAS Gen NX",
+    goHint:"⚠️ MIDAS Gen NX must be running. A new document (/doc/new) is created and populated.",
+    summary:"Expansion Summary", stFloors:"Stories", stNodes:"Nodes", stElems:"Elements", stDia:"Diaphragms", stLoads:"Floor Loads", stCombo:"Combinations",
+    opsTitle:"API Calls", logTitle:"Execution Log",
+    role_TYPICAL:"Typical", role_PODIUM:"Podium", role_TRANSFER:"Transfer", role_ROOF:"Roof", role_BASEMENT:"Basement",
+    use_Residential:"Residential", use_Office:"Office", use_Commercial:"Commercial", use_Roof:"Roof",
+    gridInfo:"Gridlines X: 1–{nx} ({nx}) · Y: A–{yl} ({ny}) · Width {w}m × Depth {d}m",
+    prompt:"Click Preview or Generate.", dryrun:"Dry run: computed calls without sending.",
+    inputErr:"Input error: ", needKey:"Please enter the MAPI-Key.", starting:"Starting…",
+    sending:"Sending — {base}  ({n} calls)", stopped:"Stopped. Check the error above.",
+    netErr:"Check Gen NX is running, the key, and the network.", done:"🎉 Done! {ok}/{n} succeeded — check MIDAS Gen NX (Fit View).",
+  },
+  zh: {
+    subtitle:"以標準層為基礎，於 MIDAS Gen NX 即時建立新建 RC 建築 · 台灣 CNS560(RC) / TWD-USD112 · 免安裝",
+    sec1:"1. 連線設定", product:"程式", unit:"單位",
+    keyPill:"由 Gen NX 程式發行", keyHint:"金鑰僅用於瀏覽器記憶體，不會儲存或記錄於任何位置。",
+    sec2:"2. 軸網 (軸線)", xspans:"X 向跨距 (m，逗號分隔) — 軸線 1,2,3…", yspans:"Y 向跨距 (m，逗號分隔) — 軸線 A,B,C…",
+    sec3:"3. 材料 · 斷面", fc:"混凝土 f′c (kgf/cm²)", colbh:"柱 b×h (m)", beambh:"梁 b×h (m)", slab:"樓板厚度 (m)",
+    sec4:"4. 樓層配置 (標準層 / 特殊層)",
+    thName:"名稱", thRole:"類型", thStart:"起始層", thEnd:"結束層", thHt:"層高m", thUse:"用途(載重)", thDia:"剛性樓板",
+    addRow:"+ 新增樓層群組", floorHint:"類型 裙樓/轉換層/屋頂/地下室 為特殊層（通常為單層）。",
+    sec5:"5. 選項", optCombo:"自動產生台灣載重組合 (TWD-USD112)", optBase:"底層自動加入固定支承",
+    btnPreview:"預覽 (試算)", btnGo:"▶ 在 MIDAS Gen NX 建立",
+    goHint:"⚠️ 須先開啟 MIDAS Gen NX。將新建文件 (/doc/new) 並填入模型。",
+    summary:"展開摘要", stFloors:"自然層", stNodes:"節點", stElems:"構材", stDia:"剛性樓板", stLoads:"樓板載重", stCombo:"載重組合",
+    opsTitle:"API 指令", logTitle:"執行紀錄",
+    role_TYPICAL:"標準層", role_PODIUM:"裙樓", role_TRANSFER:"轉換層", role_ROOF:"屋頂層", role_BASEMENT:"地下室",
+    use_Residential:"住宅", use_Office:"辦公室", use_Commercial:"商業", use_Roof:"屋頂",
+    gridInfo:"軸線 X：1–{nx}（{nx} 條）· Y：A–{yl}（{ny} 條）· 寬 {w}m × 深 {d}m",
+    prompt:"請按 預覽 或 建立。", dryrun:"試算：僅計算指令，未送出。",
+    inputErr:"輸入錯誤：", needKey:"請輸入 MAPI-Key。", starting:"開始…",
+    sending:"開始送出 — {base}（{n} 個指令）", stopped:"已中止，請檢查上方錯誤。",
+    netErr:"請確認 Gen NX 是否執行、金鑰及網路。", done:"🎉 完成！{ok}/{n} 成功 — 請查看 MIDAS Gen NX（Fit View）。",
+  },
+};
+
+let CUR = (function(){
+  const saved = localStorage.getItem("wizLang");
+  if(saved) return saved;
+  const n = (navigator.language||"en").toLowerCase();
+  if(n.startsWith("zh")) return "zh";
+  if(n.startsWith("ko")) return "ko";
+  return "en";
+})();
+function t(key, vars){
+  let s = (LANG[CUR] && LANG[CUR][key]) || (LANG.en[key]) || key;
+  if(vars) for(const k in vars) s = s.replaceAll("{"+k+"}", vars[k]);
+  return s;
+}
+function roleLabel(r){ return t("role_"+r); }
+function useLabel(u){ return t("use_"+u); }
+
+function applyLang(){
+  document.documentElement.lang = CUR;
+  document.querySelectorAll("[data-i18n]").forEach(el => el.textContent = t(el.dataset.i18n));
+  $("addRow").textContent = t("addRow");
+  $("btnPreview").textContent = t("btnPreview");
+  $("btnGo").textContent = t("btnGo");
+  ["zh","ko","en"].forEach(l => $("l"+l).classList.toggle("active", l===CUR));
+  // 드롭다운 라벨(역할/용도) 갱신 — 선택값 보존
+  document.querySelectorAll(".c-role").forEach(sel => { for(const o of sel.options) o.textContent = roleLabel(o.value); });
+  document.querySelectorAll(".c-use").forEach(sel => { for(const o of sel.options) o.textContent = useLabel(o.value); });
+  $("log").innerHTML = `<span class="info">${t("prompt")}</span>`;
+  preview();
+}
+["zh","ko","en"].forEach(l => $("l"+l).onclick = () => { CUR=l; localStorage.setItem("wizLang",l); applyLang(); });
+
+/* ───────────────── 단위 ───────────────── */
+let UNIT = "TONF";
+$("uT").onclick = () => setUnit("TONF"); $("uK").onclick = () => setUnit("KN");
+function setUnit(u){ UNIT=u; $("uT").classList.toggle("active",u==="TONF"); $("uK").classList.toggle("active",u==="KN"); }
+
+/* ───────────────── 용도별 바닥하중 프리셋 (D, L, LR) ───────────────── */
+const PRESETS = {
+  "Residential":{items:[["D",1.5],["L",2.0]]},
+  "Office":     {items:[["D",1.5],["L",3.0]]},
+  "Commercial": {items:[["D",2.0],["L",5.0]]},
+  "Roof":       {items:[["D",2.5],["LR",1.0]]},
+};
+const ROLES = ["TYPICAL","PODIUM","TRANSFER","ROOF","BASEMENT"];
+
+const defaultFloors = [
+  {name:"PODIUM", role:"PODIUM",  start:1, end:2,  h:4.5, use:"Commercial",  dia:true},
+  {name:"TYP",    role:"TYPICAL", start:3, end:12, h:3.2, use:"Residential", dia:true},
+  {name:"ROOF",   role:"ROOF",    start:13,end:13, h:3.2, use:"Roof",        dia:true},
+];
+function addRow(f){
+  const tr = document.createElement("tr");
+  const roleOpts = ROLES.map(r=>`<option value="${r}" ${r===f.role?"selected":""}>${roleLabel(r)}</option>`).join("");
+  const useOpts = Object.keys(PRESETS).map(k=>`<option value="${k}" ${k===f.use?"selected":""}>${useLabel(k)}</option>`).join("");
+  tr.innerHTML = `<td><input class="c-name" value="${f.name}" style="width:62px"></td>
+    <td><select class="c-role">${roleOpts}</select></td>
+    <td><input class="c-start" type="number" value="${f.start}" style="width:48px"></td>
+    <td><input class="c-end" type="number" value="${f.end}" style="width:48px"></td>
+    <td><input class="c-h" type="number" step="0.1" value="${f.h}" style="width:54px"></td>
+    <td><select class="c-use">${useOpts}</select></td>
+    <td style="text-align:center"><input class="c-dia" type="checkbox" ${f.dia?"checked":""} style="width:auto"></td>
+    <td><button class="mini c-del">×</button></td>`;
+  tr.querySelector(".c-del").onclick = () => tr.remove();
+  $("floors").querySelector("tbody").appendChild(tr);
+}
+defaultFloors.forEach(addRow);
+$("addRow").onclick = () => addRow({name:"NEW",role:"TYPICAL",start:14,end:14,h:3.2,use:"Residential",dia:true});
+
+/* ───────────────── 입력 수집 ───────────────── */
+function parseSpans(s){ return s.split(",").map(x=>parseFloat(x.trim())).filter(x=>x>0); }
+function alphaLabels(n){ const o=[]; for(let i=0;i<n;i++){let s="",k=i;while(true){s=String.fromCharCode(65+k%26)+s;k=Math.floor(k/26)-1;if(k<0)break;}o.push(s);} return o; }
+function cumulative(spans){ const c=[0]; for(const s of spans) c.push(c[c.length-1]+s); return c; }
+
+function readModel(){
+  const xs = parseSpans($("xspans").value), ys = parseSpans($("yspans").value);
+  if(!xs.length||!ys.length) throw "grid spans";
+  const xc = cumulative(xs), yc = cumulative(ys);
+  const fc = parseInt($("fc").value);
+  const sect = {cb:+$("cb").value, ch:+$("ch").value, bb:+$("bb").value, bh:+$("bh").value, slab:+$("slab").value};
+  const floors = [];
+  $("floors").querySelectorAll("tbody tr").forEach(tr=>{
+    floors.push({name:tr.querySelector(".c-name").value, role:tr.querySelector(".c-role").value,
+      start:+tr.querySelector(".c-start").value, end:+tr.querySelector(".c-end").value,
+      h:+tr.querySelector(".c-h").value, use:tr.querySelector(".c-use").value, dia:tr.querySelector(".c-dia").checked});
+  });
+  return {xc, yc, fc, sect, floors, combo:$("optCombo").checked, base:$("optBase").checked};
+}
+
+/* ───────────────── 전개기 (Python 코어와 동일 규약) ───────────────── */
+function expand(m){
+  const heightByStory={}; m.floors.forEach(f=>{ for(let s=f.start;s<=f.end;s++) heightByStory[s]=f.h; });
+  const stories=Object.keys(heightByStory).map(Number).sort((a,b)=>a-b);
+  const levels={}; let prev=0;
+  for(const s of stories){ levels[s]=[prev, prev+heightByStory[s]]; prev+=heightByStory[s]; }
+  const nmap=new Map(), nodes={}; let nid=1;
+  const N=(x,y,z)=>{const k=x.toFixed(6)+","+y.toFixed(6)+","+z.toFixed(6);
+    if(!nmap.has(k)){nmap.set(k,nid);nodes[nid]=[x,y,z];nid++;} return nmap.get(k);};
+  const elems={}; let eid=1; const fbla={}; let faid=1; const usedTypes=new Set();
+  const corners=[[m.xc[0],m.yc[0]],[m.xc[m.xc.length-1],m.yc[0]],
+                 [m.xc[m.xc.length-1],m.yc[m.yc.length-1]],[m.xc[0],m.yc[m.yc.length-1]]];
+  for(const f of m.floors){
+    usedTypes.add(f.use);
+    for(let s=f.start;s<=f.end;s++){
+      const [zb,zt]=levels[s];
+      for(const x of m.xc) for(const y of m.yc) elems[eid++]={TYPE:"BEAM",MATL:1,SECT:1,NODE:[N(x,y,zb),N(x,y,zt)],ANGLE:0};
+      for(const y of m.yc) for(let i=0;i<m.xc.length-1;i++) elems[eid++]={TYPE:"BEAM",MATL:1,SECT:2,NODE:[N(m.xc[i],y,zt),N(m.xc[i+1],y,zt)],ANGLE:0};
+      for(const x of m.xc) for(let j=0;j<m.yc.length-1;j++) elems[eid++]={TYPE:"BEAM",MATL:1,SECT:2,NODE:[N(x,m.yc[j],zt),N(x,m.yc[j+1],zt)],ANGLE:0};
+      for(let i=0;i<m.xc.length-1;i++) for(let j=0;j<m.yc.length-1;j++){
+        const p=[[m.xc[i],m.yc[j]],[m.xc[i+1],m.yc[j]],[m.xc[i+1],m.yc[j+1]],[m.xc[i],m.yc[j+1]]];
+        elems[eid++]={TYPE:"PLATE",MATL:1,SECT:1,NODE:p.map(([x,y])=>N(x,y,zt)),STYPE:1,ANGLE:0};
+      }
+      fbla[faid++]={FLOOR_LOAD_TYPE_NAME:f.use,FLOOR_DIST_TYPE:2,DIR:"GZ",NODES:corners.map(([x,y])=>N(x,y,zt)),GROUP_NAME:""};
+    }
+  }
+  const byZ={}; for(const id in nodes){const z=nodes[id][2].toFixed(6); (byZ[z]=byZ[z]||[]).push(+id);}
+  const wantDia={}; for(const f of m.floors){ for(let s=f.start;s<=f.end;s++) wantDia[levels[s][1].toFixed(6)]=f.dia; }
+  const rigd={}; let rid=1;
+  for(const z in wantDia){ if(!wantDia[z])continue; const ns=(byZ[z]||[]).sort((a,b)=>a-b);
+    if(ns.length>=2) rigd[ns[0]]={ITEMS:[{ID:rid++,GROUP_NAME:"",DOF:110001,S_NODE:ns.slice(1)}]}; }
+  const baseNodes = m.base ? Object.keys(nodes).filter(id=>nodes[id][2].toFixed(6)==="0.000000").map(Number) : [];
+  return {nodes, elems, rigd, fbla, baseNodes, usedTypes:[...usedTypes], stories, levels};
+}
+
+function taiwanCombos(usedTypes){
+  const has=t2=>usedTypes.some(u=>PRESETS[u].items.some(([n])=>n===t2));
+  const D=has("D"), L=has("L"), LR=has("LR"); const c=[]; if(!D) return c;
+  c.push({name:"cLCB1",desc:"1.4D",terms:[["D",1.4]]});
+  c.push({name:"cLCB2",desc:"1.2D+1.6L+0.5Lr",terms:[["D",1.2],...(L?[["L",1.6]]:[]),...(LR?[["LR",0.5]]:[])]});
+  if(LR) c.push({name:"cLCB3",desc:"1.2D+1.6Lr+1.0L",terms:[["D",1.2],["LR",1.6],...(L?[["L",1.0]]:[])]});
+  return c;
+}
+
+function buildOps(m, ex){
+  const fc=m.fc, ops=[]; const push=(method,command,body)=>ops.push({method,command,body});
+  push("POST","/doc/new",{});
+  push("PUT","/db/unit",{Assign:{1:{DIST:"M",FORCE:UNIT}}});
+  push("POST","/db/matl",{Assign:{1:{TYPE:"CONC",NAME:"C"+fc,PARAM:[{P_TYPE:1,STANDARD:"CNS560(RC)",DB:"C"+fc}]}}});
+  push("POST","/db/sect",{Assign:{
+    1:{SECTTYPE:"DBUSER",SECT_NAME:"COL",SECT_BEFORE:{USE_SHEAR_DEFORM:true,SHAPE:"SB",DATATYPE:2,SECT_I:{vSIZE:[m.sect.ch,m.sect.cb]}}},
+    2:{SECTTYPE:"DBUSER",SECT_NAME:"BEAM",SECT_BEFORE:{USE_SHEAR_DEFORM:true,SHAPE:"SB",DATATYPE:2,SECT_I:{vSIZE:[m.sect.bh,m.sect.bb]}}}}});
+  push("POST","/db/thik",{Assign:{1:{NAME:"SLAB",TYPE:"VALUE",bINOUT:false,T_IN:m.sect.slab,T_OUT:0,O_VALUE:0}}});
+  push("POST","/db/stld",{Assign:{1:{NAME:"D",TYPE:"D",DESC:"Dead"},2:{NAME:"L",TYPE:"L",DESC:"Live"},3:{NAME:"LR",TYPE:"LR",DESC:"Roof"}}});
+  const fbld={}; ex.usedTypes.forEach((tp,i)=>{ fbld[i+1]={NAME:tp,DESC:"",ITEM:PRESETS[tp].items.map(([lc,v])=>({LCNAME:lc,FLOOR_LOAD:v,OPT_SUB_BEAM_WEIGHT:true}))}; });
+  push("POST","/db/fbld",{Assign:fbld});
+  const nAssign={}; for(const id in ex.nodes){const [x,y,z]=ex.nodes[id]; nAssign[id]={X:x,Y:y,Z:z};}
+  push("POST","/db/node",{Assign:nAssign});
+  push("POST","/db/elem",{Assign:ex.elems});
+  if(Object.keys(ex.rigd).length) push("POST","/db/rigd",{Assign:ex.rigd});
+  push("POST","/db/bodf",{Assign:{1:{LCNAME:"D",FV:[0,0,-1]}}});
+  if(Object.keys(ex.fbla).length) push("POST","/db/fbla",{Assign:ex.fbla});
+  if(ex.baseNodes.length){ const c={}; ex.baseNodes.forEach(n=>c[n]={ITEMS:[{ID:1,CONSTRAINT:"1111111"}]}); push("POST","/db/cons",{Assign:c}); }
+  if(m.combo){ const combos=taiwanCombos(ex.usedTypes);
+    if(combos.length){ const a={}; combos.forEach((cb,i)=>a[i+1]={NAME:cb.name,ACTIVE:"ACTIVE",iTYPE:0,DESC:cb.desc,
+      vCOMB:cb.terms.map(([lc,f])=>({ANAL:"ST",LCNAME:lc,FACTOR:f}))}); push("POST","/db/lcom-gen",{Assign:a}); } }
+  return ops;
+}
+
+function preview(){
+  let m, ex, ops;
+  try{ m=readModel(); ex=expand(m); ops=buildOps(m,ex); }
+  catch(e){ logLine("err", t("inputErr")+e); return null; }
+  $("sFloors").textContent=ex.stories.length;
+  $("sNodes").textContent=Object.keys(ex.nodes).length;
+  $("sElems").textContent=Object.keys(ex.elems).length;
+  $("sDia").textContent=Object.keys(ex.rigd).length;
+  $("sLoads").textContent=Object.keys(ex.fbla).length;
+  const lc=ops.find(o=>o.command==="/db/lcom-gen");
+  $("sCombo").textContent= lc?Object.keys(lc.body.Assign).length:0;
+  $("gridInfo").textContent=t("gridInfo",{nx:m.xc.length, ny:m.yc.length, yl:alphaLabels(m.yc.length).pop(),
+    w:m.xc[m.xc.length-1], d:m.yc[m.yc.length-1]});
+  $("opCount").textContent=ops.length;
+  $("opList").innerHTML=ops.map(o=>{const n=o.body&&o.body.Assign?`Assign ${Object.keys(o.body.Assign).length}`:"";
+    return `<div class="op"><span class="c">${o.method} ${o.command}</span><span class="n">${n}</span></div>`;}).join("");
+  return {m, ex, ops};
+}
+
+function logLine(cls,msg){ const el=$("log"); el.innerHTML+=`\n<span class="${cls}">${msg}</span>`; el.scrollTop=el.scrollHeight; }
+function logClear(){ $("log").innerHTML=`<span class="info">${t("starting")}</span>`; }
+
+async function generate(){
+  const r=preview(); if(!r) return;
+  const key=$("key").value.trim();
+  if(!key){ logLine("err", t("needKey")); return; }
+  const base=`https://moa-engineers.midasit.com:443/${$("product").value}`;
+  $("btnGo").disabled=true; $("btnPreview").disabled=true; logClear();
+  logLine("hi", t("sending",{base, n:r.ops.length}));
+  let okCount=0;
+  for(const op of r.ops){
+    try{
+      const res=await fetch(base+op.command,{method:op.method,
+        headers:{"Content-Type":"application/json","MAPI-Key":key},
+        body:(op.method==="POST"||op.method==="PUT")?JSON.stringify(op.body||{}):undefined});
+      let data={}; try{ data=await res.json(); }catch(_){}
+      if(res.status>=400 || (data && data.error)){
+        const msg=(data.error&&data.error.message)||res.status;
+        logLine("err",`✗ ${op.method} ${op.command} — ${msg}`); logLine("err", t("stopped")); break;
+      }
+      okCount++; const n=op.body&&op.body.Assign?` (${Object.keys(op.body.Assign).length})`:"";
+      logLine("ok",`✓ ${op.method} ${op.command}${n}`);
+    }catch(e){ logLine("err",`✗ ${op.command} — ${e.message}`); logLine("err", t("netErr")); break; }
+  }
+  if(okCount===r.ops.length) logLine("hi", t("done",{ok:okCount, n:r.ops.length}));
+  $("btnGo").disabled=false; $("btnPreview").disabled=false;
+}
+
+$("btnPreview").onclick=()=>{ logClear(); logLine("info", t("dryrun")); preview(); };
+$("btnGo").onclick=generate;
+
+applyLang();   // 언어 적용 + 초기 미리보기
+</script>
+</body>
+</html>
