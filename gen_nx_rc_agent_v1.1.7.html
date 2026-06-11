@@ -758,7 +758,7 @@ async function mapi(method, path, body){
 }
 
 async function clearModel(){
-  for(const ep of ['lcom-gen','rigd','cons','CNLD','BODF','stld','elem','node','sect','matl'])
+  for(const ep of ['lcom-gen','rigd','fbla','fbld','cons','CNLD','BODF','stld','elem','node','sect','matl'])
     try{ await mapi('DELETE',ep); }catch(e){}
   log(tl('cleared'),'ok');
 }
@@ -859,12 +859,60 @@ function buildFrame(p){
     for(let iy=0;iy<npy;iy++){ const n1=N(0,nbx,iy,iz),n2=N(1,0,iy,iz);
       links.push([n1,n2]); linkMeta.push({n1,n2,iz}); } }
   const baseNodes=nodes.filter(n=>n.z===0).map(n=>n.id);
-  return {nodes,cols,beams,links,colMeta,beamMeta,linkMeta,baseNodes,elev,floorGroups};
+  const floorCorners={};
+  for(let b=0;b<p.buildings;b++) for(let iz=1;iz<=p.stories;iz++)
+    floorCorners[b+'_'+iz]=[N(b,0,0,iz),N(b,nbx,0,iz),N(b,nbx,nby,iz),N(b,0,nby,iz)];
+  return {nodes,cols,beams,links,colMeta,beamMeta,linkMeta,baseNodes,elev,floorGroups,floorCorners};
 }
 
 /* ════════════════════════════════════════════════════════════
    ACTIONS
 ════════════════════════════════════════════════════════════ */
+/* M1.7(step2): 용도별 바닥하중 프리셋 (kN/m^2) + 표준층/특수층 그룹 */
+const FLOOR_USE={
+  Residential:{sdl:1.5,live:'LL',liveVal:2.0},
+  Office:{sdl:1.5,live:'LL',liveVal:3.0},
+  Commercial:{sdl:2.0,live:'LL',liveVal:5.0},
+  Industrial:{sdl:2.0,live:'LL',liveVal:10.0},
+  Roof:{sdl:2.5,live:'LR',liveVal:1.0}
+};
+const TYPE_USE={apartment:'Residential',office:'Office',factory:'Industrial',school:'Office',hospital:'Office'};
+function useOf(p){ return TYPE_USE[p.bldgType]||'Residential'; }
+function deriveFloorGroups(p){
+  const g={}; const u=useOf(p);
+  for(let iz=1;iz<=p.stories;iz++) g[iz]={role:'TYPICAL',use:u};
+  if(p.podium) for(let iz=1;iz<=Math.min(p.podium,p.stories);iz++) g[iz]={role:'PODIUM',use:'Commercial'};
+  if(p.stories>=2) g[p.stories]={role:'ROOF',use:'Roof'};
+  return g;
+}
+/* 바닥하중: FBLD(용도 타입) + FBLA(층별 면적). 중력=음수, N/mm^2 = kN/m^2 * 1e-3 */
+async function applyFloorLoads(p,f){
+  const groups=deriveFloorGroups(p);
+  const uses=[...new Set(Object.values(groups).map(g=>g.use))];
+  if(!uses.length||!f.floorCorners) return;
+  S.model.floorGroups=groups;
+  let no=2; const lcTypeMap={LL:'L',LR:'LR'};
+  const liveNeeded=[...new Set(uses.map(u=>FLOOR_USE[u].live))];
+  for(const lc of liveNeeded){
+    await putLoadCase(no,lc,lcTypeMap[lc]||'L'); S.model.loadCases.push({name:lc,type:lcTypeMap[lc]||'L'}); no++;
+  }
+  S.model.nextLC=no;
+  const fbld={}; let fi=1;
+  uses.forEach(u=>{ const pr=FLOOR_USE[u];
+    fbld[fi++]={NAME:u,DESC:'',ITEM:[
+      {LCNAME:'DL',FLOOR_LOAD:-(pr.sdl*1e-3),OPT_SUB_BEAM_WEIGHT:true},
+      {LCNAME:pr.live,FLOOR_LOAD:-(pr.liveVal*1e-3),OPT_SUB_BEAM_WEIGHT:true}
+    ]}; });
+  await mapi('PUT','fbld',{Assign:fbld});
+  const fbla={}; let ai=1;
+  for(let b=0;b<p.buildings;b++) for(let iz=1;iz<=p.stories;iz++){
+    const g=groups[iz]; const corners=f.floorCorners[b+'_'+iz]; if(!g||!corners) continue;
+    fbla[ai++]={FLOOR_LOAD_TYPE_NAME:g.use,FLOOR_DIST_TYPE:2,DIR:'GZ',NODES:corners,GROUP_NAME:''};
+  }
+  await mapi('PUT','fbla',{Assign:fbla});
+  log('▸ '+(S.lang==='ko'?'바닥하중':S.lang==='en'?'Floor loads':'樓板載重')+' <b>'+(ai-1)+'</b> ('+uses.join(', ')+')','ok');
+}
+
 /* M1.7: Taiwan load combinations (TWD-USD112, ACI-style USD) */
 function taiwanCombos(loadCases){
   const by={}; (loadCases||[]).forEach(l=>{(by[l.type]=by[l.type]||[]).push(l.name);});
@@ -923,6 +971,7 @@ async function actBuildFrame(p, clear=true){
     elemRecs:recs, nextEid:eid+1, nextSect:3, nextLC:2,
     sections:{1:{name:p.colName,H:p.colH,B:p.colB},2:{name:p.beamName,H:p.beamH,B:p.beamB}},
     baseNodes:f.baseNodes, elev:f.elev, loadCases:[{name:'DL',type:'D'}], edits:[]});
+  await applyFloorLoads(p, f);
   await putCombos();
   renderModelState(); draw3D();
   return f;
@@ -1180,6 +1229,7 @@ function parseCommand(txt){
     if(bm){ const h=+bm[1],b=+bm[2]; p.beamH=h;p.beamB=b;p.beamName=`B${b}x${h}`; }
     const span=num(/스팬\s*(\d+)|跨距\s*(\d+)|跨度\s*(\d+)|span\s*(\d+)/,t); if(span){ p.spanX=span;p.spanY=span; }
     const gap=num(/간격\s*(\d+)|間距\s*(\d+)|gap\s*(\d+)/,t); if(gap) p.gap=gap;
+    const pod=num(/기단부\s*(\d+)|裙樓\s*(\d+)|裙房\s*(\d+)|podium\s*(\d+)/,t); if(pod) p.podium=pod;
     const cf=num(/(\d+)\s*(?:층|樓|層)\s*(?:에서|處)?\s*(?:연결|連接)|connect\D*(\d+)/,t); if(cf) p.connectFloor=cf;
 
     if(p.buildings>=2 && !p.gap)  p.gap=14000;
@@ -1412,7 +1462,7 @@ const TOOLS=[
      spanX:{type:['number','array'],items:{type:'number'},description:'mm; single value = uniform, or array of per-bay distances e.g. [3000,4000,3000]'},
      spanY:{type:['number','array'],items:{type:'number'},description:'mm; single value = uniform, or array of per-bay distances e.g. [3000,4000,3000]'},
      h1:{type:'number',description:'first floor height mm'},hTyp:{type:'number',description:'typical floor height mm'},
-     gap:{type:'number',description:'gap between buildings mm'},connectFloor:{type:'integer',description:'floor index where buildings connect, 0=none'},
+     gap:{type:'number',description:'gap between buildings mm'},connectFloor:{type:'integer',description:'floor index where buildings connect, 0=none'},podium:{type:'integer',description:'number of podium (commercial) floors at base, 0=none'},
      colH:{type:'number'},colB:{type:'number'},beamH:{type:'number'},beamB:{type:'number'},matName:{type:'string'}
    },required:['stories']}},
   {name:'modify_section',description:'Resize ALL columns or ALL beams of the existing model by changing their shared section. Incremental edit — does not rebuild.',
