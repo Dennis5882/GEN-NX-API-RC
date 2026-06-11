@@ -1,5 +1,16 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v1.0.1 — 2026-06-11
+
+Wizard 인터페이스 개선 (기능 동일, UX 추가).
+
+- **Base URL 입력 필드** — 서버 주소를 직접 지정(기본 `https://moa-engineers.midasit.com:443`).
+  제품 경로(`/gen`·`/civil`)는 자동 부착. 지역별 대체 서버 대응. localStorage 저장.
+- **실시간 3D 미리보기** — 우측에 아이소메트릭 뷰. 그리드·층 입력 변경 시 즉시 갱신.
+  층 역할별 색상(표준층/기단부/지붕/전이층/지하) + 범례, 최하단 지지 표시.
+  부재 과밀 시 모서리만 표시(schematic)로 성능 유지. 다국어 제목.
+- 키 입력 placeholder 중립값(`MAPI-Key …`)으로 변경.
+
 ## v1.0.0 — 2026-06-11 (1차 릴리즈)
 
 표준층 기반 신규 RC 빌딩을 MIDAS Gen NX에 즉시 생성하는 첫 정식 버전.
