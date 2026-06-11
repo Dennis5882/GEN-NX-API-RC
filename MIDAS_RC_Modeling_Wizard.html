@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MIDAS RC Modeling Wizard v1.0.1</title>
+<title>MIDAS RC Modeling Wizard v1.0.2</title>
 <style>
   :root{--bg:#0e1116;--panel:#171c24;--panel2:#1e242e;--line:#2a323d;--text:#e6edf3;
     --muted:#9aa7b4;--accent:#4cc2ff;--ok:#7ee787;--warn:#ffd33d;--err:#ff7b72}
@@ -52,7 +52,11 @@
   .log .ok{color:var(--ok)} .log .err{color:var(--err)} .log .info{color:var(--muted)} .log .hi{color:var(--accent)}
   h3{font-size:14px;margin:18px 0 6px;color:var(--muted)}
   h3:first-child{margin-top:0}
-  #view3d{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;display:block}
+  #view3d{width:100%;height:300px;background:var(--panel);border:1px solid var(--line);border-radius:10px;display:block;cursor:grab;touch-action:none}
+  #view3d:active{cursor:grabbing}
+  .vbar{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}
+  .vbar button{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer}
+  .vbar button.active{background:var(--accent);color:#04121c;border-color:var(--accent);font-weight:700}
   .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px}
   .legend span{display:inline-flex;align-items:center} .legend i{width:10px;height:10px;border-radius:2px;margin-right:5px}
   .hint{font-size:11px;color:var(--muted);margin-top:4px}
@@ -67,7 +71,7 @@
       <button data-lang="ko" id="lko">한국어</button>
       <button data-lang="en" id="len">EN</button>
     </div>
-    <span class="v">v1.0.1</span>
+    <span class="v">v1.0.2</span>
   </div>
   <h1>🏗️ MIDAS RC Modeling Wizard</h1>
   <div class="sub" data-i18n="subtitle"></div>
@@ -138,8 +142,24 @@
 
   <div class="side">
     <h3 data-i18n="view3dTitle"></h3>
-    <svg id="view3d" viewBox="0 0 380 300" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="vbar" id="viewBtns">
+      <button data-view="iso" data-i18n="v_iso"></button>
+      <button data-view="front" data-i18n="v_front"></button>
+      <button data-view="top" data-i18n="v_top"></button>
+      <button data-view="side" data-i18n="v_side"></button>
+      <button id="vreset" data-i18n="v_reset"></button>
+      <button id="vzin" title="zoom in">＋</button>
+      <button id="vzout" title="zoom out">－</button>
+    </div>
+    <canvas id="view3d"></canvas>
+    <div class="vbar" id="filterBtns">
+      <button data-f="col" class="active" data-i18n="f_col"></button>
+      <button data-f="beam" class="active" data-i18n="f_beam"></button>
+      <button data-f="slab" class="active" data-i18n="f_slab"></button>
+      <button data-f="sup" class="active" data-i18n="f_sup"></button>
+    </div>
     <div class="legend" id="legend3d"></div>
+    <div class="hint" data-i18n="view3dHint"></div>
     <h3 data-i18n="summary"></h3>
     <div class="stats">
       <div class="stat"><div class="k" data-i18n="stFloors"></div><div class="v2" id="sFloors">–</div></div>
@@ -175,7 +195,9 @@ const LANG = {
     sec5:"5. 옵션", optCombo:"대만 하중조합 자동 생성 (TWD-USD112)", optBase:"최하단 고정 지지 자동 부여",
     btnPreview:"미리보기 (드라이런)", btnGo:"▶ MIDAS Gen NX에 생성",
     goHint:"⚠️ 생성하려면 MIDAS Gen NX가 실행 중이어야 합니다. 현재 문서를 새로 만들고(/doc/new) 채웁니다.",
-    view3dTitle:"3D 미리보기", summary:"전개 요약", stFloors:"자연층", stNodes:"절점", stElems:"부재", stDia:"다이어프램", stLoads:"바닥하중", stCombo:"하중조합",
+    view3dTitle:"3D 미리보기",
+    v_iso:"입체", v_front:"전면", v_top:"상단", v_side:"측면", v_reset:"리셋", f_col:"기둥", f_beam:"보", f_slab:"슬래브", f_sup:"경계조건", view3dHint:"드래그=회전 · 휠/＋－=확대축소 · 필터로 부재 선택 표시",
+ summary:"전개 요약", stFloors:"자연층", stNodes:"절점", stElems:"부재", stDia:"다이어프램", stLoads:"바닥하중", stCombo:"하중조합",
     opsTitle:"API 연산", logTitle:"실행 로그",
     role_TYPICAL:"표준층", role_PODIUM:"기단부", role_TRANSFER:"전이층", role_ROOF:"지붕", role_BASEMENT:"지하",
     use_Residential:"주거", use_Office:"사무", use_Commercial:"상업", use_Roof:"지붕",
@@ -198,7 +220,9 @@ const LANG = {
     sec5:"5. Options", optCombo:"Auto-generate Taiwan load combinations (TWD-USD112)", optBase:"Auto-add fixed supports at base",
     btnPreview:"Preview (dry run)", btnGo:"▶ Generate in MIDAS Gen NX",
     goHint:"⚠️ MIDAS Gen NX must be running. A new document (/doc/new) is created and populated.",
-    view3dTitle:"3D Preview", summary:"Expansion Summary", stFloors:"Stories", stNodes:"Nodes", stElems:"Elements", stDia:"Diaphragms", stLoads:"Floor Loads", stCombo:"Combinations",
+    view3dTitle:"3D Preview",
+    v_iso:"ISO", v_front:"Front", v_top:"Top", v_side:"Side", v_reset:"Reset", f_col:"Columns", f_beam:"Beams", f_slab:"Slabs", f_sup:"Supports", view3dHint:"Drag = rotate · wheel/＋－ = zoom · use filters to toggle members",
+ summary:"Expansion Summary", stFloors:"Stories", stNodes:"Nodes", stElems:"Elements", stDia:"Diaphragms", stLoads:"Floor Loads", stCombo:"Combinations",
     opsTitle:"API Calls", logTitle:"Execution Log",
     role_TYPICAL:"Typical", role_PODIUM:"Podium", role_TRANSFER:"Transfer", role_ROOF:"Roof", role_BASEMENT:"Basement",
     use_Residential:"Residential", use_Office:"Office", use_Commercial:"Commercial", use_Roof:"Roof",
@@ -221,7 +245,9 @@ const LANG = {
     sec5:"5. 選項", optCombo:"自動產生台灣載重組合 (TWD-USD112)", optBase:"底層自動加入固定支承",
     btnPreview:"預覽 (試算)", btnGo:"▶ 在 MIDAS Gen NX 建立",
     goHint:"⚠️ 須先開啟 MIDAS Gen NX。將新建文件 (/doc/new) 並填入模型。",
-    view3dTitle:"3D 預覽", summary:"展開摘要", stFloors:"自然層", stNodes:"節點", stElems:"構材", stDia:"剛性樓板", stLoads:"樓板載重", stCombo:"載重組合",
+    view3dTitle:"3D 預覽",
+    v_iso:"立體", v_front:"正視", v_top:"俯視", v_side:"側視", v_reset:"重置", f_col:"柱", f_beam:"梁", f_slab:"樓板", f_sup:"支承", view3dHint:"拖曳＝旋轉 · 滾輪/＋－＝縮放 · 以篩選切換構材顯示",
+ summary:"展開摘要", stFloors:"自然層", stNodes:"節點", stElems:"構材", stDia:"剛性樓板", stLoads:"樓板載重", stCombo:"載重組合",
     opsTitle:"API 指令", logTitle:"執行紀錄",
     role_TYPICAL:"標準層", role_PODIUM:"裙樓", role_TRANSFER:"轉換層", role_ROOF:"屋頂層", role_BASEMENT:"地下室",
     use_Residential:"住宅", use_Office:"辦公室", use_Commercial:"商業", use_Roof:"屋頂",
@@ -390,47 +416,78 @@ function buildOps(m, ex){
   return ops;
 }
 
-/* ───────────────── 실시간 3D 미리보기 (아이소메트릭) ───────────────── */
+/* ───────────────── 인터랙티브 3D 뷰어 (canvas) ───────────────── */
 const ROLE_COLOR={TYPICAL:"#4cc2ff",PODIUM:"#ffd33d",ROOF:"#7ee787",TRANSFER:"#ff7b72",BASEMENT:"#9aa7b4"};
-function iso(x,y,z,s,ox,oy){const c=Math.cos(Math.PI/6),si=Math.sin(Math.PI/6);return [ox+(x-y)*c*s, oy-z*s+(x+y)*si*s];}
-function draw3D(m, ex){
-  const W=380,H=300, svg=$("view3d");
-  const stories=ex.stories;
-  if(!stories.length){ svg.innerHTML=""; $("legend3d").innerHTML=""; return; }
-  const xc=m.xc, yc=m.yc;
-  const cx=(xc[0]+xc[xc.length-1])/2, cy=(yc[0]+yc[yc.length-1])/2;
-  const totalH=ex.levels[stories[stories.length-1]][1];
-  const plan=Math.max(xc[xc.length-1]-xc[0], yc[yc.length-1]-yc[0], 1);
-  const s=Math.min(15,(H-60)/Math.max(1,totalH),(W-60)/(plan*1.7));
-  const ox=W/2, oy=H-22;
-  const P=(x,y,z)=>iso(x-cx,y-cy,z,s,ox,oy);
+const VIEWS={iso:[45,28], front:[0,0], top:[0,89], side:[90,0]};
+const view={azim:45, elev:28, zoom:1, panx:0, pany:0, show:{col:true,beam:true,slab:true,sup:true}};
+let SCENE=null;
+
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+
+function buildScene(m, ex){
+  const stories=ex.stories, xc=m.xc, yc=m.yc;
   const roleOf={}; for(const f of m.floors){for(let st=f.start;st<=f.end;st++) roleOf[st]=f.role;}
-  // 과밀 방지: 부재선이 너무 많으면 모서리 기둥/외곽보만 표시
-  const dense=(stories.length*xc.length*yc.length)>900;
-  const xs=dense?[xc[0],xc[xc.length-1]]:xc, ys=dense?[yc[0],yc[yc.length-1]]:yc;
-  let out="";
+  const cols=[],beams=[],slabs=[],sups=[];
   for(const st of stories){
-    const [zb,zt]=ex.levels[st]; const col=ROLE_COLOR[roleOf[st]]||"#4cc2ff";
-    for(const x of xs) for(const y of ys){const a=P(x,y,zb),b=P(x,y,zt);
-      out+=`<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${col}" stroke-width="1" opacity=".72"/>`;}
-    const ring=[P(xc[0],yc[0],zt),P(xc[xc.length-1],yc[0],zt),P(xc[xc.length-1],yc[yc.length-1],zt),P(xc[0],yc[yc.length-1],zt)];
-    out+=`<polygon points="${ring.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="${col}" fill-opacity=".06" stroke="${col}" stroke-width=".8" stroke-opacity=".55"/>`;
+    const [zb,zt]=ex.levels[st]; const c=ROLE_COLOR[roleOf[st]]||"#4cc2ff";
+    for(const x of xc) for(const y of yc) cols.push({a:[x,y,zb],b:[x,y,zt],c});
+    for(const y of yc) for(let i=0;i<xc.length-1;i++) beams.push({a:[xc[i],y,zt],b:[xc[i+1],y,zt],c});
+    for(const x of xc) for(let j=0;j<yc.length-1;j++) beams.push({a:[x,yc[j],zt],b:[x,yc[j+1],zt],c});
+    for(let i=0;i<xc.length-1;i++) for(let j=0;j<yc.length-1;j++)
+      slabs.push({pts:[[xc[i],yc[j],zt],[xc[i+1],yc[j],zt],[xc[i+1],yc[j+1],zt],[xc[i],yc[j+1],zt]],c});
   }
-  // 베이스 지지
-  for(const x of xs) for(const y of ys){const p=P(x,y,0);
-    out+=`<polygon points="${(p[0]-4).toFixed(1)},${(p[1]+8).toFixed(1)} ${(p[0]+4).toFixed(1)},${(p[1]+8).toFixed(1)} ${p[0].toFixed(1)},${p[1].toFixed(1)}" fill="#ffd33d" opacity=".7"/>`;}
-  svg.innerHTML=out;
-  // 범례 (모델에 존재하는 역할만)
-  const rolesPresent=[...new Set(Object.values(roleOf))];
-  $("legend3d").innerHTML=rolesPresent.map(r=>`<span><i style="background:${ROLE_COLOR[r]||'#4cc2ff'}"></i>${roleLabel(r)}</span>`).join("")
-    + (dense?` <span style="opacity:.7">· schematic</span>`:"");
+  for(const id of ex.baseNodes){const p=ex.nodes[id]; sups.push([p[0],p[1],p[2]]);}
+  const totalH = stories.length ? ex.levels[stories[stories.length-1]][1] : 1;
+  const cx=(xc[0]+xc[xc.length-1])/2, cy=(yc[0]+yc[yc.length-1])/2, cz=totalH/2;
+  const spanX=xc[xc.length-1]-xc[0], spanY=yc[yc.length-1]-yc[0];
+  const radius=0.5*Math.sqrt(spanX*spanX+spanY*spanY+totalH*totalH)||1;
+  return {cols,beams,slabs,sups,cx,cy,cz,radius,roles:[...new Set(Object.values(roleOf))]};
 }
+
+function project(p){
+  const a=view.azim*Math.PI/180, e=view.elev*Math.PI/180;
+  const x=p[0]-SCENE.cx, y=p[1]-SCENE.cy, z=p[2]-SCENE.cz;
+  const x1=x*Math.cos(a)-y*Math.sin(a);
+  const y1=x*Math.sin(a)+y*Math.cos(a);
+  const z2=y1*Math.sin(e)+z*Math.cos(e);   // 화면 수직
+  return [x1, z2];                          // [screenX, screenY(up+)]
+}
+
+function render(){
+  const cv=$("view3d"); if(!cv) return;
+  const ctx=cv.getContext("2d");
+  const dpr=window.devicePixelRatio||1, W=cv.clientWidth||360, H=cv.clientHeight||300;
+  cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  if(!SCENE||!SCENE.cols.length) return;
+  const s=(0.42*Math.min(W,H)/SCENE.radius)*view.zoom;
+  const ox=W/2+view.panx, oy=H/2+view.pany;
+  const TX=p=>{const q=project(p); return [ox+q[0]*s, oy-q[1]*s];};
+  const batch=(items,alpha,lw)=>{ ctx.lineWidth=lw; const byc={};
+    for(const it of items){(byc[it.c]=byc[it.c]||[]).push(it);}
+    for(const c in byc){ ctx.strokeStyle=hexA(c,alpha); ctx.beginPath();
+      for(const it of byc[c]){const a=TX(it.a),b=TX(it.b); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);} ctx.stroke(); } };
+  if(view.show.slab) for(const sl of SCENE.slabs){ ctx.beginPath();
+    sl.pts.forEach((p,i)=>{const t=TX(p); i?ctx.lineTo(t[0],t[1]):ctx.moveTo(t[0],t[1]);});
+    ctx.closePath(); ctx.fillStyle=hexA(sl.c,0.07); ctx.fill(); }
+  if(view.show.beam) batch(SCENE.beams,0.55,1);
+  if(view.show.col)  batch(SCENE.cols,0.85,1.4);
+  if(view.show.sup){ ctx.fillStyle="#ffd33d"; for(const p of SCENE.sups){const t=TX(p);
+    ctx.beginPath(); ctx.moveTo(t[0]-4,t[1]+8); ctx.lineTo(t[0]+4,t[1]+8); ctx.lineTo(t[0],t[1]); ctx.closePath(); ctx.fill();} }
+}
+
+function updateLegend(){
+  if(!SCENE) return;
+  $("legend3d").innerHTML = SCENE.roles.map(r=>`<span><i style="background:${ROLE_COLOR[r]||'#4cc2ff'}"></i>${roleLabel(r)}</span>`).join("");
+}
+
+function setView(v){ const p=VIEWS[v]; if(p){view.azim=p[0];view.elev=p[1];} render(); }
 
 function preview(silent){
   let m, ex, ops;
   try{ m=readModel(); ex=expand(m); ops=buildOps(m,ex); }
   catch(e){ if(!silent) logLine("err", t("inputErr")+e); return null; }
-  draw3D(m, ex);
+  SCENE=buildScene(m, ex); render(); updateLegend();
   $("sFloors").textContent=ex.stories.length;
   $("sNodes").textContent=Object.keys(ex.nodes).length;
   $("sElems").textContent=Object.keys(ex.elems).length;
@@ -492,7 +549,29 @@ $("baseurl").addEventListener("change", () => { localStorage.setItem("wizBase", 
 $("product").addEventListener("change", updateEffUrl);
 updateEffUrl();
 
-applyLang();   // 언어 적용 + 초기 미리보기
+// 3D 뷰어 인터랙션 (회전/패닝/줌/뷰/필터)
+(function(){
+  const cv=$("view3d"); let drag=null;
+  cv.addEventListener("pointerdown",e=>{ drag={x:e.clientX,y:e.clientY,a:view.azim,el:view.elev,btn:e.button,px:view.panx,py:view.pany};
+    try{cv.setPointerCapture(e.pointerId);}catch(_){}});
+  cv.addEventListener("pointermove",e=>{ if(!drag)return;
+    if(drag.btn===2 || e.shiftKey){ view.panx=drag.px+(e.clientX-drag.x); view.pany=drag.py+(e.clientY-drag.y); }
+    else { view.azim=drag.a+(e.clientX-drag.x)*0.5; view.elev=Math.max(-89,Math.min(89,drag.el+(e.clientY-drag.y)*0.5)); }
+    render(); });
+  cv.addEventListener("pointerup",()=>drag=null);
+  cv.addEventListener("pointercancel",()=>drag=null);
+  cv.addEventListener("contextmenu",e=>e.preventDefault());
+  cv.addEventListener("wheel",e=>{ e.preventDefault(); view.zoom=Math.max(0.2,Math.min(8,view.zoom*(e.deltaY<0?1.12:0.89))); render(); },{passive:false});
+  document.querySelectorAll("#viewBtns [data-view]").forEach(b=>b.onclick=()=>setView(b.dataset.view));
+  $("vreset").onclick=()=>{ view.azim=45;view.elev=28;view.zoom=1;view.panx=0;view.pany=0; render(); };
+  $("vzin").onclick=()=>{ view.zoom=Math.min(8,view.zoom*1.2); render(); };
+  $("vzout").onclick=()=>{ view.zoom=Math.max(0.2,view.zoom/1.2); render(); };
+  document.querySelectorAll("#filterBtns [data-f]").forEach(b=>b.onclick=()=>{ const f=b.dataset.f;
+    view.show[f]=!view.show[f]; b.classList.toggle("active",view.show[f]); render(); });
+  window.addEventListener("resize",()=>render());
+})();
+
+applyLang();   // 언어 적용 + 초기 미리보기 (preview→buildScene→render)
 </script>
 </body>
 </html>
