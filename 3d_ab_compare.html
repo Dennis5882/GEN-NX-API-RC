@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>3D 뷰어 A/B 비교 — Plotly vs Canvas</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+  :root{--bg:#0a0e1a;--panel:#111726;--panel2:#0d1320;--line:#1f2a3d;--txt:#c9d4e8;--muted:#6b7a99;--dim:#445069;--cyan:#38e1d6;--green:#5ee6a8;--amber:#ffb454;--red:#ff6b6b}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",system-ui,"Malgun Gothic","Microsoft JhengHei",sans-serif;background:var(--bg);color:var(--txt);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  header{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{font-size:16px;font-weight:600}
+  .ctl{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+  .ctl input[type=range]{width:90px;accent-color:var(--cyan)}
+  .ctl b{color:var(--cyan);font-family:Consolas,monospace;min-width:26px;display:inline-block;text-align:right}
+  main{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);overflow:hidden}
+  @media(max-width:880px){main{grid-template-columns:1fr;grid-template-rows:1fr 1fr}}
+  .pane{background:var(--bg);display:flex;flex-direction:column;overflow:hidden;position:relative}
+  .pane h2{font-size:13px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);
+    font-family:Consolas,monospace;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+  .pane h2 .tag{font-size:10px;border:1px solid var(--line);border-radius:10px;padding:1px 8px;color:var(--muted)}
+  .pane h2 .a{color:var(--cyan)} .pane h2 .b{color:var(--green)}
+  .vbar{display:flex;gap:4px;padding:6px 10px;border-bottom:1px solid var(--line);background:var(--panel2);flex-wrap:wrap}
+  .vbar button{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:Consolas,monospace}
+  .vbar button:hover{border-color:var(--cyan);color:var(--cyan)}
+  #plotA{flex:1;min-height:0}
+  #canvB{flex:1;width:100%;display:block;cursor:grab;touch-action:none}
+  #canvB:active{cursor:grabbing}
+  .note{font-size:11px;color:var(--dim);padding:6px 12px;border-top:1px solid var(--line);font-family:Consolas,monospace}
+  footer{border-top:1px solid var(--line);padding:10px 18px;font-size:12px;color:var(--muted);background:var(--panel2)}
+  footer table{border-collapse:collapse;width:100%;max-width:760px}
+  footer td,footer th{padding:3px 10px;text-align:left;border-bottom:1px solid var(--line);font-size:11.5px}
+  footer th{color:var(--dim)} footer .a{color:var(--cyan)} footer .b{color:var(--green)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧊 3D 뷰어 A/B 비교</h1>
+  <div class="ctl">층 <input type="range" id="st" min="2" max="30" value="10"><b id="vst">10</b></div>
+  <div class="ctl">X베이 <input type="range" id="bx" min="1" max="6" value="3"><b id="vbx">3</b></div>
+  <div class="ctl">Y베이 <input type="range" id="by" min="1" max="5" value="2"><b id="vby">2</b></div>
+  <div class="ctl" style="color:var(--dim)">· 같은 모델을 양쪽에 렌더 (Gen NX 불필요)</div>
+</header>
+
+<main>
+  <!-- A: Plotly -->
+  <section class="pane">
+    <h2><span class="a">A · Plotly</span><span class="tag">CDN · WebGL</span><span style="color:var(--dim);font-size:11px">에이전트 v1.1.7 방식</span></h2>
+    <div class="vbar">
+      <button onclick="camA('iso')">ISO</button><button onclick="camA('front')">정면</button>
+      <button onclick="camA('side')">측면</button><button onclick="camA('top')">평면</button>
+      <span style="flex:1"></span><span style="color:var(--dim);font-size:10px;align-self:center">드래그=회전 · 휠=줌 (내장)</span>
+    </div>
+    <div id="plotA"></div>
+  </section>
+
+  <!-- B: Canvas -->
+  <section class="pane">
+    <h2><span class="b">B · Canvas</span><span class="tag">의존성 0 · 단일파일</span><span style="color:var(--dim);font-size:11px">Wizard v1.0.2 방식</span></h2>
+    <div class="vbar">
+      <button onclick="camB('iso')">ISO</button><button onclick="camB('front')">정면</button>
+      <button onclick="camB('side')">측면</button><button onclick="camB('top')">평면</button>
+      <button onclick="resetB()">리셋</button><button onclick="zoomB(1.2)">＋</button><button onclick="zoomB(1/1.2)">－</button>
+      <span style="flex:1"></span><span style="color:var(--dim);font-size:10px;align-self:center">드래그=회전 · 휠=줌</span>
+    </div>
+    <canvas id="canvB"></canvas>
+  </section>
+</main>
+
+<footer>
+  <table>
+    <tr><th>기준</th><th class="a">A · Plotly</th><th class="b">B · Canvas</th></tr>
+    <tr><td>회전/줌/팬</td><td class="a">내장 (성숙)</td><td class="b">직접 구현</td></tr>
+    <tr><td>대규모 부재 성능</td><td class="a">WebGL — 강함</td><td class="b">2D canvas — 보통</td></tr>
+    <tr><td>오프라인/단일파일</td><td class="a">✗ (CDN 필요)</td><td class="b">✓ 완전 독립</td></tr>
+    <tr><td>PNG 내보내기/hover</td><td class="a">✓ 기본 제공</td><td class="b">직접 구현 필요</td></tr>
+    <tr><td>파일 크기/로딩</td><td class="a">무거움</td><td class="b">가벼움</td></tr>
+  </table>
+</footer>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const BAY_X=6000, BAY_Y=5000, H=3200;
+
+/* ── 공유 모델 생성 (그리드 프레임) ── */
+function genModel(st,bx,by){
+  const nx=bx+1, ny=by+1;
+  const xc=[],yc=[],zc=[];
+  for(let i=0;i<nx;i++) xc.push(i*BAY_X);
+  for(let j=0;j<ny;j++) yc.push(j*BAY_Y);
+  for(let k=0;k<=st;k++) zc.push(k*H);
+  const nodes=[]; const id=(ix,iy,iz)=>iz*nx*ny+iy*nx+ix+1;
+  for(let iz=0;iz<zc.length;iz++)for(let iy=0;iy<ny;iy++)for(let ix=0;ix<nx;ix++)
+    nodes.push({id:id(ix,iy,iz),x:xc[ix],y:yc[iy],z:zc[iz]});
+  const cols=[],beams=[];
+  for(let iz=0;iz<st;iz++)for(let iy=0;iy<ny;iy++)for(let ix=0;ix<nx;ix++)
+    cols.push([id(ix,iy,iz),id(ix,iy,iz+1)]);
+  for(let iz=1;iz<=st;iz++){
+    for(let iy=0;iy<ny;iy++)for(let ix=0;ix<bx;ix++) beams.push([id(ix,iy,iz),id(ix+1,iy,iz)]);
+    for(let ix=0;ix<nx;ix++)for(let iy=0;iy<by;iy++) beams.push([id(ix,iy,iz),id(ix,iy+1,iz)]);
+  }
+  const base=nodes.filter(n=>n.z===0).map(n=>n.id);
+  return {nodes,cols,beams,base,byId:Object.fromEntries(nodes.map(n=>[n.id,n]))};
+}
+
+/* ════ A: Plotly ════ */
+function renderA(m){
+  const B=m.byId;
+  const zmin=0, zmax=Math.max(...m.nodes.map(n=>n.z))||1;
+  const cx=[],cy=[],cz=[],cc=[];
+  m.cols.forEach(([a,b])=>{const A=B[a],C=B[b];cx.push(A.x,C.x,null);cy.push(A.y,C.y,null);cz.push(A.z,C.z,null);
+    const t=((A.z+C.z)/2-zmin)/(zmax-zmin);cc.push(t,t,t);});
+  const bx=[],by=[],bz=[];
+  m.beams.forEach(([a,b])=>{const A=B[a],C=B[b];bx.push(A.x,C.x,null);by.push(A.y,C.y,null);bz.push(A.z,C.z,null);});
+  const sup=m.nodes.filter(n=>n.z===0);
+  const traces=[
+    {type:'scatter3d',mode:'lines',name:'기둥',x:cx,y:cy,z:cz,line:{color:cc,colorscale:[[0,'#0d1f55'],[0.5,'#2188c9'],[1,'#38e1d6']],width:4},hoverinfo:'skip'},
+    {type:'scatter3d',mode:'lines',name:'보',x:bx,y:by,z:bz,line:{color:'#5ee6a8',width:2},hoverinfo:'skip'},
+    {type:'scatter3d',mode:'markers',name:'지지',x:sup.map(n=>n.x),y:sup.map(n=>n.y),z:sup.map(n=>n.z),
+      marker:{size:4,color:'#ff6b6b',symbol:'diamond'},hoverinfo:'skip'}
+  ];
+  Plotly.react('plotA',traces,{paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',showlegend:false,
+    margin:{l:0,r:0,t:0,b:0},
+    scene:{aspectmode:'data',bgcolor:'rgba(0,0,0,0)',
+      xaxis:gx('X'),yaxis:gx('Y'),zaxis:gx('Z'),camera:{eye:{x:1.6,y:1.6,z:1.1}}}},
+    {responsive:true,displaylogo:false,displayModeBar:true});
+}
+function gx(t){return{title:{text:t,font:{color:'#445069',size:9}},color:'#445069',gridcolor:'#1a2538',
+  zerolinecolor:'#1a2538',backgroundcolor:'rgba(10,14,26,0.4)',showbackground:true,tickfont:{color:'#445069',size:8}};}
+const CAMA={iso:{x:1.6,y:1.6,z:1.1},front:{x:0,y:-2.5,z:0.3},side:{x:-2.5,y:0,z:0.3},top:{x:0.01,y:0.01,z:2.6}};
+function camA(v){Plotly.relayout('plotA',{'scene.camera.eye':CAMA[v]});}
+
+/* ════ B: Canvas (Wizard 방식) ════ */
+const viewB={azim:45,elev:28,zoom:1,panx:0,pany:0};
+let SCENEB=null;
+function buildSceneB(m){
+  const cols=m.cols.map(([a,b])=>({a:m.byId[a],b:m.byId[b]}));
+  const beams=m.beams.map(([a,b])=>({a:m.byId[a],b:m.byId[b]}));
+  const xs=m.nodes.map(n=>n.x),ys=m.nodes.map(n=>n.y),zs=m.nodes.map(n=>n.z);
+  const cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2,cz=(Math.min(...zs)+Math.max(...zs))/2;
+  const r=0.5*Math.sqrt((Math.max(...xs)-Math.min(...xs))**2+(Math.max(...ys)-Math.min(...ys))**2+(Math.max(...zs)-Math.min(...zs))**2)||1;
+  return {cols,beams,sup:m.nodes.filter(n=>n.z===0),cx,cy,cz,r,zmin:Math.min(...zs),zmax:Math.max(...zs)};
+}
+function projB(p){const a=viewB.azim*Math.PI/180,e=viewB.elev*Math.PI/180;
+  const x=p.x-SCENEB.cx,y=p.y-SCENEB.cy,z=p.z-SCENEB.cz;
+  const x1=x*Math.cos(a)-y*Math.sin(a),y1=x*Math.sin(a)+y*Math.cos(a);
+  const z2=y1*Math.sin(e)+z*Math.cos(e);return [x1,z2];}
+function renderB(){
+  const cv=$('canvB'),ctx=cv.getContext('2d');
+  const dpr=window.devicePixelRatio||1,W=cv.clientWidth||400,Hh=cv.clientHeight||400;
+  cv.width=W*dpr;cv.height=Hh*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,Hh);
+  if(!SCENEB)return;
+  const s=(0.42*Math.min(W,Hh)/SCENEB.r)*viewB.zoom,ox=W/2+viewB.panx,oy=Hh/2+viewB.pany;
+  const TX=p=>{const q=projB(p);return [ox+q[0]*s,oy-q[1]*s];};
+  const zr=(SCENEB.zmax-SCENEB.zmin)||1;
+  // beams green
+  ctx.strokeStyle='rgba(94,230,168,.5)';ctx.lineWidth=1;ctx.beginPath();
+  SCENEB.beams.forEach(e=>{const a=TX(e.a),b=TX(e.b);ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);});ctx.stroke();
+  // columns gradient by height
+  ctx.lineWidth=1.5;
+  SCENEB.cols.forEach(e=>{const a=TX(e.a),b=TX(e.b);const t=((e.a.z+e.b.z)/2-SCENEB.zmin)/zr;
+    const col=lerp('#0d1f55','#38e1d6',t);ctx.strokeStyle=col;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();});
+  // supports
+  ctx.fillStyle='#ff6b6b';SCENEB.sup.forEach(n=>{const t=TX(n);ctx.beginPath();
+    ctx.moveTo(t[0]-4,t[1]+8);ctx.lineTo(t[0]+4,t[1]+8);ctx.lineTo(t[0],t[1]);ctx.closePath();ctx.fill();});
+}
+function lerp(c1,c2,t){const a=parseInt(c1.slice(1),16),b=parseInt(c2.slice(1),16);
+  const r=Math.round((a>>16)+(((b>>16)-(a>>16))*t)),g=Math.round(((a>>8)&255)+((((b>>8)&255)-((a>>8)&255))*t)),
+    bl=Math.round((a&255)+(((b&255)-(a&255))*t));return `rgb(${r},${g},${bl})`;}
+const CAMB={iso:[45,28],front:[0,0],side:[90,0],top:[0,89]};
+function camB(v){viewB.azim=CAMB[v][0];viewB.elev=CAMB[v][1];renderB();}
+function resetB(){viewB.azim=45;viewB.elev=28;viewB.zoom=1;viewB.panx=0;viewB.pany=0;renderB();}
+function zoomB(f){viewB.zoom=Math.max(0.2,Math.min(8,viewB.zoom*f));renderB();}
+(function(){const cv=$('canvB');let drag=null;
+  cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,a:viewB.azim,el:viewB.elev,b:e.button,px:viewB.panx,py:viewB.pany};try{cv.setPointerCapture(e.pointerId);}catch(_){}});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;
+    if(drag.b===2||e.shiftKey){viewB.panx=drag.px+(e.clientX-drag.x);viewB.pany=drag.py+(e.clientY-drag.y);}
+    else{viewB.azim=drag.a+(e.clientX-drag.x)*0.5;viewB.elev=Math.max(-89,Math.min(89,drag.el+(e.clientY-drag.y)*0.5));}renderB();});
+  cv.addEventListener('pointerup',()=>drag=null);cv.addEventListener('pointercancel',()=>drag=null);
+  cv.addEventListener('contextmenu',e=>e.preventDefault());
+  cv.addEventListener('wheel',e=>{e.preventDefault();zoomB(e.deltaY<0?1.12:0.89);},{passive:false});
+  window.addEventListener('resize',()=>renderB());
+})();
+
+/* ── refresh both ── */
+function refresh(){
+  const st=+$('st').value,bx=+$('bx').value,by=+$('by').value;
+  $('vst').textContent=st;$('vbx').textContent=bx;$('vby').textContent=by;
+  const m=genModel(st,bx,by);
+  renderA(m);
+  SCENEB=buildSceneB(m);renderB();
+}
+['st','bx','by'].forEach(id=>$(id).addEventListener('input',refresh));
+refresh();
+</script>
+</body>
+</html>
