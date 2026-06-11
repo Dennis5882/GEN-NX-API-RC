@@ -901,7 +901,7 @@ const TYPE_USE={apartment:'Residential',office:'Office',factory:'Industrial',sch
 function useOf(p){ return TYPE_USE[p.bldgType]||'Residential'; }
 function deriveFloorGroups(p){
   const g={};
-  if(p.groups&&p.groups.length){ p.groups.forEach(gr=>{for(let s=gr.from;s<=gr.to;s++) g[s]={role:gr.role||'TYPICAL',use:gr.use||useOf(p)};}); return g; }
+  if(p.groups&&p.groups.length){ p.groups.forEach(gr=>{for(let s=gr.from;s<=gr.to;s++) g[s]={role:gr.role||'TYPICAL',use:gr.use||useOf(p),dia:(gr.dia!==false)};}); return g; }
   const u=useOf(p);
   for(let iz=1;iz<=p.stories;iz++) g[iz]={role:'TYPICAL',use:u};
   if(p.podium) for(let iz=1;iz<=Math.min(p.podium,p.stories);iz++) g[iz]={role:'PODIUM',use:'Commercial'};
@@ -983,9 +983,11 @@ async function actBuildFrame(p, clear=true){
   await putBoundary(f.baseNodes,'1111110');
   await putLoadCase(1,'DL','D');
   await putSelfWeight(1,'DL',-1);
-  /* M1.7: per-floor rigid diaphragm (RIGD, DOF 110001 = Dx Dy Rz) */
-  const _dia={}; let _rid=1;
-  for(const k in (f.floorGroups||{})){ const ns=f.floorGroups[k];
+  /* M1.7: per-floor rigid diaphragm (RIGD, DOF 110001 = Dx Dy Rz). 표준층별 체크 반영 */
+  const _dia={}; let _rid=1; const _dg=deriveFloorGroups(p);
+  for(const k in (f.floorGroups||{})){ const _iz=+k.split('_')[1]; const _g=_dg[_iz];
+    if(_g && _g.dia===false) continue;
+    const ns=f.floorGroups[k];
     if(ns.length>=3){ _dia[ns[0]]={ITEMS:[{ID:_rid++,GROUP_NAME:'',DOF:110001,S_NODE:ns.slice(1)}]}; } }
   if(Object.keys(_dia).length){ await mapi('PUT','rigd',{Assign:_dia});
     log('\u25b8 '+(S.lang==='ko'?'강성 다이어프램':S.lang==='en'?'Rigid diaphragm':'剛性樓板')+' <b>'+Object.keys(_dia).length+'</b>','ok'); }
@@ -2106,6 +2108,7 @@ function fgRow(g){
     <td><input class="fg-to" type="number" value="${g.to}" style="width:44px" onchange="previewFromForm()"></td>
     <td><input class="fg-h" type="number" value="${g.h}" style="width:58px" onchange="previewFromForm()"></td>
     <td><select class="fg-use" onchange="previewFromForm()">${us}</select></td>
+    <td style="text-align:center"><input class="fg-dia" type="checkbox" ${g.dia===false?'':'checked'} onchange="previewFromForm()"></td>
     <td><button class="btn btn-ghost" style="padding:2px 8px" onclick="this.closest('tr').remove();previewFromForm()">×</button></td></tr>`;
 }
 function fgAddRow(){ const tb=$('paramPane').querySelector('.fgtable tbody'); if(!tb)return;
@@ -2115,7 +2118,8 @@ function readForm(){
   const gv=k=>card.querySelector(`[data-g="${k}"]`).value;
   const groups=[...card.querySelectorAll('.fg-row')].map(r=>({role:r.querySelector('.fg-role').value,
     from:+r.querySelector('.fg-from').value,to:+r.querySelector('.fg-to').value,
-    h:+r.querySelector('.fg-h').value,use:r.querySelector('.fg-use').value})).filter(g=>g.to>=g.from);
+    h:+r.querySelector('.fg-h').value,use:r.querySelector('.fg-use').value,
+    dia:(r.querySelector('.fg-dia')?r.querySelector('.fg-dia').checked:true)})).filter(g=>g.to>=g.from);
   const stories=Math.max(1,...groups.map(g=>g.to));
   const colH=+gv('colH'),colB=+gv('colB'),beamH=+gv('beamH'),beamB=+gv('beamB'),matName=gv('matName');
   const mt=MATERIALS[matName]||{E:24990,poisn:0.18,den:2.4e-9};
@@ -2151,7 +2155,7 @@ function paramFormHTML(){
     <div style="margin-top:14px">
       <div style="font-size:.7rem;color:var(--amber);font-family:'IBM Plex Mono','Noto Sans TC';letter-spacing:.5px;margin-bottom:6px">${L3('표준층 / 특수층 구성 (1:N 매핑)','Typical / special floors (1:N)','標準層 / 特殊層 (1:N)')}</div>
       <table class="fgtable" style="width:100%"><thead><tr>
-        <th>${L3('역할','Role','類型')}</th><th>${L3('시작','From','起')}</th><th>${L3('끝','To','迄')}</th><th>${L3('층고','Ht','層高')}</th><th>${L3('용도','Use','用途')}</th><th></th>
+        <th>${L3('역할','Role','類型')}</th><th>${L3('시작','From','起')}</th><th>${L3('끝','To','迄')}</th><th>${L3('층고','Ht','層高')}</th><th>${L3('용도','Use','用途')}</th><th>${L3('다이어프램','Diaph.','剛性樓板')}</th><th></th>
       </tr></thead><tbody>${rows}</tbody></table>
       <button class="btn btn-ghost" style="margin-top:8px;padding:5px 12px" onclick="fgAddRow()">+ ${L3('층그룹','Floor group','樓層群')}</button>
     </div>
