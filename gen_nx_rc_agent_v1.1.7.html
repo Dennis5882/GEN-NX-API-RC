@@ -135,6 +135,9 @@ main{flex:1;display:grid;grid-template-columns:1fr 1.05fr;gap:1px;background:var
 .imbtn{font-family:'IBM Plex Mono','Noto Sans TC';font-size:.7rem;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;transition:.15s}
 .imbtn:hover{border-color:var(--dim);color:var(--txt)}
 .imbtn.on{border-color:var(--cyan);color:var(--cyan);background:rgba(56,225,214,.08)}
+.modetop{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--panel2);flex-shrink:0}
+#paramPane{flex:1;overflow:auto;padding:16px 18px;display:none}
+.param-status{font-family:'IBM Plex Mono','Noto Sans TC';font-size:.8rem;color:var(--muted);margin-bottom:12px;min-height:18px}
 
 /* ═══════════════════════════════════════════
    GUIDE SIDEBAR — v3
@@ -366,12 +369,16 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
     <!-- Chat inner -->
     <div class="chat-inner">
       <button class="guide-open" id="guideOpen" onclick="toggleGuide()" title="展開導引" data-i18n="guide_open_txt">導引</button>
+      <div class="modetop">
+        <button class="imbtn on" id="imChat" onclick="setInputMode('chat')" data-i18n="im_chat">💬 대화식</button>
+        <button class="imbtn" id="imForm" onclick="setInputMode('param')" data-i18n="im_form">⚙ 파라미터</button>
+      </div>
       <div class="msgs" id="msgs"></div>
-      <div class="composer">
+      <div id="paramPane"></div>
+      <div class="composer" id="composer">
         <div class="modebar">
           <span data-i18n="mode">MODE</span>
           <span class="tag local" id="modeTag">本地 · 規則式</span>
-          <span class="imtog"><button class="imbtn on" id="imChat" onclick="setInputMode('chat')" data-i18n="im_chat">💬 대화형</button><button class="imbtn" id="imForm" onclick="setInputMode('form')" data-i18n="im_form">📋 테이블형</button></span>
           <span style="flex:1"></span>
           <span id="modelNote" style="opacity:.6"></span>
           <button class="clearchat" onclick="clearChat()" data-i18n="clearchat" data-i18n-title="clearchat_tip">🧹 清除對話</button>
@@ -498,7 +505,7 @@ const I18N = {
     log_empty:'',
     model_empty:'', view_empty:'', res_empty:'',
     clearchat:'🧹 대화 비우기', clearchat_tip:'대화창 비우기 (모델·결과는 유지)',
-    im_chat:'💬 대화형', im_form:'📋 테이블형',
+    im_chat:'💬 대화식', im_form:'⚙ 파라미터',
     form_intro:'아래 표에 값을 입력하고 <b>실행</b>을 누르세요. 정확한 CNS560 · 하중조합 · 다이어프램이 적용됩니다.',
     clear_done:'🧹 대화를 비웠습니다. 모델과 해석 결과는 유지됩니다.',
     cam:'시점', cam_iso:'ISO', cam_front:'정면', cam_side:'측면', cam_top:'평면',
@@ -564,7 +571,7 @@ const I18N = {
     log_empty:'',
     model_empty:'', view_empty:'', res_empty:'',
     clearchat:'🧹 Clear chat', clearchat_tip:'Clear the chat (model & results kept)',
-    im_chat:'💬 Chat', im_form:'📋 Form',
+    im_chat:'💬 Conversational', im_form:'⚙ Parametric',
     form_intro:'Fill the table below and press <b>Run</b>. Accurate CNS560 · load combos · diaphragm are applied.',
     clear_done:'🧹 Chat cleared. The model and analysis results are kept.',
     cam:'View', cam_iso:'ISO', cam_front:'Front', cam_side:'Side', cam_top:'Top',
@@ -630,7 +637,7 @@ const I18N = {
     log_empty:'',
     model_empty:'', view_empty:'', res_empty:'',
     clearchat:'🧹 清除對話', clearchat_tip:'清除對話視窗（保留模型與分析結果）',
-    im_chat:'💬 對話', im_form:'📋 表格',
+    im_chat:'💬 對話式', im_form:'⚙ 參數化',
     form_intro:'於下表輸入數值後按 <b>執行</b>。將套用正確的 CNS560 · 載重組合 · 剛性樓板。',
     clear_done:'🧹 對話已清除。模型與分析結果仍保留，可繼續操作。',
     cam:'視角', cam_iso:'等角', cam_front:'正視', cam_side:'側視', cam_top:'俯視',
@@ -2080,12 +2087,17 @@ function quick(tt){ $('input').value=tt; onSend(); }
 /* 대화창 비우기 — 채팅 메시지·LLM 대화기록만 초기화. 모델·결과·활동로그는 유지 */
 /* M1.7 step3: 입력 방식 토글 (대화형 ↔ 테이블형 폼) */
 let inputMode='chat';
+function L3(k,e,z){return S.lang==='ko'?k:S.lang==='en'?e:z;}
 function setInputMode(m){
   inputMode=m;
   const a=document.getElementById('imChat'), b=document.getElementById('imForm');
   if(a) a.classList.toggle('on', m==='chat');
-  if(b) b.classList.toggle('on', m==='form');
-  if(m==='form') openFormInput();
+  if(b) b.classList.toggle('on', m==='param');
+  const chat=(m==='chat');
+  $('msgs').style.display=chat?'flex':'none';
+  $('composer').style.display=chat?'block':'none';
+  $('paramPane').style.display=chat?'none':'block';
+  if(!chat) renderParamForm();
 }
 const FORM_GROUPS=[{role:'PODIUM',from:1,to:2,h:4500,use:'Commercial'},
   {role:'TYPICAL',from:3,to:12,h:3200,use:'Residential'},{role:'ROOF',from:13,to:13,h:3200,use:'Roof'}];
@@ -2098,16 +2110,17 @@ function fgRow(g){
   const rs=FG_ROLES.map(r=>`<option value="${r}"${r===g.role?' selected':''}>${roleLbl(r)}</option>`).join('');
   const us=FG_USES.map(u=>`<option value="${u}"${u===g.use?' selected':''}>${useLbl(u)}</option>`).join('');
   return `<tr class="fg-row">
-    <td><select class="fg-role" onchange="previewFromForm(this)">${rs}</select></td>
-    <td><input class="fg-from" type="number" value="${g.from}" style="width:44px" onchange="previewFromForm(this)"></td>
-    <td><input class="fg-to" type="number" value="${g.to}" style="width:44px" onchange="previewFromForm(this)"></td>
-    <td><input class="fg-h" type="number" value="${g.h}" style="width:58px" onchange="previewFromForm(this)"></td>
-    <td><select class="fg-use" onchange="previewFromForm(this)">${us}</select></td>
-    <td><button class="btn btn-ghost" style="padding:2px 8px" onclick="this.closest('tr').remove();previewFromForm(this)">×</button></td></tr>`;
+    <td><select class="fg-role" onchange="previewFromForm()">${rs}</select></td>
+    <td><input class="fg-from" type="number" value="${g.from}" style="width:44px" onchange="previewFromForm()"></td>
+    <td><input class="fg-to" type="number" value="${g.to}" style="width:44px" onchange="previewFromForm()"></td>
+    <td><input class="fg-h" type="number" value="${g.h}" style="width:58px" onchange="previewFromForm()"></td>
+    <td><select class="fg-use" onchange="previewFromForm()">${us}</select></td>
+    <td><button class="btn btn-ghost" style="padding:2px 8px" onclick="this.closest('tr').remove();previewFromForm()">×</button></td></tr>`;
 }
-function fgAddRow(btn){ const tb=btn.closest('.plan-editor').querySelector('.fgtable tbody');
-  tb.insertAdjacentHTML('beforeend', fgRow({role:'TYPICAL',from:1,to:1,h:3200,use:'Residential'})); }
-function readForm(card){
+function fgAddRow(){ const tb=$('paramPane').querySelector('.fgtable tbody'); if(!tb)return;
+  tb.insertAdjacentHTML('beforeend', fgRow({role:'TYPICAL',from:1,to:1,h:3200,use:'Residential'})); previewFromForm(); }
+function readForm(){
+  const card=$('paramPane'); if(!card||!card.querySelector('[data-g="colH"]')) return null;
   const gv=k=>card.querySelector(`[data-g="${k}"]`).value;
   const groups=[...card.querySelectorAll('.fg-row')].map(r=>({role:r.querySelector('.fg-role').value,
     from:+r.querySelector('.fg-from').value,to:+r.querySelector('.fg-to').value,
@@ -2120,47 +2133,47 @@ function readForm(card){
     colH,colB,beamH,beamB,colName:`C${colH}x${colB}`,beamName:`B${beamB}x${beamH}`,
     matName,E:mt.E,poisn:mt.poisn,den:mt.den,groups,diaphragm:true};
 }
-function previewFromForm(el){ const card=el.closest('.msg'); if(!card)return; const sp=readForm(card);
-  pendingBuild=sp; tab('viewP'); previewSpec(sp); }
-async function buildFromForm(btn){
-  const card=btn.closest('.msg'); const sp=readForm(card);
-  card.querySelectorAll('.confirm-row .btn').forEach(b=>b.disabled=true);
-  const th=thinking();
-  try{ tab('logP'); await actBuildFrame(sp); th.remove();
+function previewFromForm(){ const sp=readForm(); if(!sp)return; pendingBuild=sp; tab('viewP'); previewSpec(sp); }
+async function buildFromForm(){
+  const sp=readForm(); if(!sp)return; const st=$('paramStatus');
+  if(st) st.textContent=L3('생성 중…','Building…','建立中…');
+  try{ tab('logP'); await actBuildFrame(sp); tab('viewP');
     const e=S.model.cols.length+S.model.beams.length+S.model.links.length;
-    addMsg('bot',t('build_ok',sp.buildings,sp.stories,S.model.nodes.length,e));
-  }catch(e){ th.remove(); addMsg('bot',t('build_fail',e.message)); }
+    if(st) st.innerHTML='✅ '+t('build_ok',sp.buildings,sp.stories,S.model.nodes.length,e);
+  }catch(err){ if(st) st.textContent=t('build_fail',err.message); }
 }
-function openFormInput(){
-  const G=(k,e,z)=>S.lang==='ko'?k:S.lang==='en'?e:z;
+function paramFormHTML(){
   const matOpts=Object.keys(MATERIALS).map(m=>`<option${m==='C280'?' selected':''}>${m}</option>`).join('');
-  const gf=(k,lbl,val,unit)=>`<div class="pe-f"><label>${lbl}</label><div class="pe-in"><input data-g="${k}" type="number" value="${val}" onchange="previewFromForm(this)">${unit?`<span class="pe-u">${unit}</span>`:''}</div></div>`;
+  const gf=(k,lbl,val,unit)=>`<div class="pe-f"><label>${lbl}</label><div class="pe-in"><input data-g="${k}" type="number" value="${val}" onchange="previewFromForm()">${unit?`<span class="pe-u">${unit}</span>`:''}</div></div>`;
   const rows=FORM_GROUPS.map(fgRow).join('');
-  const html=`<div class="plan-editor">
-    <div class="pe-head">📋 <span style="color:var(--cyan);font-weight:700">${G('표준층 테이블 입력','Typical-floor table','標準層表格輸入')}</span></div>
+  return `<div class="param-status" id="paramStatus">${L3('파라미터를 입력하고 실행을 누르세요.','Set parameters and press Run.','設定參數後按執行。')}</div>
+  <div class="plan-editor" style="border:none;padding-left:0">
+    <div class="pe-head">⚙ <span style="color:var(--cyan);font-weight:700">${L3('파라미터 모델링 (표준층)','Parametric modeling (typical floor)','參數化建模（標準層）')}</span></div>
     <div class="pe-grid">
-      ${gf('buildings',G('동수','Buildings','棟數'),1)}${gf('bayX',G('X베이','X bays','X 跨'),3)}
-      ${gf('bayY',G('Y베이','Y bays','Y 跨'),2)}${gf('spanX',G('X스팬','X span','X 跨距'),6500,'mm')}
-      ${gf('spanY',G('Y스팬','Y span','Y 跨距'),7000,'mm')}
-      <div class="pe-f"><label>${G('재료','Material','材料')}</label><div class="pe-in"><select data-g="matName" onchange="previewFromForm(this)">${matOpts}</select></div></div>
-      ${gf('colH',G('기둥H','Col H','柱 H'),600,'mm')}${gf('colB',G('기둥B','Col B','柱 B'),600,'mm')}
-      ${gf('beamH',G('보H','Beam H','梁 H'),600,'mm')}${gf('beamB',G('보B','Beam B','梁 B'),400,'mm')}
+      ${gf('buildings',L3('동수','Buildings','棟數'),1)}${gf('bayX',L3('X베이','X bays','X 跨'),3)}
+      ${gf('bayY',L3('Y베이','Y bays','Y 跨'),2)}${gf('spanX',L3('X스팬','X span','X 跨距'),6500,'mm')}
+      ${gf('spanY',L3('Y스팬','Y span','Y 跨距'),7000,'mm')}
+      <div class="pe-f"><label>${L3('재료','Material','材料')}</label><div class="pe-in"><select data-g="matName" onchange="previewFromForm()">${matOpts}</select></div></div>
+      ${gf('colH',L3('기둥H','Col H','柱 H'),600,'mm')}${gf('colB',L3('기둥B','Col B','柱 B'),600,'mm')}
+      ${gf('beamH',L3('보H','Beam H','梁 H'),600,'mm')}${gf('beamB',L3('보B','Beam B','梁 B'),400,'mm')}
     </div>
-    <div style="margin-top:12px">
-      <div style="font-size:.68rem;color:var(--amber);font-family:'IBM Plex Mono','Noto Sans TC';letter-spacing:.5px;margin-bottom:5px">${G('표준층 / 특수층 구성 (1:N 매핑)','Typical / special floors (1:N)','標準層 / 特殊層 (1:N)')}</div>
+    <div style="margin-top:14px">
+      <div style="font-size:.7rem;color:var(--amber);font-family:'IBM Plex Mono','Noto Sans TC';letter-spacing:.5px;margin-bottom:6px">${L3('표준층 / 특수층 구성 (1:N 매핑)','Typical / special floors (1:N)','標準層 / 特殊層 (1:N)')}</div>
       <table class="fgtable" style="width:100%"><thead><tr>
-        <th>${G('역할','Role','類型')}</th><th>${G('시작','From','起')}</th><th>${G('끝','To','迄')}</th><th>${G('층고','Ht','層高')}</th><th>${G('용도','Use','用途')}</th><th></th>
+        <th>${L3('역할','Role','類型')}</th><th>${L3('시작','From','起')}</th><th>${L3('끝','To','迄')}</th><th>${L3('층고','Ht','層高')}</th><th>${L3('용도','Use','用途')}</th><th></th>
       </tr></thead><tbody>${rows}</tbody></table>
-      <button class="btn btn-ghost" style="margin-top:8px;padding:5px 12px" onclick="fgAddRow(this)">+ ${G('층그룹','Floor group','樓層群')}</button>
+      <button class="btn btn-ghost" style="margin-top:8px;padding:5px 12px" onclick="fgAddRow()">+ ${L3('층그룹','Floor group','樓層群')}</button>
     </div>
-    <div class="pe-tip">${G('역할·층범위·층고·용도를 표로 정의 → 표준층 1개가 자연층 N개로 전개. CNS560·다이어프램·하중조합 자동.','Define role/range/height/use as a table → one typical floor expands to N stories. CNS560·diaphragm·combos auto.','以表格定義 類型/範圍/層高/用途 → 一個標準層展開為 N 自然層。自動套用 CNS560·剛性樓板·載重組合。')}</div>
-  </div>
-  <div class="confirm-row"><button class="btn btn-c" onclick="buildFromForm(this)">${t('exec')}</button>
-    <button class="btn btn-ghost" onclick="previewFromForm(this)">${G('미리보기','Preview','預覽')}</button>
-    <button class="btn btn-ghost" onclick="this.closest('.confirm-row').remove()">${t('cancel')}</button></div>`;
-  addMsg('bot', html);
-  const last=$('msgs').lastElementChild; const sp=readForm(last);
-  pendingBuild=sp; tab('viewP'); previewSpec(sp);
+    <div class="pe-tip">${L3('역할·층범위·층고·용도를 표로 정의 → 표준층 1개가 자연층 N개로 전개. CNS560·다이어프램·하중조합 자동.','Define role/range/height/use as a table → one typical floor expands to N stories. CNS560·diaphragm·combos auto.','以表格定義 類型/範圍/層高/用途 → 一個標準層展開為 N 自然層。自動套用 CNS560·剛性樓板·載重組合。')}</div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-c" onclick="buildFromForm()">${t('exec')}</button>
+      <button class="btn btn-ghost" onclick="previewFromForm()">${L3('미리보기','Preview','預覽')}</button>
+    </div>
+  </div>`;
+}
+function renderParamForm(){
+  $('paramPane').innerHTML=paramFormHTML();
+  const sp=readForm(); if(sp){ pendingBuild=sp; tab('viewP'); previewSpec(sp); }
 }
 
 function clearChat(){
@@ -2192,6 +2205,7 @@ function setLang(l){
   renderModelState();
   renderResults();
   draw3D();
+  if(inputMode==='param') renderParamForm();
   // 채팅은 언어 혼용을 피하기 위해 초기화 후 환영문 재출력
   $('msgs').innerHTML=''; S.conv=[]; pendingBuild=null;
   addMsg('bot', t('welcome'));
