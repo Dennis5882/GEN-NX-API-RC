@@ -87,6 +87,7 @@
       <label data-i18n="baseUrl"></label>
       <input id="baseurl" value="https://moa-engineers.midasit.com:443" autocomplete="off" />
       <div class="hint" data-i18n="baseHint"></div>
+      <div class="hint" id="effUrl" style="color:var(--accent);font-family:Consolas,monospace"></div>
       <label>MAPI-Key <span class="pill" data-i18n="keyPill"></span></label>
       <input id="key" type="password" placeholder="MAPI-Key …" autocomplete="off" />
       <div class="hint" data-i18n="keyHint"></div>
@@ -452,8 +453,7 @@ async function generate(){
   const r=preview(); if(!r) return;
   const key=$("key").value.trim();
   if(!key){ logLine("err", t("needKey")); return; }
-  const root=($("baseurl").value.trim()||"https://moa-engineers.midasit.com:443").replace(/\/+$/,"");
-  const base=`${root}/${$("product").value}`;
+  const base=effectiveUrl();
   $("btnGo").disabled=true; $("btnPreview").disabled=true; logClear();
   logLine("hi", t("sending",{base, n:r.ops.length}));
   let okCount=0;
@@ -483,9 +483,14 @@ const formEl=document.querySelector(".form");
 formEl.addEventListener("input", ()=>preview(true));
 formEl.addEventListener("change", ()=>preview(true));
 
-// Base URL 저장/복원
+// Base URL 저장/복원 + 최종 URL 표시
 const savedBase = localStorage.getItem("wizBase"); if(savedBase) $("baseurl").value = savedBase;
-$("baseurl").addEventListener("change", () => localStorage.setItem("wizBase", $("baseurl").value.trim()));
+function effectiveUrl(){ const root=($("baseurl").value.trim()||"https://moa-engineers.midasit.com:443").replace(/\/+$/,""); return root+"/"+$("product").value; }
+function updateEffUrl(){ $("effUrl").textContent = "→ "+effectiveUrl(); }
+$("baseurl").addEventListener("input", updateEffUrl);
+$("baseurl").addEventListener("change", () => { localStorage.setItem("wizBase", $("baseurl").value.trim()); updateEffUrl(); });
+$("product").addEventListener("change", updateEffUrl);
+updateEffUrl();
 
 applyLang();   // 언어 적용 + 초기 미리보기
 </script>
