@@ -14,9 +14,25 @@
 - **Civil NX(교량)계열**: Moving Loads/Vehicles, Bridge Specialization Results, FCM/Cable Control, Tendon/Prestress, Composite Girder, 교량용 Wind 플러그인(HK SDM)
 - **Gen NX(건물)계열**: Story Data, Floor Load, Diaphragm, RC Design, **Wind Loads(User Type, 층별)**
 
-**함의**: 매뉴얼에 있어도 **연결된 제품(여기선 Gen NX)에서만 유효**할 수 있음.
-`{}` → "Wrong Field"의 원인은 세 갈래로 본다 — ① 필드/구조 오류, ② 엔드포인트 이름 오추측(seis→POSL),
-③ **해당 기능이 Civil NX 전용이라 Gen NX 세션에서 비활성**. 검증 시 항상 "Gen NX에서 유효한가"를 먼저 확인.
+**함의**: 매뉴얼에 있어도 **연결된 제품에 따라 동작이 다르다.** 2026-06-13 Gen·Civil 두 키로 교차검증한 결과,
+세 가지 패턴이 실재함을 확인:
+
+### 제품 교차검증 매트릭스 (✅ 라이브, Gen `/gen` · Civil `/civil`)
+
+| 엔드포인트 | Gen NX | Civil NX | 패턴 |
+|---|---|---|---|
+| `db/EIGV` (고유치) | 201 | 201 | **공용** (해석 엔진 공통) |
+| `db/MVCD` (이동하중 코드) | 201 | 201 | DB 쓰기는 양쪽 허용 |
+| `db/POSL` (지진 파라미터) | 201, **전체 필드 유지**(METHOD/EPA/SDS/SD1/IF/RMF) | 201, **부분 필드만**(NAME/SZ/SC/FA/FV) | **同 URI, 제품별 스키마 상이** |
+| `db/WIND` (건물 풍, User Type) | GET 200 (존재) | **404 Not Found** | **Gen 전용 엔드포인트** |
+
+→ **결론**: ① 일부는 진짜 제품 전용(`db/WIND`는 Civil에서 404). ② 일부는 URI는 같아도 **받는 필드가 제품마다 다름**
+(`db/POSL`은 Civil에서 건물용 필드를 무시). ③ 다수의 DB 엔드포인트는 양쪽에서 쓰기 허용(공용).
+
+**오류 신호 분류 (갱신)**:
+- **`404 Not Found`** = 그 제품에 **엔드포인트 자체가 없음** (제품 전용). ← 새 분별점
+- **`Wrong Field`** = 엔드포인트는 있으나 **필드명/필수필드/제품별 허용필드** 불일치.
+- 검증 시 항상 "이 제품(Gen/Civil)에서 이 URI·이 필드가 유효한가"를 함께 본다.
 
 ---
 
