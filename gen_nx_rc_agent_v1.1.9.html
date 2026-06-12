@@ -1971,12 +1971,26 @@ function fgChanged(el){ const ed=el.closest('.plan-editor'); if(ed){ previewEdit
 function fgDel(btn){ const ed=btn.closest('.plan-editor'); const fc=btn.closest('.param-form-root');
   const tr=btn.closest('tr'); if(tr) tr.remove();
   if(ed) previewEditorEl(ed); else if(fc) previewFromForm(); }
+/* 표준층 추가: 새 표준층을 '지붕 행 바로 위'(표준층과 지붕 사이)에 끼워 넣고
+   지붕은 한 층 위로 올림 → 건물이 한 층 높아지며 순서가 유지됨. 지붕이 없으면 맨 끝에 추가. */
 function fgAddRow(btn){
   const c = btn ? btn.closest('.param-form-root, .plan-editor') : document.querySelector('.param-form-root');
   const tb = c ? c.querySelector('.fgtable tbody') : null; if(!tb) return;
-  const def = c.classList.contains('plan-editor') ? {role:'TYPICAL',from:1,to:1,h:(pendingBuild?pendingBuild.hTyp:3200)||3200,use:useOf(pendingBuild||{})} : {role:'TYPICAL',from:1,to:1,h:3200,use:'Residential'};
-  tb.insertAdjacentHTML('beforeend', fgRow(def));
-  if(c.classList.contains('plan-editor')) previewEditorEl(c); else previewFromForm(); }
+  const isEditor=c.classList.contains('plan-editor');
+  const baseH=(isEditor&&pendingBuild?pendingBuild.hTyp:3200)||3200;
+  const baseUse=isEditor?useOf(pendingBuild||{}):'Residential';
+  const rows=[...tb.querySelectorAll('.fg-row')];
+  const roof=rows.find(r=>r.querySelector('.fg-role').value==='ROOF');
+  if(roof){
+    const rf=roof.querySelector('.fg-from'), rt=roof.querySelector('.fg-to');
+    const nf=+rf.value;                               // 새 표준층 = 지붕의 기존 층
+    rf.value=nf+1; rt.value=(+rt.value)+1;            // 지붕은 한 층 위로
+    roof.insertAdjacentHTML('beforebegin', fgRow({role:'TYPICAL',from:nf,to:nf,h:baseH,use:baseUse}));
+  } else {
+    const maxTo=rows.length?Math.max(...rows.map(r=>+r.querySelector('.fg-to').value)):0;
+    tb.insertAdjacentHTML('beforeend', fgRow({role:'TYPICAL',from:maxTo+1,to:maxTo+1,h:baseH,use:baseUse}));
+  }
+  if(isEditor) previewEditorEl(c); else previewFromForm(); }
 function readForm(){
   const card=document.querySelector('.param-form-root'); if(!card||!card.querySelector('[data-g="colH"]')) return null;
   const gv=k=>card.querySelector(`[data-g="${k}"]`).value;
