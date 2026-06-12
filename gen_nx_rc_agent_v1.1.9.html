@@ -1873,8 +1873,8 @@ const GUIDE = [
     { icon:'🏥', label:G('병원 8층','Hospital 8F','醫院 8 層'),          cmd:G('병원 8층 만들어','build 8 story hospital','建立 8 層醫院') },
     { icon:'🏫', label:G('학교 5층','School 5F','學校 5 層'),            cmd:G('학교 5층 만들어','build 5 story school','建立 5 層學校') },
     { div:true },
-    { icon:'🏗', label:G('자유 골조','Custom frame','自訂構架'),         act:"addParamCard()" },
-    { note:G('표를 직접 채워 정밀 모델 생성 (역할·층범위·층고·용도·다이어프램)','Fill the table directly for a precise model (role / range / height / use / diaphragm)','直接填寫表格建立精確模型（類型／範圍／層高／用途／剛性樓板）') },
+    { icon:'🏗', label:G('자유 골조','Custom frame','自訂構架'),         cmd:G('자유골조 10층 만들어','build a 10 story custom frame','建立 10 層自訂構架') },
+    { note:G('클릭하면 입력창에 채워집니다 → Enter → 편집 카드(표준층 표)에서 정밀 수정','Click to fill the input → Enter → fine-tune in the editable card (typical-floor table)','點選後填入輸入框 → Enter → 於可編輯卡（標準層表）精細調整') },
   ]},
   { id:'section', icon:'◫', open:true, label:G('단면 수정','Section','斷面修改'), items:[
     { icon:'↕', label:G('기둥 전체 변경','Resize all columns','全部柱變更'), cmd:G('기둥 700x700으로 변경','change all columns to 700x700','柱改為 700x700') },
