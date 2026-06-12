@@ -416,6 +416,56 @@ function detectTypicalFloors(nodes, elems){
   return {levels, stories:nstory, baseZ:levels[0], groups};
 }
 
+/* ════════════════════════════════════════════════════════════
+   M3 — RC 배근 (配筋) 자체계산 · TWD-USD112 (USD/ACI-318 계열)
+   부재력은 프런트엔드가 post/table BEAMFORCE 로 회수(N·mm) → 아래 순수함수로 배근.
+   단위: 힘 N, 길이 mm, 응력 MPa(N/mm²). CNS 등급번호 = fc'(kgf/cm²) → MPa 환산.
+   ⚠ 보 휨·전단 MVP. 단철근 가정, 조합 포락 Mu/Vu 입력. 상세 정착·이음·SMRF 디테일은 후속.
+════════════════════════════════════════════════════════════ */
+const KGFCM2_TO_MPA=0.0980665;
+function fcMPa(matName){ const g=_CNS_CONC.includes(matName)?matName:(_MPA2CNS[matName]||'C280'); return (+g.slice(1))*KGFCM2_TO_MPA; }
+const REBAR_FY={SD280:280,SD420:420,SD490:490};                 // MPa(공칭)
+const BAR_AREA={D13:127,D16:199,D19:287,D22:387,D25:507,D29:642,D32:794};  // mm²(대만 D호칭)
+const DEFAULT_REBAR={fy:420,fyt:280,cover:40};                  // SD420 주근 / SD280 스터럽 / 피복 40mm
+function beamEffDepth(h,cover){ return h-(cover||40)-10-13; }   // 스터럽 D10 + 주근반경(~D25)
+/* 휨 주철근 As(mm²): Mu(N·mm), φ=0.9, 단철근. 한계 초과 시 NaN(복철근/증대 필요) */
+function flexAs(Mu,b,d,fc,fy){
+  if(!(Mu>0)) return 0;
+  const Mn=Mu/0.9, Rn=Mn/(b*d*d), t=1-2*Rn/(0.85*fc);
+  if(t<=0) return NaN;
+  return (0.85*fc/fy)*(1-Math.sqrt(t))*b*d;
+}
+function flexAsMin(b,d,fc,fy){ return Math.max(0.25*Math.sqrt(fc)/fy,1.4/fy)*b*d; }
+function beta1(fc){ return fc<=28?0.85:Math.max(0.65,0.85-0.05*(fc-28)/7); }
+function flexRhoMax(fc,fy){ return 0.85*beta1(fc)*(fc/fy)*(0.003/(0.003+0.005)); }  // εt=0.005(인장지배)
+function shearVc(b,d,fc){ return 0.17*Math.sqrt(fc)*b*d; }                          // N
+/* 전단 스터럽 간격 s(mm). Vu(N), φ=0.75, Av=스터럽 전단면적(mm²) */
+function stirrupSpacing(Vu,b,d,fc,fyt,Av){
+  const Vc=shearVc(b,d,fc), Vs=Vu/0.75-Vc, sMax=Math.min(d/2,600);
+  if(Vs<=0) return {s:sMax,Vs:0,Vc,note:'min'};
+  if(Vs>0.66*Math.sqrt(fc)*b*d) return {s:0,Vs,Vc,note:'section'};   // 단면 부족
+  const sCap=(Vs>0.33*Math.sqrt(fc)*b*d)?Math.min(d/4,300):sMax;
+  return {s:Math.min(Av*fyt*d/Vs,sCap),Vs,Vc,note:'ok'};
+}
+function pickBars(As){
+  if(!(As>0)) return {dia:'-',n:0,As:0};
+  for(const [dia,a] of [['D19',287],['D22',387],['D25',507],['D29',642]]){
+    const n=Math.ceil(As/a); if(n<=8) return {dia,n:Math.max(2,n),As:Math.max(2,n)*a}; }
+  const n=Math.max(2,Math.ceil(As/794)); return {dia:'D32',n,As:n*794};
+}
+/* 보 1개 종합: demand{MuPos,MuNeg,Vu}(N·mm,N) + geom{b,h} + mat{fc,fy,fyt,cover} → 배근 */
+function rcBeamDesign(demand,geom,mat){
+  mat=Object.assign({},DEFAULT_REBAR,mat||{});
+  const b=geom.b, h=geom.h, d=beamEffDepth(h,mat.cover), fc=mat.fc, fy=mat.fy, fyt=mat.fyt;
+  const asMin=flexAsMin(b,d,fc,fy), rhoMax=flexRhoMax(fc,fy), asMax=rhoMax*b*d;
+  const rawBot=flexAs(demand.MuPos||0,b,d,fc,fy), rawTop=flexAs(demand.MuNeg||0,b,d,fc,fy);
+  const over=(isNaN(rawBot)||isNaN(rawTop)||rawBot>asMax||rawTop>asMax);
+  const asBot=Math.max(isNaN(rawBot)?asMax:rawBot,asMin), asTop=Math.max(isNaN(rawTop)?asMax:rawTop,asMin);
+  const Av=2*BAR_AREA.D13||2*127, sh=stirrupSpacing(demand.Vu||0,b,d,fc,fyt,2*113);  // 2-leg D10(≈113)
+  return {b,h,d,asMin,asMax, asTop,asBot, barsTop:pickBars(asTop), barsBot:pickBars(asBot),
+          stirrup:{dia:'D10',leg:2,Av:226,s:Math.max(50,Math.floor(sh.s/10)*10),note:sh.note}, over};
+}
+
 /* ── 네임스페이스 노출 (M2 확장·다른 프런트엔드용) ── */
 if(typeof window!=='undefined'){
   window.RCEngine={
@@ -425,6 +475,8 @@ if(typeof window!=='undefined'){
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,
-    WIND_EXPOSURE, windStoryForces, detectTypicalFloors
+    WIND_EXPOSURE, windStoryForces, detectTypicalFloors,
+    KGFCM2_TO_MPA, fcMPa, REBAR_FY, BAR_AREA, DEFAULT_REBAR, beamEffDepth,
+    flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign
   };
 }

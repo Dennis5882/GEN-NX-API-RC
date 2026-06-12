@@ -1,5 +1,21 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.4.0 — 2026-06-12 (M3) — 보 배근 (配筋, TWD-USD112)
+
+새 파일 **`gen_nx_rc_agent_v2.4.0.html`**. 해석결과를 회수해 **RC 보 휨·전단 배근**을 자체계산.
+
+- **결과 회수 확정** — `post/table` `TABLE_TYPE=BEAMFORCE` 로 부재력 회수(라이브 검증).
+  HEAD: Axial/Shear-y/Shear-z/Torsion/**Moment-y/Moment-z**, Part I·1/4·2/4·3/4·J (N·mm).
+  내장 RC 설계 API는 미노출(eigv/seis 패턴) → **자체계산 채택**.
+- **엔진 배근 레이어** — TWD-USD112(USD/ACI-318계열) 순수함수: `fcMPa`(CNS등급→MPa),
+  `flexAs`(단철근 φ0.9)·`flexAsMin`·`flexRhoMax`, `shearVc`·`stirrupSpacing`(φ0.75), `pickBars`,
+  `rcBeamDesign`(demand{MuPos,MuNeg,Vu}+geom{b,h}+mat → 상·하부 주근·스터럽·over 플래그). SD420/SD280 기본.
+- **Agent 배선** — "보 배근/配筋/rebar" 의도 + 가이드 🔧 버튼. 해석 실행 → BEAMFORCE 조합 포락
+  (주축 휨 Mu⁺/Mu⁻·전단 Vu) → **표준층 그룹별** 배근 요약(하부/상부 주근·스터럽@간격, 단면부족 ⚠).
+- **라이브 검증** — 2층 프레임+조합(cLCB1/2) 빌드→해석→BEAMFORCE 80행→포락→배근(3-D19·D10@260) 완주.
+  엔진 수치검증(400×600·Mu200/250→4·5-D19, over/min 케이스). 엔진+에이전트 결합 파싱 OK.
+- (범위) 보 휨·전단 MVP. **기둥 P-M·SMRF 디테일·정착/이음은 후속**. 동적해석(M2-A4)은 API 대기.
+
 ## Wizard v2.3.0 — 2026-06-12 — Agent 기능 패리티 (지진·풍)
 
 `MIDAS_RC_Modeling_Wizard_v2.0.0.html` → **`MIDAS_RC_Modeling_Wizard_v2.3.0.html`** (파일·버전 통일).
