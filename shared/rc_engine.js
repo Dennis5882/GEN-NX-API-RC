@@ -292,6 +292,36 @@ function seismicStoryForces(spec, params){
   return {T,k,Cs,V,Wtot,W,forces};
 }
 
+/* ════════════════════════════════════════════════════════════
+   M2-A2 — 풍하중 (간이 정적풍, 建築物風力規範 기반)
+   ⚠ 간이 모델(투명·조정 가능). 정밀 陣風反應係數/地形/방향계수는 사용자 확정.
+   qz=0.613·Vz²(Pa)→kN/㎡, Vz=V10·(z/10)^α. 층력 F=G·Cf·I·qz·면폭·분담높이.
+   풍방향: WX(+X)는 Y폭(깊이) 면에, WY(+Y)는 X폭 면에 작용.
+════════════════════════════════════════════════════════════ */
+const WIND_EXPOSURE={A:0.32,B:0.25,C:0.15};   // 地況 A(도심)/B(교외)/C(해안·개활)
+function windStoryForces(spec, params){
+  params=params||{};
+  const V10=(params.V10!=null?params.V10:42.5);          // 기본설계풍속 (m/s, 10m)
+  const alpha=(params.alpha!=null?params.alpha:(WIND_EXPOSURE[params.exposure]||0.25));
+  const G=(params.G!=null?params.G:1.9), Cf=(params.Cf!=null?params.Cf:1.3), I=(params.I!=null?params.I:1.0);
+  const Xp=cumPos(asSpans(spec.spanX,spec.bayX)), Yp=cumPos(asSpans(spec.spanY,spec.bayY));
+  const Lx=(Xp[Xp.length-1]||0)/1000, Ly=(Yp[Yp.length-1]||0)/1000;  // m
+  const bldgs=spec.buildings||1;
+  const elev=storyElevations(spec);
+  const fxx=[], fyy=[]; let Vx=0, Vy=0;
+  for(let s=1;s<=spec.stories;s++){
+    const z=Math.max((elev[s]||0)/1000, 10);             // level height (m), 최소 10
+    const hb=((elev[s]||0)-(elev[s-1]||0))/1000, ha=(s<spec.stories?((elev[s+1]||0)-(elev[s]||0))/1000:0);
+    const htrib=hb/2 + ha/2;                              // 분담 높이 (m)
+    const Vz=V10*Math.pow(z/10,alpha);
+    const qz=0.613*Vz*Vz/1000;                            // kN/m²
+    const base=G*Cf*I*qz*htrib*bldgs;                     // kN per unit face width
+    const Fx=base*Ly, Fy=base*Lx;                         // WX는 Y폭 면, WY는 X폭 면
+    fxx.push({story:s,h:elev[s],qz,F:Fx}); fyy.push({story:s,h:elev[s],qz,F:Fy}); Vx+=Fx; Vy+=Fy;
+  }
+  return {V10,alpha,G,Cf,I,Vx,Vy,forcesX:fxx,forcesY:fyy};
+}
+
 /* ── 지진 工址 프리셋 (대만 건축물내진설계규범 113년판, 表2-6b 一般震區) ──
    설계 수평스펙트럼가속도계수 SDS(=S_S^D), SD1(=S_1^D). 全區所有里 단위만 수록.
    ⚠ 臺北盆地(表2-6a, 臺北一/二/三區) 행정구는 미분구 설계스펙트럼 別表 필요 → 미수록.
@@ -324,6 +354,7 @@ if(typeof window!=='undefined'){
     DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType,
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
-    effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES
+    effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,
+    WIND_EXPOSURE, windStoryForces
   };
 }
