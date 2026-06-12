@@ -2002,7 +2002,7 @@ const GUIDE = [
     { icon:'🏥', label:G('병원 8층','Hospital 8F','醫院 8 層'),          cmd:G('병원 8층 만들어','build 8 story hospital','建立 8 層醫院') },
     { div:true },
     { icon:'⊡', label:G('커스텀 골조','Custom frame','自訂構架'),        cmd:G('10층 4베이 골조 만들어','build 10 story 4 bay frame','建立 10 層 4跨x2 構架') },
-    { icon:'⚙', label:G('파라미터 입력','Parametric input','參數化輸入'), act:"setInputMode('param')" },
+    { icon:'⚙', label:G('파라미터 입력','Parametric input','參數化輸入'), act:"addParamCard()" },
     { note:G('편집 카드: 동수·층수·스팬·단면을 카드에서 바로 수정 · ⚙ 파라미터는 표를 직접 입력','Editable card: edit buildings, stories, span, section right in the card · ⚙ Parametric = fill the table directly','可編輯卡；棟數、樓層、跨距、斷面皆可於卡片直接修改 · ⚙ 參數化＝直接填寫表格') },
   ]},
   { id:'section', icon:'◫', open:true, label:G('단면 수정','Section','斷面修改'), items:[
@@ -2112,10 +2112,10 @@ function fgRow(g){
     <td style="text-align:center"><input class="fg-dia" type="checkbox" ${g.dia===false?'':'checked'} onchange="previewFromForm()"></td>
     <td><button class="btn btn-ghost" style="padding:2px 8px" onclick="this.closest('tr').remove();previewFromForm()">×</button></td></tr>`;
 }
-function fgAddRow(){ const tb=$('paramPane').querySelector('.fgtable tbody'); if(!tb)return;
+function fgAddRow(){ const tb=document.querySelector('.param-form-root .fgtable tbody'); if(!tb)return;
   tb.insertAdjacentHTML('beforeend', fgRow({role:'TYPICAL',from:1,to:1,h:3200,use:'Residential'})); previewFromForm(); }
 function readForm(){
-  const card=$('paramPane'); if(!card||!card.querySelector('[data-g="colH"]')) return null;
+  const card=document.querySelector('.param-form-root'); if(!card||!card.querySelector('[data-g="colH"]')) return null;
   const gv=k=>card.querySelector(`[data-g="${k}"]`).value;
   const groups=[...card.querySelectorAll('.fg-row')].map(r=>({role:r.querySelector('.fg-role').value,
     from:+r.querySelector('.fg-from').value,to:+r.querySelector('.fg-to').value,
@@ -2144,7 +2144,7 @@ function paramFormHTML(){
   const rows=FORM_GROUPS.map(fgRow).join('');
   return `<div class="param-status" id="paramStatus">${L3('파라미터를 입력하고 실행을 누르세요.','Set parameters and press Run.','設定參數後按執行。')}</div>
   <div class="plan-editor" style="border:none;padding-left:0">
-    <div class="pe-head" style="display:flex;align-items:center;gap:10px">⚙ <span style="color:var(--cyan);font-weight:700">${L3('파라미터 모델링 (표준층)','Parametric modeling (typical floor)','參數化建模（標準層）')}</span><span style="flex:1"></span><button class="btn btn-ghost" style="padding:3px 10px;font-size:.78rem" onclick="setInputMode('chat')">← ${L3('대화로','Conversation','對話')}</button></div>
+    <div class="pe-head" style="display:flex;align-items:center;gap:10px">⚙ <span style="color:var(--cyan);font-weight:700">${L3('파라미터 모델링 (표준층)','Parametric modeling (typical floor)','參數化建模（標準層）')}</span></div>
     <div class="pe-grid">
       ${gf('buildings',L3('동수','Buildings','棟數'),1)}${gf('bayX',L3('X베이','X bays','X 跨'),3)}
       ${gf('bayY',L3('Y베이','Y bays','Y 跨'),2)}${gf('spanX',L3('X스팬','X span','X 跨距'),6500,'mm')}
@@ -2167,10 +2167,14 @@ function paramFormHTML(){
     </div>
   </div>`;
 }
-function renderParamForm(){
-  $('paramPane').innerHTML=paramFormHTML();
+/* 파라미터 폼을 대화 카드로 띄움(대화창은 유지). 한 번에 하나만 활성화. */
+function addParamCard(){
+  document.querySelectorAll('.param-form-root').forEach(el=>{ const m=el.closest('.msg'); if(m) m.remove(); });
+  addMsg('bot', `<div class="param-form-root">${paramFormHTML()}</div>`);
   const sp=readForm(); if(sp){ pendingBuild=sp; tab('viewP'); previewSpec(sp); }
 }
+/* 구버전 호환: 외부 호출 흔적 대비 */
+function renderParamForm(){ addParamCard(); }
 
 function clearChat(){
   $('msgs').innerHTML='';
