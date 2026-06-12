@@ -1801,6 +1801,7 @@ async function onSend(){
   inp.value=''; inp.style.height='auto'; addMsg('user',escapeHtml(txt));
   $('sendBtn').disabled=true;
   try{ if(S.llm && $('provKey').value.trim()) await handleLLM(txt); else await handleLocal(txt); }
+  catch(e){ console.error(e); addMsg('bot', t('err', (e&&e.message)||String(e))); }
   finally{ $('sendBtn').disabled=false; inp.focus(); }
 }
 function escapeHtml(s){ return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
@@ -2353,6 +2354,13 @@ document.querySelectorAll('#langSel button').forEach(b=>b.classList.toggle('on',
 applyStatic();
 renderGuide(); renderModelState(); draw3D(); syncMode();
 addMsg('bot', t('welcome'));
+/* 엔진 로드 가드 — shared/rc_engine.js 미로드 시 침묵 실패 대신 명확히 안내 */
+if(typeof window.RCEngine==='undefined' || typeof buildFrame!=='function'){
+  addMsg('bot', '⚠ '+L3(
+    '공용 엔진(shared/rc_engine.js)이 로드되지 않았습니다. ① 이 HTML과 같은 위치에 shared/rc_engine.js 폴더·파일이 있는지 확인하고 ② 브라우저를 강력 새로고침(Ctrl+Shift+R) 하세요. (단독 HTML만 열면 동작하지 않습니다.)',
+    'The shared engine (shared/rc_engine.js) failed to load. Ensure shared/rc_engine.js sits next to this HTML, and hard-refresh (Ctrl+Shift+R). Opening the HTML alone will not work.',
+    '共用引擎 (shared/rc_engine.js) 未載入。請確認 shared/rc_engine.js 與此 HTML 同層，並強制重新整理 (Ctrl+Shift+R)。'));
+}
 </script>
 </body>
 </html>
