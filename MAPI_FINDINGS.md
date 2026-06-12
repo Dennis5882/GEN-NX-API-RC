@@ -31,15 +31,24 @@
 
 → **동적해석(M2-A4)은 API 차단이 아니라, 우리가 스키마를 안 보고 추측한 것이 원인.** 구현 가능.
 
-### 추측 vs 실제 (정정표)
+### 추측 vs 실제 (정정표) — **2026-06-13 라이브 키로 실검증 완료**
 
 | 이전 추측 | 실제 URI | 페이지 | 상태 |
 |---|---|---|---|
-| `db/eigv` | **`db/EIGV`** | Eigenvalue Analysis Control | 📖 문서화 |
-| `db/seis` | **`db/POSL`** | Parameter of Seismic Loads | 📖 문서화 (이름 오추측) |
-| `db/spfc` | **`db/SPFC`** | Response Spectrum Functions (대만 포함) | 📖 문서화 |
-| `db/splc` | **`db/SPLC`** | Response Spectrum Load Cases | 📖 문서화 |
-| `db/wind` | `WIND` (json 명령) | Wind Loads (User Type) — **GrassHopper 매뉴얼엔 존재**, JSON REST 매뉴얼만 누락 | 기능 실재(문서 gap) |
+| `db/eigv` | **`db/EIGV`** | Eigenvalue Analysis Control | ✅ 라이브 201 (POST+GET) |
+| `db/seis` | **`db/POSL`** | Parameter of Seismic Loads | ✅ 라이브 201 (이름 오추측) |
+| `db/spfc` | **`db/SPFC`** | Response Spectrum Functions (대만 포함) | ✅ 라이브 201 |
+| `db/splc` | **`db/SPLC`** | Response Spectrum Load Cases | ✅ 라이브 201 |
+| `db/wind` | **`db/WIND`** | Wind Loads (User Type) — JSON REST 매뉴얼만 누락 | ⚠️ 엔드포인트 실재(GET 200), 필드 스키마 미문서 |
+
+**라이브 검증 메모 (Gen NX 연결, 단위 kN·m):**
+- `db/EIGV`: `{"TYPE":"EIGEN","iFREQ":10,"iITER":20,"iDIM":1,"TOL":1e-10,"bMINMAX":false,"FRMIN":0,"FRMAX":0,"bSTRUM":false}` → 201. **이전 실패는 `TYPE` 누락이 원인**(라이브 확정).
+- `db/POSL`: `{"NAME","METHOD":"EQV_STATIC","SZ","EPA","SC","FA","FV","SDS","SD1","IF","RMF"}` → 201.
+- `db/SPFC`: `{"NAME","iTYPE","iMETHOD","SCALE","GRAV","DRATIO","DESC","aFUNC":[{"PERIOD","VALUE"}]}` → 201. (추측한 `iGRAV/DAMPRATIO`는 틀림 → 실제 `GRAV/DRATIO`)
+- `db/SPLC`: `{"NAME","DIR":"XY","ANGLE","SCALE","PMFT","bDAMP","INTERP":"LOG","COMTYPE":"CQC","bADDSIGN","iSIGNTYPE","bMODE":false,"aFUNCNAME":["<SPFC name>"]}` → 201.
+  - **주의**: `bMODE:true`면 `aUSEMODE`(모드 목록) 필요 → 없으면 "Unknown Error". 전체 모드는 `bMODE:false`.
+  - SPFC를 `aFUNCNAME`으로 참조(필드명 "FUNCTION" 아님). 모달조합은 `COMTYPE`(CQC/SRSS).
+- `db/WIND`: GET 200(빈 상태), POST `{}` → "Wrong Field" = **엔드포인트 실재, 필드 필요**. JSON REST 필드 스키마 미문서(GrassHopper만 존재) → 도출 필요.
 
 ---
 
