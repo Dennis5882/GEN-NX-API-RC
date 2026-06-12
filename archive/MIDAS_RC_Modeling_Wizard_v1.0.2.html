@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MIDAS RC Modeling Wizard v2.3.0</title>
-<script src="shared/rc_engine.js"></script>
+<title>MIDAS RC Modeling Wizard v1.0.2</title>
 <style>
   :root{--bg:#0e1116;--panel:#171c24;--panel2:#1e242e;--line:#2a323d;--text:#e6edf3;
     --muted:#9aa7b4;--accent:#4cc2ff;--ok:#7ee787;--warn:#ffd33d;--err:#ff7b72}
@@ -72,7 +71,7 @@
       <button data-lang="ko" id="lko">한국어</button>
       <button data-lang="en" id="len">EN</button>
     </div>
-    <span class="v">v2.3.0</span>
+    <span class="v">v1.0.2</span>
   </div>
   <h1>🏗️ MIDAS RC Modeling Wizard</h1>
   <div class="sub" data-i18n="subtitle"></div>
@@ -132,28 +131,6 @@
       <legend data-i18n="sec5"></legend>
       <label><input type="checkbox" id="optCombo" checked style="width:auto"/> <span data-i18n="optCombo"></span></label>
       <label><input type="checkbox" id="optBase" checked style="width:auto"/> <span data-i18n="optBase"></span></label>
-      <label><input type="checkbox" id="optCore" style="width:auto"/> <span data-i18n="optCore"></span>
-        <input id="coreThick" type="number" value="250" min="100" step="10" style="width:72px;margin-left:6px"/> mm</label>
-    </fieldset>
-
-    <fieldset>
-      <legend data-i18n="sec6"></legend>
-      <label><input type="checkbox" id="optSeis" style="width:auto"/> <span data-i18n="seisOn"></span></label>
-      <div class="row r3" style="margin-top:6px">
-        <div><label data-i18n="seisRegion"></label><select id="seis_region"></select></div>
-        <div><label>SDS</label><input id="seis_SDS" type="number" step="any" value="0.6"/></div>
-        <div><label>SD1</label><input id="seis_SD1" type="number" step="any" value="0.35"/></div>
-      </div>
-      <div class="row r2">
-        <div><label>I <span data-i18n="seisI"></span></label><input id="seis_I" type="number" step="any" value="1.0"/></div>
-        <div><label>R <span data-i18n="seisR"></span></label><input id="seis_R" type="number" step="any" value="4.5"/></div>
-      </div>
-      <label style="margin-top:12px"><input type="checkbox" id="optWind" style="width:auto"/> <span data-i18n="windOn"></span></label>
-      <div class="row r2" style="margin-top:6px">
-        <div><label data-i18n="windV10"></label><input id="wind_V10" type="number" step="any" value="42.5"/></div>
-        <div><label data-i18n="windExp"></label><select id="wind_exp"><option value="A">A</option><option value="B" selected>B</option><option value="C">C</option></select></div>
-      </div>
-      <div class="hint" data-i18n="latHint"></div>
     </fieldset>
 
     <div class="actions">
@@ -216,10 +193,6 @@ const LANG = {
     thName:"이름", thRole:"역할", thStart:"시작층", thEnd:"끝층", thHt:"층고m", thUse:"용도(하중)", thDia:"다이어프램",
     addRow:"+ 층 그룹 추가", floorHint:"역할 기단부/전이층/지붕/지하 는 특수층(보통 단일층).",
     sec5:"5. 옵션", optCombo:"대만 하중조합 자동 생성 (TWD-USD112)", optBase:"최하단 고정 지지 자동 부여",
-    optCore:"중앙 전단벽 코어 (PLATE, 전층)",
-    sec6:"6. 횡하중 (지진·풍)", seisOn:"지진 等效靜力 적용 (TWD 耐震)", seisRegion:"지역(工址)",
-    seisI:"用途係數", seisR:"系統係數", windOn:"풍하중 적용 (간이 정적풍)", windV10:"기본풍속 V10 (m/s)", windExp:"地況",
-    latHint:"지진 EX·EY / 풍 WX·WY 를 층력으로 절점 분배(CNLD) → cLCB4~7 자동. M·KN 단위 권장.",
     btnPreview:"미리보기 (드라이런)", btnGo:"▶ MIDAS Gen NX에 생성",
     goHint:"⚠️ 생성하려면 MIDAS Gen NX가 실행 중이어야 합니다. 현재 문서를 새로 만들고(/doc/new) 채웁니다.",
     view3dTitle:"3D 미리보기",
@@ -227,7 +200,7 @@ const LANG = {
  summary:"전개 요약", stFloors:"자연층", stNodes:"절점", stElems:"부재", stDia:"다이어프램", stLoads:"바닥하중", stCombo:"하중조합",
     opsTitle:"API 연산", logTitle:"실행 로그",
     role_TYPICAL:"표준층", role_PODIUM:"기단부", role_TRANSFER:"전이층", role_ROOF:"지붕", role_BASEMENT:"지하",
-    use_Residential:"주거", use_Office:"사무", use_Commercial:"상업", use_School:"학교", use_Hospital:"병원", use_Equipment:"설비", use_Roof:"지붕",
+    use_Residential:"주거", use_Office:"사무", use_Commercial:"상업", use_Roof:"지붕",
     gridInfo:"통경선 X: 1~{nx} ({nx}개) · Y: A~{yl} ({ny}개) · 폭 {w}m × 깊이 {d}m",
     prompt:"미리보기 또는 생성을 눌러주세요.", dryrun:"드라이런: 전송 없이 연산만 계산했습니다.",
     inputErr:"입력 오류: ", needKey:"MAPI-Key를 입력하세요.", starting:"시작…",
@@ -245,10 +218,6 @@ const LANG = {
     thName:"Name", thRole:"Role", thStart:"Start", thEnd:"End", thHt:"Ht(m)", thUse:"Use (Load)", thDia:"Diaphragm",
     addRow:"+ Add floor group", floorHint:"Roles Podium/Transfer/Roof/Basement are special floors (usually single).",
     sec5:"5. Options", optCombo:"Auto-generate Taiwan load combinations (TWD-USD112)", optBase:"Auto-add fixed supports at base",
-    optCore:"Central shear-wall core (PLATE, full height)",
-    sec6:"6. Lateral loads (Seismic·Wind)", seisOn:"Apply equivalent-static seismic (TWD)", seisRegion:"Site",
-    seisI:"importance", seisR:"system", windOn:"Apply wind (simplified static)", windV10:"Wind V10 (m/s)", windExp:"Exposure",
-    latHint:"Seismic EX·EY / Wind WX·WY distributed to nodes (CNLD) → cLCB4–7 auto. Use M·KN units.",
     btnPreview:"Preview (dry run)", btnGo:"▶ Generate in MIDAS Gen NX",
     goHint:"⚠️ MIDAS Gen NX must be running. A new document (/doc/new) is created and populated.",
     view3dTitle:"3D Preview",
@@ -256,7 +225,7 @@ const LANG = {
  summary:"Expansion Summary", stFloors:"Stories", stNodes:"Nodes", stElems:"Elements", stDia:"Diaphragms", stLoads:"Floor Loads", stCombo:"Combinations",
     opsTitle:"API Calls", logTitle:"Execution Log",
     role_TYPICAL:"Typical", role_PODIUM:"Podium", role_TRANSFER:"Transfer", role_ROOF:"Roof", role_BASEMENT:"Basement",
-    use_Residential:"Residential", use_Office:"Office", use_Commercial:"Commercial", use_School:"School", use_Hospital:"Hospital", use_Equipment:"Equipment", use_Roof:"Roof",
+    use_Residential:"Residential", use_Office:"Office", use_Commercial:"Commercial", use_Roof:"Roof",
     gridInfo:"Gridlines X: 1–{nx} ({nx}) · Y: A–{yl} ({ny}) · Width {w}m × Depth {d}m",
     prompt:"Click Preview or Generate.", dryrun:"Dry run: computed calls without sending.",
     inputErr:"Input error: ", needKey:"Please enter the MAPI-Key.", starting:"Starting…",
@@ -274,10 +243,6 @@ const LANG = {
     thName:"名稱", thRole:"類型", thStart:"起始層", thEnd:"結束層", thHt:"層高m", thUse:"用途(載重)", thDia:"剛性樓板",
     addRow:"+ 新增樓層群組", floorHint:"類型 裙樓/轉換層/屋頂/地下室 為特殊層（通常為單層）。",
     sec5:"5. 選項", optCombo:"自動產生台灣載重組合 (TWD-USD112)", optBase:"底層自動加入固定支承",
-    optCore:"中央剪力牆核心 (PLATE, 全高)",
-    sec6:"6. 橫向載重 (地震·風)", seisOn:"套用等效靜力地震 (TWD 耐震)", seisRegion:"工址",
-    seisI:"用途係數", seisR:"系統係數", windOn:"套用風力 (簡化靜風)", windV10:"基本風速 V10 (m/s)", windExp:"地況",
-    latHint:"地震 EX·EY / 風 WX·WY 以樓層力分配至節點(CNLD) → cLCB4~7 自動。建議 M·KN 單位。",
     btnPreview:"預覽 (試算)", btnGo:"▶ 在 MIDAS Gen NX 建立",
     goHint:"⚠️ 須先開啟 MIDAS Gen NX。將新建文件 (/doc/new) 並填入模型。",
     view3dTitle:"3D 預覽",
@@ -285,7 +250,7 @@ const LANG = {
  summary:"展開摘要", stFloors:"自然層", stNodes:"節點", stElems:"構材", stDia:"剛性樓板", stLoads:"樓板載重", stCombo:"載重組合",
     opsTitle:"API 指令", logTitle:"執行紀錄",
     role_TYPICAL:"標準層", role_PODIUM:"裙樓", role_TRANSFER:"轉換層", role_ROOF:"屋頂層", role_BASEMENT:"地下室",
-    use_Residential:"住宅", use_Office:"辦公室", use_Commercial:"商業", use_School:"學校", use_Hospital:"醫院", use_Equipment:"設備", use_Roof:"屋頂",
+    use_Residential:"住宅", use_Office:"辦公室", use_Commercial:"商業", use_Roof:"屋頂",
     gridInfo:"軸線 X：1–{nx}（{nx} 條）· Y：A–{yl}（{ny} 條）· 寬 {w}m × 深 {d}m",
     prompt:"請按 預覽 或 建立。", dryrun:"試算：僅計算指令，未送出。",
     inputErr:"輸入錯誤：", needKey:"請輸入 MAPI-Key。", starting:"開始…",
@@ -330,20 +295,14 @@ let UNIT = "TONF";
 $("uT").onclick = () => setUnit("TONF"); $("uK").onclick = () => setUnit("KN");
 function setUnit(u){ UNIT=u; $("uT").classList.toggle("active",u==="TONF"); $("uK").classList.toggle("active",u==="KN"); }
 
-/* ───────────────── 공용엔진 합류 (shared/rc_engine.js) ─────────────────
-   재료·역할·용도·바닥하중 프리셋·하중조합을 엔진과 단일화(단일 진실원천).
-   Wizard 고유 지오메트리(PLATE 슬래브·fbla)는 그대로 유지. */
-const ENG = window.RCEngine;
-if(!ENG){ alert("shared/rc_engine.js 로드 실패 — 같은 폴더에 있는지 확인하세요."); throw new Error("RCEngine missing"); }
-/* 엔진 FLOOR_USE(kN/㎡, {sdl,live,liveVal}) → Wizard PRESETS({items:[[lc,val]]}) 어댑터.
-   live 'LL'→'L', 'LR'→'LR'. 7개 용도(住宅/辦公/商場/學校/醫院/設備/屋頂)로 일원화. */
-function presetItems(use){
-  const u = ENG.FLOOR_USE[use] || ENG.FLOOR_USE.Residential;
-  return [["D", u.sdl], [u.live==="LR"?"LR":"L", u.liveVal]];
-}
-const PRESETS = {};
-ENG.FG_USES.forEach(u => { PRESETS[u] = {items: presetItems(u)}; });
-const ROLES = ENG.FG_ROLES;
+/* ───────────────── 용도별 바닥하중 프리셋 (D, L, LR) ───────────────── */
+const PRESETS = {
+  "Residential":{items:[["D",1.5],["L",2.0]]},
+  "Office":     {items:[["D",1.5],["L",3.0]]},
+  "Commercial": {items:[["D",2.0],["L",5.0]]},
+  "Roof":       {items:[["D",2.5],["LR",1.0]]},
+};
+const ROLES = ["TYPICAL","PODIUM","TRANSFER","ROOF","BASEMENT"];
 
 const defaultFloors = [
   {name:"PODIUM", role:"PODIUM",  start:1, end:2,  h:4.5, use:"Commercial",  dia:true},
@@ -385,14 +344,7 @@ function readModel(){
       start:+tr.querySelector(".c-start").value, end:+tr.querySelector(".c-end").value,
       h:+tr.querySelector(".c-h").value, use:tr.querySelector(".c-use").value, dia:tr.querySelector(".c-dia").checked});
   });
-  const core={on:$("optCore").checked, thick:(+$("coreThick").value||250)};
-  const seismic={on:$("optSeis").checked};
-  ["SDS","SD1","I","R"].forEach(k=>{ const e=$("seis_"+k); if(e&&e.value!=="") seismic[k]=parseFloat(e.value); });
-  const wind={on:$("optWind").checked};
-  { const e=$("wind_V10"); if(e&&e.value!=="") wind.V10=parseFloat(e.value); }
-  { const e=$("wind_exp"); if(e) wind.exposure=e.value; }
-  if(seismic.I!=null) wind.I=seismic.I;   // 用途係數 공유
-  return {xc, yc, fc, sect, floors, combo:$("optCombo").checked, base:$("optBase").checked, core, seismic, wind};
+  return {xc, yc, fc, sect, floors, combo:$("optCombo").checked, base:$("optBase").checked};
 }
 
 /* ───────────────── 전개기 (Python 코어와 동일 규약) ───────────────── */
@@ -421,58 +373,22 @@ function expand(m){
       fbla[faid++]={FLOOR_LOAD_TYPE_NAME:f.use,FLOOR_DIST_TYPE:2,DIR:"GZ",NODES:corners.map(([x,y])=>N(x,y,zt)),GROUP_NAME:""};
     }
   }
-  // 中央剪力牆核心 (PLATE, SECT:2=벽 THIK) — 평면 중앙 1베이 4면, 전층. 그리드 정렬·절점 재사용.
-  let hasWall=false;
-  if(m.core && m.core.on && m.xc.length>=2 && m.yc.length>=2){
-    const nbx=m.xc.length-1, nby=m.yc.length-1;
-    const bx=Math.max(0,Math.floor((nbx-1)/2)), by=Math.max(0,Math.floor((nby-1)/2));
-    const x0=m.xc[bx], x1=m.xc[bx+1], y0=m.yc[by], y1=m.yc[by+1];
-    const edges=[[x0,y0,x1,y0],[x0,y1,x1,y1],[x0,y0,x0,y1],[x1,y0,x1,y1]];
-    for(const s of stories){ const [zb,zt]=levels[s];
-      edges.forEach(([ex0,ey0,ex1,ey1])=>{ elems[eid++]={TYPE:"PLATE",MATL:1,SECT:2,
-        NODE:[N(ex0,ey0,zb),N(ex1,ey1,zb),N(ex1,ey1,zt),N(ex0,ey0,zt)],STYPE:1,ANGLE:0}; });
-    }
-    hasWall=true;
-  }
   const byZ={}; for(const id in nodes){const z=nodes[id][2].toFixed(6); (byZ[z]=byZ[z]||[]).push(+id);}
   const wantDia={}; for(const f of m.floors){ for(let s=f.start;s<=f.end;s++) wantDia[levels[s][1].toFixed(6)]=f.dia; }
   const rigd={}; let rid=1;
   for(const z in wantDia){ if(!wantDia[z])continue; const ns=(byZ[z]||[]).sort((a,b)=>a-b);
     if(ns.length>=2) rigd[ns[0]]={ITEMS:[{ID:rid++,GROUP_NAME:"",DOF:110001,S_NODE:ns.slice(1)}]}; }
   const baseNodes = m.base ? Object.keys(nodes).filter(id=>nodes[id][2].toFixed(6)==="0.000000").map(Number) : [];
-  return {nodes, elems, rigd, fbla, baseNodes, usedTypes:[...usedTypes], stories, levels, hasWall};
+  return {nodes, elems, rigd, fbla, baseNodes, usedTypes:[...usedTypes], stories, levels};
 }
 
-/* 하중조합 — 엔진 taiwanCombos(loadCases) 위임. 사용된 용도에서 D/L/LR 추출 →
-   엔진이 cLCB1~3(현 Wizard는 지진·풍 미적용) 생성. 향후 E/W 추가 시 cLCB4~7 자동 확장. */
-function taiwanCombos(usedTypes, extra){
-  const types=new Set();
-  usedTypes.forEach(u=>(PRESETS[u]?PRESETS[u].items:[]).forEach(([lc])=>types.add(lc==="LR"?"LR":(lc==="L"?"L":"D"))));
-  const lcs=[];
-  if(types.has("D"))  lcs.push({name:"D", type:"D"});
-  if(types.has("L"))  lcs.push({name:"L", type:"L"});
-  if(types.has("LR")) lcs.push({name:"LR",type:"LR"});
-  (extra||[]).forEach(e=>lcs.push(e));   // 橫向(E/W) 케이스 → cLCB4~7 자동
-  return ENG.taiwanCombos(lcs);
-}
-/* 지진 工址 프리셋 드롭다운 채우기 + 선택 시 SDS/SD1 자동 입력 */
-function populateSeisRegion(){
-  const sel=$("seis_region"); if(!sel||!ENG.SEISMIC_ZONES) return;
-  sel.innerHTML='<option value="">'+t("seisRegion")+'…</option>'+
-    ENG.SEISMIC_ZONES.map((z,i)=>`<option value="${i}">${z.city} ${z.dist} · SDS ${z.SDS}</option>`).join('');
-  sel.onchange=()=>{ const z=ENG.SEISMIC_ZONES[+sel.value]; if(!z) return;
-    $("seis_SDS").value=z.SDS; if(z.SD1!=null) $("seis_SD1").value=z.SD1; preview(true); };
-}
-/* Wizard 모델(m, M단위) → 엔진 spec(mm) 변환 — 지진/풍 함수 입력용 */
-function wizSpec(m){
-  const sx=[],sy=[];
-  for(let i=1;i<m.xc.length;i++) sx.push((m.xc[i]-m.xc[i-1])*1000);
-  for(let i=1;i<m.yc.length;i++) sy.push((m.yc[i]-m.yc[i-1])*1000);
-  const stories=Math.max(1,...m.floors.map(f=>f.end));
-  const groups=m.floors.map(f=>({role:f.role,from:f.start,to:f.end,h:f.h*1000,use:f.use,dia:f.dia}));
-  const typ=m.floors.find(f=>f.role==='TYPICAL')||m.floors[m.floors.length-1];
-  return {buildings:1,spanX:sx,spanY:sy,bayX:sx.length,bayY:sy.length,stories,groups,
-          h1:m.floors[0].h*1000,hTyp:typ.h*1000};
+function taiwanCombos(usedTypes){
+  const has=t2=>usedTypes.some(u=>PRESETS[u].items.some(([n])=>n===t2));
+  const D=has("D"), L=has("L"), LR=has("LR"); const c=[]; if(!D) return c;
+  c.push({name:"cLCB1",desc:"1.4D",terms:[["D",1.4]]});
+  c.push({name:"cLCB2",desc:"1.2D+1.6L+0.5Lr",terms:[["D",1.2],...(L?[["L",1.6]]:[]),...(LR?[["LR",0.5]]:[])]});
+  if(LR) c.push({name:"cLCB3",desc:"1.2D+1.6Lr+1.0L",terms:[["D",1.2],["LR",1.6],...(L?[["L",1.0]]:[])]});
+  return c;
 }
 
 function buildOps(m, ex){
@@ -483,9 +399,7 @@ function buildOps(m, ex){
   push("POST","/db/sect",{Assign:{
     1:{SECTTYPE:"DBUSER",SECT_NAME:"COL",SECT_BEFORE:{USE_SHEAR_DEFORM:true,SHAPE:"SB",DATATYPE:2,SECT_I:{vSIZE:[m.sect.ch,m.sect.cb]}}},
     2:{SECTTYPE:"DBUSER",SECT_NAME:"BEAM",SECT_BEFORE:{USE_SHEAR_DEFORM:true,SHAPE:"SB",DATATYPE:2,SECT_I:{vSIZE:[m.sect.bh,m.sect.bb]}}}}});
-  const thik={1:{NAME:"SLAB",TYPE:"VALUE",bINOUT:false,T_IN:m.sect.slab,T_OUT:0,O_VALUE:0}};
-  if(ex.hasWall) thik[2]={NAME:"WALL",TYPE:"VALUE",bINOUT:false,T_IN:(m.core.thick/1000),T_OUT:0,O_VALUE:0};
-  push("POST","/db/thik",{Assign:thik});
+  push("POST","/db/thik",{Assign:{1:{NAME:"SLAB",TYPE:"VALUE",bINOUT:false,T_IN:m.sect.slab,T_OUT:0,O_VALUE:0}}});
   push("POST","/db/stld",{Assign:{1:{NAME:"D",TYPE:"D",DESC:"Dead"},2:{NAME:"L",TYPE:"L",DESC:"Live"},3:{NAME:"LR",TYPE:"LR",DESC:"Roof"}}});
   const fbld={}; ex.usedTypes.forEach((tp,i)=>{ fbld[i+1]={NAME:tp,DESC:"",ITEM:PRESETS[tp].items.map(([lc,v])=>({LCNAME:lc,FLOOR_LOAD:v,OPT_SUB_BEAM_WEIGHT:true}))}; });
   push("POST","/db/fbld",{Assign:fbld});
@@ -496,35 +410,7 @@ function buildOps(m, ex){
   push("POST","/db/bodf",{Assign:{1:{LCNAME:"D",FV:[0,0,-1]}}});
   if(Object.keys(ex.fbla).length) push("POST","/db/fbla",{Assign:ex.fbla});
   if(ex.baseNodes.length){ const c={}; ex.baseNodes.forEach(n=>c[n]={ITEMS:[{ID:1,CONSTRAINT:"1111111"}]}); push("POST","/db/cons",{Assign:c}); }
-  /* ── 橫向載重 (地震 EX/EY + 風 WX/WY) — 공용엔진 사용, 층력 절점 균등분배(CNLD).
-     힘은 FORCE 기준값(kN) — 중력 FLOOR_LOAD 와 동일 기준(M·KN 권장). ── */
-  const latLC=[]; const cnld={}; let lno=4;
-  const pushCN=(nid,it)=>{(cnld[nid]=cnld[nid]||[]).push(it);};
-  const byZ={}; for(const id in ex.nodes){ const z=+ex.nodes[id][2].toFixed(3); (byZ[z]=byZ[z]||[]).push(+id); }
-  const spec=wizSpec(m);
-  if(m.seismic && m.seismic.on){
-    const r=ENG.seismicStoryForces(spec,m.seismic);
-    latLC.push({no:lno++,name:"EX",type:"E"},{no:lno++,name:"EY",type:"E"});
-    r.forces.forEach(fcst=>{ const zt=+(fcst.h/1000).toFixed(3); const ns=byZ[zt]||[];
-      if(!ns.length||!fcst.F) return; const per=fcst.F/ns.length;
-      ns.forEach(nid=>{ pushCN(nid,{LCNAME:"EX",FX:per,FY:0}); pushCN(nid,{LCNAME:"EY",FX:0,FY:per}); }); });
-  }
-  if(m.wind && m.wind.on){
-    const r=ENG.windStoryForces(spec,m.wind);
-    latLC.push({no:lno++,name:"WX",type:"W"},{no:lno++,name:"WY",type:"W"});
-    for(let i=0;i<r.forcesX.length;i++){ const fx=r.forcesX[i], fy=r.forcesY[i];
-      const zt=+(fx.h/1000).toFixed(3); const ns=byZ[zt]||[]; if(!ns.length) continue;
-      const px=fx.F/ns.length, py=fy.F/ns.length;
-      ns.forEach(nid=>{ pushCN(nid,{LCNAME:"WX",FX:px,FY:0}); pushCN(nid,{LCNAME:"WY",FX:0,FY:py}); }); }
-  }
-  if(latLC.length){
-    const sl={}; latLC.forEach(l=>sl[l.no]={NAME:l.name,TYPE:l.type,DESC:""});
-    push("POST","/db/stld",{Assign:sl});
-    const ca={}; for(const nid in cnld){ ca[nid]={ITEMS:cnld[nid].map((it,i)=>(
-      {ID:i+1,LCNAME:it.LCNAME,GROUP_NAME:"",FX:it.FX||0,FY:it.FY||0,FZ:0,MX:0,MY:0,MZ:0}))}; }
-    push("POST","/db/cnld",{Assign:ca});
-  }
-  if(m.combo){ const combos=taiwanCombos(ex.usedTypes, latLC.map(l=>({name:l.name,type:l.type})));
+  if(m.combo){ const combos=taiwanCombos(ex.usedTypes);
     if(combos.length){ const a={}; combos.forEach((cb,i)=>a[i+1]={NAME:cb.name,ACTIVE:"ACTIVE",iTYPE:0,DESC:cb.desc,
       vCOMB:cb.terms.map(([lc,f])=>({ANAL:"ST",LCNAME:lc,FACTOR:f}))}); push("POST","/db/lcom-gen",{Assign:a}); } }
   return ops;
@@ -551,21 +437,11 @@ function buildScene(m, ex){
       slabs.push({pts:[[xc[i],yc[j],zt],[xc[i+1],yc[j],zt],[xc[i+1],yc[j+1],zt],[xc[i],yc[j+1],zt]],c});
   }
   for(const id of ex.baseNodes){const p=ex.nodes[id]; sups.push([p[0],p[1],p[2]]);}
-  // 中央剪力牆 패널 (expand 와 동일 중앙 1베이)
-  const walls=[];
-  if(m.core && m.core.on && xc.length>=2 && yc.length>=2){
-    const nbx=xc.length-1, nby=yc.length-1;
-    const bx=Math.max(0,Math.floor((nbx-1)/2)), by=Math.max(0,Math.floor((nby-1)/2));
-    const x0=xc[bx],x1=xc[bx+1],y0=yc[by],y1=yc[by+1];
-    const ed=[[x0,y0,x1,y0],[x0,y1,x1,y1],[x0,y0,x0,y1],[x1,y0,x1,y1]];
-    for(const st of stories){ const [zb,zt]=ex.levels[st];
-      ed.forEach(([a,b,c2,d])=>walls.push({pts:[[a,b,zb],[c2,d,zb],[c2,d,zt],[a,b,zt]]})); }
-  }
   const totalH = stories.length ? ex.levels[stories[stories.length-1]][1] : 1;
   const cx=(xc[0]+xc[xc.length-1])/2, cy=(yc[0]+yc[yc.length-1])/2, cz=totalH/2;
   const spanX=xc[xc.length-1]-xc[0], spanY=yc[yc.length-1]-yc[0];
   const radius=0.5*Math.sqrt(spanX*spanX+spanY*spanY+totalH*totalH)||1;
-  return {cols,beams,slabs,sups,walls,cx,cy,cz,radius,roles:[...new Set(Object.values(roleOf))]};
+  return {cols,beams,slabs,sups,cx,cy,cz,radius,roles:[...new Set(Object.values(roleOf))]};
 }
 
 function project(p){
@@ -594,10 +470,6 @@ function render(){
   if(view.show.slab) for(const sl of SCENE.slabs){ ctx.beginPath();
     sl.pts.forEach((p,i)=>{const t=TX(p); i?ctx.lineTo(t[0],t[1]):ctx.moveTo(t[0],t[1]);});
     ctx.closePath(); ctx.fillStyle=hexA(sl.c,0.07); ctx.fill(); }
-  if(SCENE.walls) for(const w of SCENE.walls){ ctx.beginPath();
-    w.pts.forEach((p,i)=>{const t=TX(p); i?ctx.lineTo(t[0],t[1]):ctx.moveTo(t[0],t[1]);});
-    ctx.closePath(); ctx.fillStyle="rgba(155,140,255,0.22)"; ctx.fill();
-    ctx.strokeStyle="rgba(155,140,255,0.6)"; ctx.lineWidth=1; ctx.stroke(); }
   if(view.show.beam) batch(SCENE.beams,0.55,1);
   if(view.show.col)  batch(SCENE.cols,0.85,1.4);
   if(view.show.sup){ ctx.fillStyle="#ffd33d"; for(const p of SCENE.sups){const t=TX(p);
@@ -699,7 +571,6 @@ updateEffUrl();
   window.addEventListener("resize",()=>render());
 })();
 
-populateSeisRegion();
 applyLang();   // 언어 적용 + 초기 미리보기 (preview→buildScene→render)
 </script>
 </body>

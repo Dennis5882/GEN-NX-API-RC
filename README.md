@@ -14,7 +14,7 @@
 
 | | 무엇 | 진입점 |
 |---|---|---|
-| **① 웹앱(주력)** | 대화형 Agent + 폼 Wizard, 공용 엔진 공유 | `gen_nx_rc_agent_v2.9.0.html` · `MIDAS_RC_Modeling_Wizard_v2.3.0.html` |
+| **① 웹앱(주력)** | 대화형 Agent + 폼 Wizard, 공용 엔진 공유 | `gen_nx_rc_agent.html` · `MIDAS_RC_Modeling_Wizard.html` |
 | ② Python 코어 | 최초 도메인 엔진(M1/M1.5), 순수 Python | `midas_story/` |
 
 웹앱과 Python 코어는 같은 도메인 규약(표준층 전개·대만 규격)을 공유한다.
@@ -25,12 +25,12 @@
 ## ① 웹앱 사용법
 
 ### 가장 쉬운 방법 — 단일 파일
-**`gen_nx_rc_agent_v2.9.0_standalone.html`** 하나만 받으면 된다(엔진 내장, `shared/` 폴더 불필요).
+**`gen_nx_rc_agent_standalone.html`** 하나만 받으면 된다(엔진 내장, `shared/` 폴더 불필요).
 브라우저로 열기 → ⚙에서 **MAPI-Key 입력** → **로컬 Gen NX 실행** → 자연어/메뉴로 명령.
 > 인터넷 필요: MIDAS API + Plotly(3D, CDN). 오프라인이면 3D 미리보기만 빠지고 빌드·배근·DXF는 동작.
 
 ### 분할형(개발·배포)
-`gen_nx_rc_agent_v2.9.0.html` + `shared/rc_engine.js`(같은 위치) + `index.html`(루트 리다이렉트).
+`gen_nx_rc_agent.html` + `shared/rc_engine.js`(같은 위치) + `index.html`(루트 리다이렉트).
 Vercel 등 정적 호스팅에 리포 그대로 올리면 됨(빌드 없음). `index.html`이 에이전트로 리다이렉트.
 
 ### 할 수 있는 것
