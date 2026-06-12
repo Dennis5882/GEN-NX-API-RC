@@ -16,9 +16,12 @@ API 전수조사(공식 매뉴얼 + 라이브 Gen/Civil 검증, [MAPI_FINDINGS.m
   **제품 가드**: program≠gen이면 경고(이 도구는 Gen NX 전용). 'client does not exist' 사전 차단.
 - **결과회수 정교화**(Track D) — `fetchTable`에 `UNIT:{FORCE:'N',DIST:'MM'}` 명시 →
   모델 전역 단위 상태와 무관하게 항상 N·mm로 회수(견고성↑). 케이스명 접미사 (CB)/(ST)는 기존 유지.
-- **네이티브 지진/풍(Track C)** — `db/POSL`(지진 파라미터)은 스키마 수용 확인했으나 Taiwan CODE/강제력
-  생성은 실모델 검증 필요, `db/WIND`는 JSON-REST 필드 스키마 미공개(추측 도출 실패)로 **보류**.
-  → 현행 **자체계산 지진(等效靜力)·풍(층별 정적풍) 유지**(MIDAS 공식 플러그인과 동일 패턴, MAPI_FINDINGS C-2).
+- **네이티브 지진/풍(Track C) — 실모델 검증 종결**: 미니 2층 RC 프레임으로 라이브 검증한 결과,
+  `db/POSL`은 건물 지진 파라미터를 **저장만** 하고 **강제력을 생성하지 않음**(해석 후 반력 ΣFX=ΣFY=0,
+  방향 필드 없음). `db/WIND`은 필드 스키마 미공개. → **정적 횡하중 "생성"은 GUI/플러그인 레이어 기능으로
+  REST 미노출 확정.** 동적해석(고유치·응답스펙트럼)은 솔버 계산형이라 동작(Track B). 따라서
+  **자체계산 지진(等效靜力)·풍 → `db/CNLD` 투입이 유일·정석 경로임이 실증됨**(MAPI_FINDINGS C++).
+  부가: **`db/NMAS`는 Gen NX 하드 크래시(3/3) → `db/styp`+`db/LTOM` 사용**. 반력=`REACTIONG`, 구속=7자리.
 - **검증** — rc_engine.js·agent·standalone 파싱 OK(mini-racer), twDesignSpectrum 수치 정합 확인.
   **안정판 v1.1.9(M1.7)는 불변** — 본 작업은 최신 실험판(`gen_nx_rc_agent.html` v2.10.0)에만 반영.
 
