@@ -1,98 +1,80 @@
-# midas_story — 스토리(표준층) 기반 MIDAS Gen NX 모델링
+# Gen NX 대화형 RC 모델링 에이전트 · 표준층(標準層) 기반
 
-PDF 규격서(標準層)의 **표준층(Typical Floor)** 개념을 코드로 정의하고,
-표준층을 자연층 N개로 전개하여 **MIDAS Gen NX Open API** 모델을 생성한다.
+대만(臺灣) **RC 라멘조** 건물을 **표준층(Typical Floor)** 개념으로 정의하고,
+브라우저에서 **MIDAS Gen NX Open API**로 모델 생성 → 횡하중 → 해석 → 배근 → **도면(DXF)** 까지
+한 흐름으로 자동화한다. 설치 불필요(브라우저가 MAPI 직접 호출).
 
-- 대상: **MIDAS Gen NX** / 지역: **대만** / 구조: **RC, Frame**
+- 대상: **MIDAS Gen NX** / 지역: **대만** / 구조: **RC Frame** / 규격: **CNS560(RC) · TWD-USD112 · 耐震規範**
 - 개발: **Dennis**
-- 설계 문서: [DESIGN.md](DESIGN.md)
-- 현재 단계: **M1 + M1.5 완료** — 순수 Python 코어 + Wizard(v1.0.1)
+- 현재: **M1–M4 완료** (동적해석 M2-A4만 API 노출 대기 — [MAPI_ENDPOINT_REQUEST.md](MAPI_ENDPOINT_REQUEST.md))
 
-## 구조
+---
 
-```
-midas_story/
-├── units.py       # 단위계 옵션 (M·TONF / M·KN)
-├── domain.py      # Material/Section/Thickness/LoadCase/FloorLoadType/LoadCombo/Element/TypicalFloor/Building
-├── grid.py        # 통경선 그리드 + build_frame() 그리드 기반 프레임 자동생성   [M1.5]
-├── combos.py      # taiwan_strength_combos() 대만 하중조합 (TWD-USD112)         [M1.5]
-├── validation.py  # 불변식 검증 (연속성, 단면 일치, id 참조, 조합명 ≤20자)
-├── payloads.py    # /db/* Assign 바디 빌더 (공식 JSON Manual 스키마)
-├── expander.py    # 표준층 → 자연층 전개 (+다이어프램 RIGD, 조합) → Operation 목록
-├── client.py      # MidasClient(REST 전송) / RecordingClient(드라이런)
-└── taiwan.py      # 대만 규격 상수·팩토리 (라이브 검증: CNS560(RC)/CNS(S), TWD-USD112)
+## 두 가지 트랙
 
-examples/build_sample_building.py   # 그리드+다중표준층 대만 RC 빌딩(기단부+기준층+지붕)
-tests/                              # pytest (검증 + 전개기 + M1.5)
-```
+| | 무엇 | 진입점 |
+|---|---|---|
+| **① 웹앱(주력)** | 대화형 Agent + 폼 Wizard, 공용 엔진 공유 | `gen_nx_rc_agent_v2.9.0.html` · `MIDAS_RC_Modeling_Wizard_v2.3.0.html` |
+| ② Python 코어 | 최초 도메인 엔진(M1/M1.5), 순수 Python | `midas_story/` |
 
-## 설치 / 테스트
+웹앱과 Python 코어는 같은 도메인 규약(표준층 전개·대만 규격)을 공유한다.
+웹앱의 단일 진실원천은 **`shared/rc_engine.js`** (Agent·Wizard 공용).
+
+---
+
+## ① 웹앱 사용법
+
+### 가장 쉬운 방법 — 단일 파일
+**`gen_nx_rc_agent_v2.9.0_standalone.html`** 하나만 받으면 된다(엔진 내장, `shared/` 폴더 불필요).
+브라우저로 열기 → ⚙에서 **MAPI-Key 입력** → **로컬 Gen NX 실행** → 자연어/메뉴로 명령.
+> 인터넷 필요: MIDAS API + Plotly(3D, CDN). 오프라인이면 3D 미리보기만 빠지고 빌드·배근·DXF는 동작.
+
+### 분할형(개발·배포)
+`gen_nx_rc_agent_v2.9.0.html` + `shared/rc_engine.js`(같은 위치) + `index.html`(루트 리다이렉트).
+Vercel 등 정적 호스팅에 리포 그대로 올리면 됨(빌드 없음). `index.html`이 에이전트로 리다이렉트.
+
+### 할 수 있는 것
+- **모델 생성**: 5종 RC 템플릿(住宅/辦公/商場/醫院/學校) + 자유 골조, 표준층 표 편집, 3D 미리보기
+- **횡하중**: 지진 等效靜力(TWD 耐震, 工址 프리셋) · 풍(간이 정적풍) → cLCB1~7 자동
+- **횡저항**: 중앙 전단벽 코어(PLATE)
+- **해석·배근**: 해석 결과 회수(BEAMFORCE) → 보 휨·전단 + 기둥 이축 P-M 배근(TWD-USD112), 배근표 CSV
+- **도면(DXF)**: 골조평면도 + 梁配筋圖 + 柱配筋圖 + 梁表/柱表 + **층별 차이 주기**(표준층 기준) + 표제란
+  → CAD에서 열어 **.dwg**로 저장·편집 (公會 RC01/RC04/RC06 標準圖 참조)
+- **기존 모델 자동판정**: 실행 중 모델 읽기 → 표준층 그룹 자동 추정
+- 다국어: **한국어 / English / 繁體中文**
+
+---
+
+## ② Python 코어 (midas_story/)
+
+최초 도메인 엔진(M1/M1.5). 순수 Python, 네트워크 비의존 전개 → Operation 목록 → 전송.
 
 ```bash
 pip install -r requirements.txt   # requests, pytest
 python -m pytest tests/ -q
+cd examples && python build_sample_building.py        # 드라이런
+#                python build_sample_building.py --send  # 실제 전송(키·Gen NX 필요)
 ```
 
-## 사용 예
-
-```python
-from midas_story import (
-    Building, TypicalFloor, Section, Thickness, LoadCase,
-    Grid, build_frame, taiwan_strength_combos, taiwan,
-    Expander, MidasClient, M_TONF, TYPICAL,
-)
-
-# 1) 통경선 그리드 → 기둥·보·슬래브 자동 생성
-grid = Grid(x_spans=[6, 6, 6], y_spans=[5, 5])          # X:1~4, Y:A~C
-elements = build_frame(grid, material_id=1, column_section_id=1,
-                       beam_section_id=2, slab_thickness_id=1)
-
-lcs = [LoadCase("D", "D", self_weight=True), LoadCase("L", "L")]
-building = Building(
-    materials=[taiwan.concrete(id=1, fc=280)],          # CNS560(RC) C280
-    sections=[Section(1, "C700", 0.7, 0.7), Section(2, "G", 0.7, 0.4)],
-    thicknesses=[Thickness(1, "S150", 0.15)],
-    load_cases=lcs,
-    load_combos=taiwan_strength_combos(lcs),            # TWD-USD112
-    typical_floors=[TypicalFloor(
-        id="TYP", role=TYPICAL, mapped_stories=list(range(4, 29)),
-        story_height=3.2, elements=elements, diaphragm=True,  # 강성 다이어프램
-    )],
-)
-
-ops = Expander(building, units=M_TONF).build()   # 검증 + 전개 (네트워크 없음)
-
-# 전송 (MIDAS Gen NX 실행 + MAPI-Key 필요)
-# MidasClient(mapi_key="...").run(ops)
+```
+midas_story/  units · domain · grid · combos · validation · payloads · expander · client · taiwan
 ```
 
-## 드라이런 / 전송
-
-```bash
-cd examples
-python build_sample_building.py          # 드라이런: 생성될 연산 미리보기
-python build_sample_building.py --kn     # 단위 M·KN
-set MIDAS_MAPI_KEY=...                    # (Windows) 키 설정
-python build_sample_building.py --send    # 실제 MIDAS Gen NX 전송
-```
-
-## 부재 전개 규약
-
-| 입력(평면) | 전개 | MIDAS 요소 |
-|---|---|---|
-| `COLUMN` 1점 | 아래레벨↔바닥레벨 수직 | `BEAM` |
-| `BEAM` 2점 | 바닥레벨 평면 | `BEAM` |
-| `WALL` 2점 | 아래레벨↔바닥레벨 4절점 | `WALL` |
-| `SLAB` 3~4점 | 바닥레벨 평면 | `PLATE` |
-
-> 좌표 dedup 허용오차 1e-6 m (= 0.001 mm, PDF §3.1). 동일 좌표 노드는 자동 공유.
+---
 
 ## 로드맵
 
-- **M1** ✅ 모델 생성 (표준층 → 자연층 전개)
-- **M1.5** ✅ 작성 강화 — 그리드, 다중 표준층/특수층, 다이어프램, 대만 하중조합
-- **M2** 표준층 자동 판정 (기존 모델/IFC import → 제외필터·기하·하중 일치)
-- **M3** 해석 결과 회수 + 구간별 배근 (TWD-USD112)
-- **M4** 도면 도명 자동화
+- **M1 / M1.5** ✅ 모델 생성(표준층→자연층) · 그리드·다중표준층·다이어프램·대만 하중조합
+- **M1.7** ✅ 대화형 Agent + 공용 엔진(`shared/rc_engine.js`)
+- **M2** ✅ 횡하중·횡저항(지진·풍·전단벽) + 기존모델 표준층 자동판정
+  - M2-A4(동적해석=고유치·응답스펙트럼) — **API 미노출로 대기** ([MAPI_ENDPOINT_REQUEST.md](MAPI_ENDPOINT_REQUEST.md))
+- **M3** ✅ 해석 결과 회수 + 구간별 배근(보 휨·전단 + 기둥 이축 P-M, TWD-USD112)
+- **M4** ✅ 도면·문서 자동화(DXF) — 配筋圖·일람표·층별차이·표제란 (대만 公會 標準圖 참조)
 
-자세한 내용은 [DESIGN.md](DESIGN.md) 참고.
+문서: [DESIGN.md](DESIGN.md) · [M2_DESIGN.md](M2_DESIGN.md) · [M4_DESIGN.md](M4_DESIGN.md) · [CHANGELOG.md](CHANGELOG.md)
+
+---
+
+## 주의 (보안)
+- **MAPI-Key는 각자 브라우저에서 입력** — 소스/리포에 키를 넣지 않는다.
+- 실제 모델링은 **로컬 Gen NX 실행 + 본인 키** 필요. CORS 개방으로 브라우저가 직접 호출.
