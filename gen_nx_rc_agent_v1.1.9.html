@@ -131,12 +131,6 @@ main{flex:1;display:grid;grid-template-columns:1fr 1.05fr;gap:1px;background:var
   background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 9px;
   cursor:pointer;transition:.15s;white-space:nowrap;flex-shrink:0}
 .clearchat:hover{border-color:var(--red);color:var(--red);background:rgba(255,107,107,.06)}
-.imtog{display:flex;gap:4px;margin-left:6px}
-.imbtn{font-family:'IBM Plex Mono','Noto Sans TC';font-size:.7rem;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;transition:.15s}
-.imbtn:hover{border-color:var(--dim);color:var(--txt)}
-.imbtn.on{border-color:var(--cyan);color:var(--cyan);background:rgba(56,225,214,.08)}
-.modetop{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--panel2);flex-shrink:0}
-#paramPane{flex:1;overflow:auto;padding:16px 18px;display:none}
 .param-status{font-family:'IBM Plex Mono','Noto Sans TC';font-size:.8rem;color:#e8eef7;margin-bottom:12px;min-height:18px}
 
 /* ═══════════════════════════════════════════
@@ -372,7 +366,6 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
     <div class="chat-inner">
       <button class="guide-open" id="guideOpen" onclick="toggleGuide()" title="展開導引" data-i18n="guide_open_txt">導引</button>
       <div class="msgs" id="msgs"></div>
-      <div id="paramPane"></div>
       <div class="composer" id="composer">
         <div class="modebar">
           <span data-i18n="mode">MODE</span>
@@ -503,7 +496,6 @@ const I18N = {
     log_empty:'',
     model_empty:'', view_empty:'', res_empty:'',
     clearchat:'🧹 대화 비우기', clearchat_tip:'대화창 비우기 (모델·결과는 유지)',
-    im_chat:'💬 대화식', im_form:'⚙ 파라미터',
     form_intro:'아래 표에 값을 입력하고 <b>실행</b>을 누르세요. 정확한 CNS560 · 하중조합 · 다이어프램이 적용됩니다.',
     clear_done:'🧹 대화를 비웠습니다. 모델과 해석 결과는 유지됩니다.',
     cam:'시점', cam_iso:'ISO', cam_front:'정면', cam_side:'측면', cam_top:'평면',
@@ -569,7 +561,6 @@ const I18N = {
     log_empty:'',
     model_empty:'', view_empty:'', res_empty:'',
     clearchat:'🧹 Clear chat', clearchat_tip:'Clear the chat (model & results kept)',
-    im_chat:'💬 Conversational', im_form:'⚙ Parametric',
     form_intro:'Fill the table below and press <b>Run</b>. Accurate CNS560 · load combos · diaphragm are applied.',
     clear_done:'🧹 Chat cleared. The model and analysis results are kept.',
     cam:'View', cam_iso:'ISO', cam_front:'Front', cam_side:'Side', cam_top:'Top',
@@ -635,7 +626,6 @@ const I18N = {
     log_empty:'',
     model_empty:'', view_empty:'', res_empty:'',
     clearchat:'🧹 清除對話', clearchat_tip:'清除對話視窗（保留模型與分析結果）',
-    im_chat:'💬 對話式', im_form:'⚙ 參數化',
     form_intro:'於下表輸入數值後按 <b>執行</b>。將套用正確的 CNS560 · 載重組合 · 剛性樓板。',
     clear_done:'🧹 對話已清除。模型與分析結果仍保留，可繼續操作。',
     cam:'視角', cam_iso:'等角', cam_front:'正視', cam_side:'側視', cam_top:'俯視',
@@ -783,15 +773,12 @@ async function setUnit(force='N',dist='MM'){
   log(tl('unit',force,dist),'ok');
 }
 const _MPA2CNS={'C24':'C245','C28':'C280','C30':'C315','C35':'C350','C40':'C420'};
-const _STEEL_SET=new Set(['SM355','SN490','SM490','SS400','SN400','SM400']);
 const _CNS_CONC=['C210','C245','C280','C315','C350','C420'];
-/* M1.7: Taiwan material - concrete CNS560(RC), steel CNS(S) (live-verified) */
+/* M1.7: Taiwan material - concrete CNS560(RC) (live-verified). RC 전용 도구. */
 async function putMaterial(name){
-  let body, shown, std;
-  if(_STEEL_SET.has(name)){ shown='SN490'; std='CNS(S)';
-    body={TYPE:'STEEL',NAME:shown,DAMP_RAT:0.02,PARAM:[{P_TYPE:1,STANDARD:'CNS(S)',DB:shown}]}; }
-  else { shown=_MPA2CNS[name]||(_CNS_CONC.includes(name)?name:'C280'); std='CNS560(RC)';
-    body={TYPE:'CONC',NAME:shown,DAMP_RAT:0.05,PARAM:[{P_TYPE:1,STANDARD:'CNS560(RC)',DB:shown}]}; }
+  const shown=_MPA2CNS[name]||(_CNS_CONC.includes(name)?name:'C280');
+  const std='CNS560(RC)';
+  const body={TYPE:'CONC',NAME:shown,DAMP_RAT:0.05,PARAM:[{P_TYPE:1,STANDARD:'CNS560(RC)',DB:shown}]};
   await mapi('PUT','matl',{Assign:{1:body}});
   S.model.matl=shown;
   log('\u25b8 '+(S.lang==='ko'?'재료':S.lang==='en'?'Material':'材料')+' <b>'+shown+'</b> ('+std+')','ok');
@@ -889,13 +876,15 @@ function buildFrame(p){
 ════════════════════════════════════════════════════════════ */
 /* M1.7(step2): 용도별 바닥하중 프리셋 (kN/m^2) + 표준층/특수층 그룹 */
 const FLOOR_USE={
-  Residential:{sdl:1.5,live:'LL',liveVal:2.0},
-  Office:{sdl:1.5,live:'LL',liveVal:3.0},
-  Commercial:{sdl:2.0,live:'LL',liveVal:5.0},
-  Industrial:{sdl:2.0,live:'LL',liveVal:10.0},
-  Roof:{sdl:2.5,live:'LR',liveVal:1.0}
+  Residential:{sdl:1.5,live:'LL',liveVal:2.0},   // 住宅 200 kgf/m²
+  Office:{sdl:1.5,live:'LL',liveVal:3.0},         // 辦公 300
+  Commercial:{sdl:2.0,live:'LL',liveVal:5.0},     // 商場/賣場 ~500
+  School:{sdl:1.5,live:'LL',liveVal:2.5},         // 學校教室 250 (복도는 별도 그룹으로 상향)
+  Hospital:{sdl:1.5,live:'LL',liveVal:2.0},       // 醫院病房 200 (설비층은 Equipment로 분리)
+  Equipment:{sdl:2.5,live:'LL',liveVal:7.5},      // 設備層/機房 ~750
+  Roof:{sdl:2.5,live:'LR',liveVal:1.0}            // 屋頂 100
 };
-const TYPE_USE={apartment:'Residential',office:'Office',commercial:'Commercial',hospital:'Office',school:'Office'};
+const TYPE_USE={apartment:'Residential',office:'Office',commercial:'Commercial',hospital:'Hospital',school:'School'};
 function useOf(p){ return TYPE_USE[p.bldgType]||'Residential'; }
 function deriveFloorGroups(p){
   const g={};
@@ -1266,6 +1255,13 @@ function parseCommand(txt){
   return {intent:'unknown'};
 }
 
+/* 표준층 구성 한 줄: "1F 기단부(商業) · 2–14F 표준층(住宅) · 15F 지붕" */
+function floorCompoLine(p){
+  return specToGroupRows(p).map(r=>{
+    const rng=(r.from===r.to)?`${r.from}F`:`${r.from}–${r.to}F`;
+    return `${rng} ${roleLbl(r.role)}(${useLbl(r.use)})`;
+  }).join('  ·  ');
+}
 function planSummary(p){
   const k = p.bldgType;
   const header = k
@@ -1281,7 +1277,9 @@ function planSummary(p){
     t('ps_h',p.h1,p.hTyp)+
     t('ps_cb',p.colName,p.beamName)+
     (p.buildings>=2?t('ps_link',p.connectFloor,p.gap):'')+
-    t('ps_mat',p.matName)+tip+`</div>`;
+    t('ps_mat',p.matName)+
+    `<div style="margin-top:7px;font-size:.8em;color:var(--cyan);line-height:1.5">▤ ${L3('표준층 구성','Floor make-up','標準層構成')}: ${floorCompoLine(p)}</div>`+
+    tip+`</div>`;
 }
 
 /* ── 편집 가능 규격 카드 ── */
@@ -2120,31 +2118,17 @@ function toggleGuide(){
 }
 
 /* hint = 입력창에 채우기만(값 수정 후 전송), quick = 즉시 전송 */
-function hint(tt){ if(inputMode!=='chat')setInputMode('chat'); const i=$('input'); i.value=tt; i.focus(); i.dispatchEvent(new Event('input')); }
-function quick(tt){ if(inputMode!=='chat')setInputMode('chat'); $('input').value=tt; onSend(); }
+function hint(tt){ const i=$('input'); i.value=tt; i.focus(); i.dispatchEvent(new Event('input')); }
+function quick(tt){ $('input').value=tt; onSend(); }
 
-/* 대화창 비우기 — 채팅 메시지·LLM 대화기록만 초기화. 모델·결과·활동로그는 유지 */
-/* M1.7 step3: 입력 방식 토글 (대화형 ↔ 테이블형 폼) */
-let inputMode='chat';
 function L3(k,e,z){return S.lang==='ko'?k:S.lang==='en'?e:z;}
-function setInputMode(m){
-  inputMode=m;
-  const a=document.getElementById('imChat'), b=document.getElementById('imForm');
-  if(a) a.classList.toggle('on', m==='chat');
-  if(b) b.classList.toggle('on', m==='param');
-  const chat=(m==='chat');
-  $('msgs').style.display=chat?'flex':'none';
-  $('composer').style.display=chat?'block':'none';
-  $('paramPane').style.display=chat?'none':'block';
-  if(!chat) renderParamForm();
-}
 const FORM_GROUPS=[{role:'PODIUM',from:1,to:2,h:4500,use:'Commercial'},
   {role:'TYPICAL',from:3,to:12,h:3200,use:'Residential'},{role:'ROOF',from:13,to:13,h:3200,use:'Roof'}];
 const FG_ROLES=['TYPICAL','PODIUM','TRANSFER','ROOF','BASEMENT'];
-const FG_USES=['Residential','Office','Commercial','Roof'];
+const FG_USES=['Residential','Office','Commercial','School','Hospital','Equipment','Roof'];
 const _li=()=>S.lang==='ko'?0:S.lang==='en'?1:2;
 function roleLbl(r){return ({TYPICAL:['표준층','Typical','標準層'],PODIUM:['기단부','Podium','裙樓'],TRANSFER:['전이층','Transfer','轉換層'],ROOF:['지붕','Roof','屋頂'],BASEMENT:['지하','Basement','地下室']}[r]||[r,r,r])[_li()];}
-function useLbl(u){return ({Residential:['주거','Residential','住宅'],Office:['사무','Office','辦公'],Commercial:['상업','Commercial','商業'],Industrial:['공업','Industrial','工業'],Roof:['지붕','Roof','屋頂']}[u]||[u,u,u])[_li()];}
+function useLbl(u){return ({Residential:['주거','Residential','住宅'],Office:['사무','Office','辦公'],Commercial:['상업','Commercial','商業'],School:['학교','School','學校'],Hospital:['병원','Hospital','病房'],Equipment:['설비','Equipment','設備層'],Roof:['지붕','Roof','屋頂']}[u]||[u,u,u])[_li()];}
 function fgRow(g){
   const rs=FG_ROLES.map(r=>`<option value="${r}"${r===g.role?' selected':''}>${roleLbl(r)}</option>`).join('');
   const us=FG_USES.map(u=>`<option value="${u}"${u===g.use?' selected':''}>${useLbl(u)}</option>`).join('');
@@ -2227,8 +2211,6 @@ function addParamCard(){
   addMsg('bot', `<div class="param-form-root">${paramFormHTML()}</div>`);
   const sp=readForm(); if(sp){ pendingBuild=sp; tab('viewP'); previewSpec(sp); }
 }
-/* 구버전 호환: 외부 호출 흔적 대비 */
-function renderParamForm(){ addParamCard(); }
 
 function clearChat(){
   $('msgs').innerHTML='';
@@ -2259,7 +2241,6 @@ function setLang(l){
   renderModelState();
   renderResults();
   draw3D();
-  if(inputMode==='param') renderParamForm();
   // 채팅은 언어 혼용을 피하기 위해 초기화 후 환영문 재출력
   $('msgs').innerHTML=''; S.conv=[]; pendingBuild=null;
   addMsg('bot', t('welcome'));
