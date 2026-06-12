@@ -285,6 +285,28 @@ function seismicStoryForces(spec, params){
   return {T,k,Cs,V,Wtot,W,forces};
 }
 
+/* ── 지진 工址 프리셋 (대만 건축물내진설계규범 113년판, 表2-6b 一般震區) ──
+   설계 수평스펙트럼가속도계수 SDS(=S_S^D), SD1(=S_1^D). 全區所有里 단위만 수록.
+   ⚠ 臺北盆地(表2-6a, 臺北一/二/三區) 행정구는 미분구 설계스펙트럼 別表 필요 → 미수록.
+   ⚠ 그 외 縣市는 해당 震區表 입수 후 확장. */
+const SEISMIC_ZONES=[
+  {city:'新北市', dist:'三峽區',  SDS:0.7, SD1:0.40},
+  {city:'新北市', dist:'石碇區',  SDS:0.7, SD1:0.40},
+  {city:'新北市', dist:'坪林區',  SDS:0.7, SD1:0.40},
+  {city:'新北市', dist:'雙溪區',  SDS:0.7, SD1:0.40},
+  {city:'新北市', dist:'貢寮區',  SDS:0.7, SD1:0.40},
+  {city:'新北市', dist:'烏來區',  SDS:0.7, SD1:0.40},
+  {city:'新北市', dist:'鶯歌區',  SDS:0.6, SD1:0.35},
+  {city:'新北市', dist:'瑞芳區',  SDS:0.6, SD1:0.35},
+  {city:'新北市', dist:'深坑區',  SDS:0.6, SD1:0.35},
+  {city:'新北市', dist:'平溪區',  SDS:0.6, SD1:0.35},
+  {city:'新北市', dist:'林口區',  SDS:0.5, SD1:0.30},
+  {city:'新北市', dist:'三芝區',  SDS:0.5, SD1:0.30},
+  {city:'新北市', dist:'石門區',  SDS:0.5, SD1:0.30},
+  {city:'新北市', dist:'金山區',  SDS:0.5, SD1:0.30},
+  {city:'新北市', dist:'萬里區',  SDS:0.5, SD1:0.30}
+];
+
 /* ── 네임스페이스 노출 (M2 확장·다른 프런트엔드용) ── */
 if(typeof window!=='undefined'){
   window.RCEngine={
@@ -293,6 +315,6 @@ if(typeof window!=='undefined'){
     DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType,
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
-    seismicCs, seismicKExp, seismicStoryForces
+    seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES
   };
 }
