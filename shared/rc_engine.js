@@ -379,6 +379,43 @@ const SEISMIC_ZONES=[
   {city:'新北市', dist:'萬里區',  SDS:0.5, SD1:0.30}
 ];
 
+/* ════════════════════════════════════════════════════════════
+   M2-B — 기존 모델 표준층 자동판정 (GET node/elem 기반, 순수)
+   네이티브 story 엔드포인트 없음(라이브 확인) → 지오메트리로 판정:
+   Z군집 → 층고 / 부재분류(수직 BEAM=기둥, 수평=보, PLATE/WALL=슬래브·벽) /
+   시그니처(층고·기둥단면·보단면·슬래브유무) 연속 동일 = 한 표준층 그룹.
+   (라이브 검증된 알고리즘 — 단면이 바뀌는 모델에서 기단부/표준층 복원 확인)
+   입력: GET 응답형 {id:{X,Y,Z}}·{id:{TYPE,SECT,NODE}} 또는 배열 모두 허용.
+════════════════════════════════════════════════════════════ */
+function detectTypicalFloors(nodes, elems){
+  const N={};
+  if(Array.isArray(nodes)) nodes.forEach(n=>{ N[n.id]={x:+n.x,y:+n.y,z:+n.z}; });
+  else for(const id in (nodes||{})){ const v=nodes[id]; N[id]={x:+v.X,y:+v.Y,z:+v.Z}; }
+  const E=Array.isArray(elems)?elems:Object.values(elems||{});
+  const R1=z=>Math.round(z*10)/10;
+  const zof=id=>N[id]?R1(N[id].z):null;
+  const levels=[...new Set(Object.values(N).map(n=>R1(n.z)))].sort((a,b)=>a-b);
+  const lvi={}; levels.forEach((z,i)=>{ lvi[z]=i; });
+  const nstory=levels.length-1;
+  const colS={}, beamS={}, plate={};
+  E.forEach(e=>{ const nd=(e.NODE||[]).filter(x=>x); const zs=nd.map(zof).filter(z=>z!=null);
+    if(!zs.length) return;
+    if(e.TYPE==='BEAM'){
+      if([...new Set(zs)].length>=2){ const s=lvi[Math.max(...zs)]; if(s>=1)(colS[s]=colS[s]||[]).push(e.SECT); }
+      else { const s=lvi[zs[0]]; if(s>=1)(beamS[s]=beamS[s]||[]).push(e.SECT); }
+    } else if(e.TYPE==='PLATE'||e.TYPE==='WALL'){ const s=lvi[Math.max(...zs)]; if(s>=1) plate[s]=true; }
+  });
+  const sig=s=>JSON.stringify([R1(levels[s]-levels[s-1]),
+    [...new Set(colS[s]||[])].sort(), [...new Set(beamS[s]||[])].sort(), !!plate[s]]);
+  const groups=[];
+  for(let s=1;s<=nstory;s++){ const g=sig(s); const last=groups[groups.length-1];
+    if(last&&last.sig===g){ last.to=s; }
+    else groups.push({from:s,to:s,sig:g,h:R1(levels[s]-levels[s-1]),
+      colSects:[...new Set(colS[s]||[])].sort((a,b)=>a-b),
+      beamSects:[...new Set(beamS[s]||[])].sort((a,b)=>a-b), hasSlab:!!plate[s]}); }
+  return {levels, stories:nstory, baseZ:levels[0], groups};
+}
+
 /* ── 네임스페이스 노출 (M2 확장·다른 프런트엔드용) ── */
 if(typeof window!=='undefined'){
   window.RCEngine={
@@ -388,6 +425,6 @@ if(typeof window!=='undefined'){
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,
-    WIND_EXPOSURE, windStoryForces
+    WIND_EXPOSURE, windStoryForces, detectTypicalFloors
   };
 }
