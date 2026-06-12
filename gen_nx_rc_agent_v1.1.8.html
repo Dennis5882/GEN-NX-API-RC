@@ -902,7 +902,7 @@ function deriveFloorGroups(p){
   if(p.groups&&p.groups.length){ p.groups.forEach(gr=>{for(let s=gr.from;s<=gr.to;s++) g[s]={role:gr.role||'TYPICAL',use:gr.use||useOf(p),dia:(gr.dia!==false)};}); return g; }
   const u=useOf(p);
   for(let iz=1;iz<=p.stories;iz++) g[iz]={role:'TYPICAL',use:u};
-  if(p.podium) for(let iz=1;iz<=Math.min(p.podium,p.stories);iz++) g[iz]={role:'PODIUM',use:'Commercial'};
+  if(p.podium) for(let iz=1;iz<=Math.min(p.podium,p.stories);iz++) g[iz]={role:'PODIUM',use:p.podiumUse||'Commercial'};
   if(p.stories>=2) g[p.stories]={role:'ROOF',use:'Roof'};
   return g;
 }
@@ -1119,6 +1119,7 @@ const BUILDING_TYPES = {
     tip:{ko:'층수·동수를 바꿔 말할 수 있어요. 예) <code>25층 2동 아파트</code>',en:'You can change stories and buildings. e.g. <code>build a 25 story 2 building apartment</code>',zh:'可變更樓層數與棟數。例）<code>建立 25 層 2 棟公寓</code>'},
     buildings:1, bayX:4, bayY:3, spanX:6500, spanY:7000,
     stories:15, h1:2900, hTyp:2800, gap:14000, connectFloor:0,
+    podium:1, podiumUse:'Commercial',
     matName:'C280', E:8700, poisn:0.18, den:2.4e-9,
     colName:'C500x500', colH:500, colB:500, beamName:'B300x500', beamH:500, beamB:300
   },
@@ -1129,6 +1130,7 @@ const BUILDING_TYPES = {
     tip:{ko:'층수·스팬을 조정할 수 있어요. 예) <code>20층 사무실 스팬 10000</code>',en:'Adjust stories and span. e.g. <code>build a 20 story office span 10000</code>',zh:'可調整樓層數與跨距。例）<code>建立 20 層辦公室 跨距 10000</code>'},
     buildings:1, bayX:4, bayY:3, spanX:9000, spanY:9000,
     stories:10, h1:4500, hTyp:4000, gap:0, connectFloor:0,
+    podium:1, podiumUse:'Commercial',
     matName:'C350', E:8700, poisn:0.18, den:2.4e-9,
     colName:'C600x600', colH:600, colB:600, beamName:'B350x700', beamH:700, beamB:350
   },
@@ -1149,6 +1151,7 @@ const BUILDING_TYPES = {
     tip:{ko:'층수를 바꿀 수 있어요. 예) <code>학교 4층</code>',en:'Change the number of stories. e.g. <code>build a 4 story school</code>',zh:'可變更樓層數。例）<code>建立 4 層學校</code>'},
     buildings:1, bayX:6, bayY:2, spanX:7200, spanY:8400,
     stories:5, h1:3800, hTyp:3600, gap:0, connectFloor:0,
+    podium:1, podiumUse:'Office',
     matName:'C280', E:7100, poisn:0.18, den:2.4e-9,
     colName:'C550x550', colH:550, colB:550, beamName:'B350x550', beamH:550, beamB:350
   },
@@ -1159,6 +1162,7 @@ const BUILDING_TYPES = {
     tip:{ko:'층수를 바꿀 수 있어요. 예) <code>병원 12층</code>',en:'Change the number of stories. e.g. <code>build a 12 story hospital</code>',zh:'可變更樓層數。例）<code>建立 12 層醫院</code>'},
     buildings:1, bayX:4, bayY:4, spanX:8500, spanY:8500,
     stories:8, h1:4500, hTyp:4200, gap:0, connectFloor:0,
+    podium:1, podiumUse:'Commercial',
     matName:'C350', E:9600, poisn:0.18, den:2.4e-9,
     colName:'C700x700', colH:700, colB:700, beamName:'B400x700', beamH:700, beamB:400
   }
