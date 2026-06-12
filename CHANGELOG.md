@@ -1,5 +1,23 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.0.0 — 2026-06-12 (M2-A1) — 지진 等效靜力 (TWD 耐震)
+
+새 파일 **`gen_nx_rc_agent_v2.0.0.html`**. 중력 전용 → **지진 횡하중 포함** 대만 실무 모델.
+
+- **공용 엔진(`shared/rc_engine.js`) 지진 레이어** — `seismicStoryForces` 등:
+  스펙트럼 Cs(=SDS·I/R, 상한 SD1·I/(R·T), 하한) → V → 수직분포(k). 지진중량
+  W=층면적×(w0+활하중비). override: `Cs` 또는 `V` 직접. **수치·라이브 검증**(평형 ΣF=V).
+- **臺北盆地 지원** — Sederes가 Sa1=N/A·T0만 줄 때 `SD1=SDS·T0` 자동 환산
+  (감쇠구간 SD1/T 일치, 검증). 工址 프리셋 16개(耐震規範 113 표2-6b 一般震區 15 + 臺北三區).
+- **대화형 편집 카드에 내진 입력** — 지역 프리셋 드롭다운 + 직접입력(SDS/SD1/T0·I·R·w0·
+  활하중비·Cs/V override) + **Sederes 조회 링크**. I 기본값 건물유형 연동(병원·학교 1.25).
+- **빌드 적용** — `applySeismic`: EX/EY 케이스(STLD TYPE E) + 층력 절점 균등분배(CNLD).
+  `taiwanCombos` 가 E 감지 → **cLCB5(1.2D+1.0E+1.0L)·cLCB7(0.9D+1.0E) 자동**.
+- **라이브 검증**(실제 Gen NX) — 4층 모델, EX·EY 양방향 반력 평형(ΣReaction=−V) OK, 조합 자동 생성 확인.
+- 입력 모델 결정: **A2(자체 等效靜力)** — 내장 SEIS/WIND API는 스키마 비노출이라 미사용(`M2_DESIGN.md`).
+
+> 폼 Wizard v2.0.0(엔진 합류)·풍하중(M2-A2)·전단벽(M2-A3)·기존모델 자동판정(M2-B)은 후속.
+
 ## v1.1.9 — 2026-06-12 (M1.7) — 대화 중심 통합 · 올블랙 · RC 5종
 
 새 파일 **`gen_nx_rc_agent_v1.1.9.html`**. v1.1.8에서 진행한 UX/도메인 정리를 한 버전으로 확정.
