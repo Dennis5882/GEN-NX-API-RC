@@ -495,16 +495,21 @@ function pickColBars(As){
     let n=Math.ceil(As/a); if(n%2)n++; n=Math.max(4,n); if(n<=16) return {dia,n,As:n*a}; }
   let n=Math.max(4,Math.ceil(As/794)); if(n%2)n++; return {dia:'D32',n,As:n*794};
 }
+/* 기둥 이축 설계 — Bresler 하중컨투어 (Mux/Mnx)^α+(Muy/Mny)^α ≤ 1 (α=1.0 보수).
+   축별 용량은 해당 휨 깊이로 colMcapAt(축x: b×h, 축y: h×b). 필요 ρ 이분법 역산. */
 function rcColumnDesign(demand,geom,mat){
   mat=Object.assign({},DEFAULT_REBAR,mat||{});
-  const b=geom.b,h=geom.h,fc=mat.fc,fy=mat.fy,cover=mat.cover;
-  const Pu=Math.abs(demand.Pu||0), Mu=Math.max(Math.abs(demand.Mux||0),Math.abs(demand.Muy||0));
+  const b=geom.b,h=geom.h,fc=mat.fc,fy=mat.fy,cover=mat.cover, A=1.0;
+  const Pu=Math.abs(demand.Pu||0), Mux=Math.abs(demand.Mux||0), Muy=Math.abs(demand.Muy||0);
+  const util=rho=>{ const Mnx=colMcapAt(rho,b,h,fc,fy,cover,Pu), Mny=colMcapAt(rho,h,b,fc,fy,cover,Pu);
+    if(Mux>0&&Mnx<=0) return 9; if(Muy>0&&Mny<=0) return 9;
+    return (Mnx>0?Math.pow(Mux/Mnx,A):0)+(Mny>0?Math.pow(Muy/Mny,A):0); };
   let lo=0.01,hi=0.06,ok=false;
-  for(let it=0;it<26;it++){ const mid=(lo+hi)/2; if(colMcapAt(mid,b,h,fc,fy,cover,Pu)>=Mu){hi=mid;ok=true;} else lo=mid; }
+  for(let it=0;it<26;it++){ const mid=(lo+hi)/2; if(util(mid)<=1.0){hi=mid;ok=true;} else lo=mid; }
   const rho=ok?hi:0.06, over=!ok;
-  const As=rho*b*h, dlong=22;
-  const tieS=Math.min(16*dlong,48*10,Math.min(b,h));   // 띠철근 간격: min(16db, 48dt, 최소변)
-  return {b,h,rho,As,bars:pickColBars(As),tie:{dia:'D10',s:Math.floor(tieS/10)*10},over,Pu,Mu};
+  const As=rho*b*h;
+  const tieS=Math.min(16*22,48*10,Math.min(b,h));   // min(16db_long, 48db_tie, 최소변)
+  return {b,h,rho,As,bars:pickColBars(As),tie:{dia:'D10',s:Math.floor(tieS/10)*10},over,Pu,Mux,Muy,util:+util(rho).toFixed(3)};
 }
 
 /* ── 네임스페이스 노출 (M2 확장·다른 프런트엔드용) ── */
