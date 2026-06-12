@@ -655,7 +655,39 @@ function framingPlanDXF(doc,ox,oy,spec,prof,colB){
   Yp.forEach((y,i)=>doc.text(ox+Xp[0]-800,oy+y,T.callout,String.fromCharCode(65+i),LT,{align:'center'}));
   return {w:x1,h:y1};
 }
-/* 전체 도면 세트(평면도+梁/柱配筋圖+梁表/柱表+표제란) → DXF 문자열.
+/* 층별 차이 추출 — 표준층(TYPICAL 최다층) 기준, 그룹별 차이 항목만. (대만 관행: 표준층 1매 + 차이주기) */
+function groupDiffNotes(groups){
+  const gs=(groups||[]).filter(g=>g.beam||g.col); if(!gs.length) return null;
+  const span=g=>g.to-g.from+1;
+  const typ=gs.filter(g=>g.role==='TYPICAL').sort((a,b)=>span(b)-span(a));
+  const base=typ[0]||gs.slice().sort((a,b)=>span(b)-span(a))[0]; if(!base) return null;
+  const bt=x=>x?`${x.barsTop.n}-${x.barsTop.dia}`:'', bb=x=>x?`${x.barsBot.n}-${x.barsBot.dia}`:'',
+        bs=x=>x?`${x.stirrup.dia}@${x.stirrup.s}`:'', cb=x=>x?`${x.bars.n}-${x.bars.dia}`:'', ct=x=>x?`${x.tie.dia}@${x.tie.s}`:'';
+  const notes=[];
+  gs.forEach(g=>{ if(g===base) return; const d=[];
+    if(g.beam&&base.beam){ const A=base.beam,Bg=g.beam;
+      if(A.sec.B!==Bg.sec.B||A.sec.H!==Bg.sec.H) d.push(`梁斷面 ${A.sec.B}×${A.sec.H}→${Bg.sec.B}×${Bg.sec.H}`);
+      if(bt(A.d)!==bt(Bg.d)) d.push(`梁上筋 ${bt(A.d)}→${bt(Bg.d)}`);
+      if(bb(A.d)!==bb(Bg.d)) d.push(`梁下筋 ${bb(A.d)}→${bb(Bg.d)}`);
+      if(bs(A.d)!==bs(Bg.d)) d.push(`梁箍 ${bs(A.d)}→${bs(Bg.d)}`); }
+    if(g.col&&base.col){ const A=base.col,Cg=g.col;
+      if(A.sec.B!==Cg.sec.B||A.sec.H!==Cg.sec.H) d.push(`柱斷面 ${A.sec.B}×${A.sec.H}→${Cg.sec.B}×${Cg.sec.H}`);
+      if(cb(A.d)!==cb(Cg.d)) d.push(`柱主筋 ${cb(A.d)}→${cb(Cg.d)}`);
+      if(ct(A.d)!==ct(Cg.d)) d.push(`柱箍 ${ct(A.d)}→${ct(Cg.d)}`); }
+    notes.push({role:g.role,from:g.from,to:g.to,diffs:d}); });
+  return {base,notes};
+}
+/* 층별 차이 주기 블록(DXF) */
+function diffNoteDXF(doc,ox,oy,dn,RL,prof){
+  prof=prof||DRAW_PROFILE.tw; const T=prof.txt, L='S-TEXT';
+  const fr=g=>g.from===g.to?`${g.from}F`:`${g.from}~${g.to}F`;
+  doc.text(ox,oy,T.callout,`本圖以 標準層(${RL(dn.base.role)} ${fr(dn.base)}) 為基準；其餘樓層僅標示差異，餘同標準層。`,L,{});
+  let y=oy-T.callout*1.9;
+  dn.notes.forEach(n=>{ doc.text(ox,y,T.dim,`· ${RL(n.role)}(${fr(n)}): ${n.diffs.length?n.diffs.join('  ·  '):'同標準層'}`,L,{}); y-=T.dim*1.8; });
+  return {h:oy-y};
+}
+
+/* 전체 도면 세트(평면도+梁/柱配筋圖+梁表/柱表+층별차이주기+표제란) → DXF 문자열.
    data:{spec,groups,colB,storyH,roleLabel,project,date}. groups=S.model.rebar 형태 */
 function drawingSetDXF(data,opts){
   opts=opts||{}; const prof=opts.profile||DRAW_PROFILE.tw, doc=DxfDoc(prof), T=prof.txt;
@@ -690,7 +722,10 @@ function drawingSetDXF(data,opts){
     `${g.col.d.bars.n}-${g.col.d.bars.dia}`,`${g.col.d.tie.dia}@${g.col.d.tie.s}`,`${(g.col.d.rho*100).toFixed(1)}%`]);
   tableDXF(doc,rb.w+1500,y,['柱','斷面','主筋','箍筋','ρ'],cRows,[3600,1800,1800,1800,1200],prof,'柱表');
   y-=(Math.max(rb.h,1)+gap);
-  // 5. 표제란
+  // 5. 層別 差異 註記 (표준층 기준)
+  const dn=groupDiffNotes(data.groups);
+  if(dn){ head('⑤ 層別 差異 註記 (基準: 標準層)'); const r=diffNoteDXF(doc,0,y,dn,RL,prof); y-=(r.h+gap); }
+  // 6. 표제란
   titleBlockDXF(doc,0,y-1500,{title:opts.title||'梁柱配筋圖',sheet:opts.sheet||'S-01',
     date:data.date||'',by:'Dennis',org:'依 公會 RC01/RC04/RC06 標準圖',code:'TWD-USD112'},prof);
   return doc.toString();
@@ -710,6 +745,7 @@ if(typeof window!=='undefined'){
     flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign,
     ES_STEEL, beta1, colPMpoints, colMcapAt, pickColBars, rcColumnDesign,
     DRAW_PROFILE, dxfStr, DxfDoc, beamRebarDXF, rebarSheetDXF,
-    zhNum, floorLabelTW, columnRebarDXF, tableDXF, titleBlockDXF, framingPlanDXF, drawingSetDXF
+    zhNum, floorLabelTW, columnRebarDXF, tableDXF, titleBlockDXF, framingPlanDXF, drawingSetDXF,
+    groupDiffNotes, diffNoteDXF
   };
 }
