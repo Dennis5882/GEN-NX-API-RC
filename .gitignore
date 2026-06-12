@@ -13,3 +13,7 @@ venv/
 # OS/IDE
 .DS_Store
 .vscode/
+# user-provided reference data — keep local only
+20240301_113*.pdf
+Sederes_infoTable.csv
+_*.py
