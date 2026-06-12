@@ -895,7 +895,7 @@ const FLOOR_USE={
   Industrial:{sdl:2.0,live:'LL',liveVal:10.0},
   Roof:{sdl:2.5,live:'LR',liveVal:1.0}
 };
-const TYPE_USE={apartment:'Residential',office:'Office',factory:'Industrial',school:'Office',hospital:'Office'};
+const TYPE_USE={apartment:'Residential',office:'Office',commercial:'Commercial',hospital:'Office',school:'Office'};
 function useOf(p){ return TYPE_USE[p.bldgType]||'Residential'; }
 function deriveFloorGroups(p){
   const g={};
@@ -1104,8 +1104,7 @@ const DEFAULT_SPEC={
 const MATERIALS = {
   'C210':{E:21660,poisn:0.18,den:2.4e-9}, 'C245':{E:23380,poisn:0.18,den:2.4e-9},
   'C280':{E:24990,poisn:0.18,den:2.4e-9}, 'C315':{E:26500,poisn:0.18,den:2.4e-9},
-  'C350':{E:27940,poisn:0.18,den:2.4e-9}, 'C420':{E:30600,poisn:0.18,den:2.4e-9},
-  'SN490':{E:205000,poisn:0.3,den:7.85e-9}
+  'C350':{E:27940,poisn:0.18,den:2.4e-9}, 'C420':{E:30600,poisn:0.18,den:2.4e-9}
 };
 
 /* ════════════════════════════════════════════════════════════
@@ -1114,9 +1113,9 @@ const MATERIALS = {
 const BUILDING_TYPES = {
   apartment:{
     icon:'🏠',
-    label:{ko:'아파트',en:'Apartment',zh:'公寓'},
+    label:{ko:'주거',en:'Residential',zh:'住宅'},
     desc:{ko:'주거용 RC 라멘조 · 소형 스팬',en:'Residential RC frame · short spans',zh:'住宅用 RC 構架 · 小跨距'},
-    tip:{ko:'층수·동수를 바꿔 말할 수 있어요. 예) <code>25층 2동 아파트</code>',en:'You can change stories and buildings. e.g. <code>build a 25 story 2 building apartment</code>',zh:'可變更樓層數與棟數。例）<code>建立 25 層 2 棟公寓</code>'},
+    tip:{ko:'층수·동수를 바꿔 말할 수 있어요. 예) <code>25층 2동 주거</code>',en:'You can change stories and buildings. e.g. <code>build a 25 story 2 building residential</code>',zh:'可變更樓層數與棟數。例）<code>建立 25 層 2 棟住宅</code>'},
     buildings:1, bayX:4, bayY:3, spanX:6500, spanY:7000,
     stories:15, h1:2900, hTyp:2800, gap:14000, connectFloor:0,
     podium:1, podiumUse:'Commercial',
@@ -1125,35 +1124,25 @@ const BUILDING_TYPES = {
   },
   office:{
     icon:'🏢',
-    label:{ko:'사무실',en:'Office',zh:'辦公室'},
+    label:{ko:'사무',en:'Office',zh:'辦公'},
     desc:{ko:'업무용 RC · 오픈플랜 대형 스팬',en:'Office RC · open-plan long spans',zh:'辦公用 RC · 開放式大跨距'},
-    tip:{ko:'층수·스팬을 조정할 수 있어요. 예) <code>20층 사무실 스팬 10000</code>',en:'Adjust stories and span. e.g. <code>build a 20 story office span 10000</code>',zh:'可調整樓層數與跨距。例）<code>建立 20 層辦公室 跨距 10000</code>'},
+    tip:{ko:'층수·스팬을 조정할 수 있어요. 예) <code>20층 사무 스팬 10000</code>',en:'Adjust stories and span. e.g. <code>build a 20 story office span 10000</code>',zh:'可調整樓層數與跨距。例）<code>建立 20 層辦公 跨距 10000</code>'},
     buildings:1, bayX:4, bayY:3, spanX:9000, spanY:9000,
     stories:10, h1:4500, hTyp:4000, gap:0, connectFloor:0,
     podium:1, podiumUse:'Commercial',
     matName:'C350', E:8700, poisn:0.18, den:2.4e-9,
     colName:'C600x600', colH:600, colB:600, beamName:'B350x700', beamH:700, beamB:350
   },
-  factory:{
-    icon:'🏭',
-    label:{ko:'공장',en:'Factory',zh:'工廠'},
-    desc:{ko:'산업용 철골 라멘조 · 대형 스팬 단층',en:'Industrial steel frame · large-span single story',zh:'工業用鋼構構架 · 大跨距單層'},
-    tip:{ko:'베이 수로 규모를 조절하세요. 예) <code>공장 5베이</code>',en:'Scale with bays. e.g. <code>build a 5 bay factory</code>',zh:'可用跨數調整規模。例）<code>建立 5 跨工廠</code>'},
-    buildings:1, bayX:3, bayY:2, spanX:18000, spanY:15000,
-    stories:1, h1:8000, hTyp:8000, gap:0, connectFloor:0,
-    matName:'SN490', E:205000, poisn:0.3, den:7.85e-9,
-    colName:'C400x400', colH:400, colB:400, beamName:'B300x900', beamH:900, beamB:300
-  },
-  school:{
-    icon:'🏫',
-    label:{ko:'학교',en:'School',zh:'學校'},
-    desc:{ko:'교육시설 RC · 복도형 장방형 평면',en:'School RC · corridor-type rectangular plan',zh:'教育設施 RC · 走廊型長方形平面'},
-    tip:{ko:'층수를 바꿀 수 있어요. 예) <code>학교 4층</code>',en:'Change the number of stories. e.g. <code>build a 4 story school</code>',zh:'可變更樓層數。例）<code>建立 4 層學校</code>'},
-    buildings:1, bayX:6, bayY:2, spanX:7200, spanY:8400,
-    stories:5, h1:3800, hTyp:3600, gap:0, connectFloor:0,
-    podium:1, podiumUse:'Office',
-    matName:'C280', E:7100, poisn:0.18, den:2.4e-9,
-    colName:'C550x550', colH:550, colB:550, beamName:'B350x550', beamH:550, beamB:350
+  commercial:{
+    icon:'🏬',
+    label:{ko:'상가',en:'Commercial',zh:'商場'},
+    desc:{ko:'상업시설 RC · 대형 스팬 · 중활하중',en:'Commercial RC · large spans · heavy live load',zh:'商業設施 RC · 大跨距 · 重活載重'},
+    tip:{ko:'층수·스팬을 조정하세요. 예) <code>상가 6층</code>',en:'Adjust stories and spans. e.g. <code>build a 6 story mall</code>',zh:'可調整樓層與跨距。例）<code>建立 6 層商場</code>'},
+    buildings:1, bayX:5, bayY:4, spanX:9000, spanY:9000,
+    stories:6, h1:5000, hTyp:4500, gap:0, connectFloor:0,
+    podium:1, podiumUse:'Commercial',
+    matName:'C350', E:8700, poisn:0.18, den:2.4e-9,
+    colName:'C700x700', colH:700, colB:700, beamName:'B400x750', beamH:750, beamB:400
   },
   hospital:{
     icon:'🏥',
@@ -1165,17 +1154,28 @@ const BUILDING_TYPES = {
     podium:1, podiumUse:'Commercial',
     matName:'C350', E:9600, poisn:0.18, den:2.4e-9,
     colName:'C700x700', colH:700, colB:700, beamName:'B400x700', beamH:700, beamB:400
+  },
+  school:{
+    icon:'🏫',
+    label:{ko:'학교',en:'School',zh:'學校'},
+    desc:{ko:'교육시설 RC · 복도형 장방형 평면',en:'School RC · corridor-type rectangular plan',zh:'教育設施 RC · 走廊型長方形平面'},
+    tip:{ko:'층수를 바꿀 수 있어요. 예) <code>학교 4층</code>',en:'Change the number of stories. e.g. <code>build a 4 story school</code>',zh:'可變更樓層數。例）<code>建立 4 層學校</code>'},
+    buildings:1, bayX:6, bayY:2, spanX:7200, spanY:8400,
+    stories:5, h1:3800, hTyp:3600, gap:0, connectFloor:0,
+    podium:1, podiumUse:'Office',
+    matName:'C280', E:7100, poisn:0.18, den:2.4e-9,
+    colName:'C550x550', colH:550, colB:550, beamName:'B350x550', beamH:550, beamB:350
   }
 };
 /* 건물유형 필드의 현재 언어 값 */
 function bt(typeKey, field){ const o=BUILDING_TYPES[typeKey][field]; return (o&&typeof o==='object')?o[S.lang]:o; }
 
 const TYPE_KEYWORDS = {
-  apartment: /공동주택|아파트|주거|公寓|住宅|集合住宅|apartment|apt/,
-  office:    /사무실|오피스|업무|辦公室|辦公|商辦|office/,
-  factory:   /공장|산업|창고|工廠|廠房|倉庫|廠辦|factory|warehouse/,
-  school:    /학교|교육|學校|校舍|教學|教育|school/,
-  hospital:  /병원|의료|醫院|醫療|hospital/
+  apartment:  /공동주택|아파트|주거|公寓|住宅|集合住宅|apartment|apt|residential/,
+  office:     /사무실|사무|오피스|업무|辦公室|辦公|商辦|office/,
+  commercial: /상가|상업|쇼핑|백화점|商場|商场|購物|百貨|賣場|商業|mall|commercial|retail/,
+  hospital:   /병원|의료|醫院|醫療|hospital/,
+  school:     /학교|교육|學校|校舍|教學|教育|school/
 };
 
 function detectBuildingType(t){
@@ -2041,11 +2041,11 @@ function saveSettings(){ syncMode(); closeSettings(); }
 const G=(ko,en,zh)=>({ko,en,zh});
 const GUIDE = [
   { id:'build', icon:'⊞', open:true, label:G('모델 생성','Build','建立模型'), items:[
-    { icon:'🏠', label:G('아파트 15층','Apartment 15F','公寓 15 層'),  cmd:G('아파트 15층 만들어','build 15 story apartment','建立 15 層公寓') },
-    { icon:'🏢', label:G('사무실 10층','Office 10F','辦公室 10 層'),    cmd:G('사무실 10층 만들어','build 10 story office','建立 10 層辦公室') },
-    { icon:'🏭', label:G('공장','Factory','工廠'),                       cmd:G('공장 만들어','build factory','建立工廠') },
-    { icon:'🏫', label:G('학교 5층','School 5F','學校 5 層'),            cmd:G('학교 5층 만들어','build 5 story school','建立 5 層學校') },
+    { icon:'🏠', label:G('주거 15층','Residential 15F','住宅 15 層'),    cmd:G('주거 15층 만들어','build 15 story residential','建立 15 層住宅') },
+    { icon:'🏢', label:G('사무 10층','Office 10F','辦公 10 層'),         cmd:G('사무 10층 만들어','build 10 story office','建立 10 層辦公') },
+    { icon:'🏬', label:G('상가 6층','Commercial 6F','商場 6 層'),        cmd:G('상가 6층 만들어','build 6 story mall','建立 6 層商場') },
     { icon:'🏥', label:G('병원 8층','Hospital 8F','醫院 8 層'),          cmd:G('병원 8층 만들어','build 8 story hospital','建立 8 層醫院') },
+    { icon:'🏫', label:G('학교 5층','School 5F','學校 5 層'),            cmd:G('학교 5층 만들어','build 5 story school','建立 5 層學校') },
     { div:true },
     { icon:'⊡', label:G('커스텀 골조','Custom frame','自訂構架'),        cmd:G('10층 4베이 골조 만들어','build 10 story 4 bay frame','建立 10 層 4跨x2 構架') },
     { icon:'⚙', label:G('파라미터 입력','Parametric input','參數化輸入'), act:"addParamCard()" },
@@ -2142,7 +2142,7 @@ function setInputMode(m){
 const FORM_GROUPS=[{role:'PODIUM',from:1,to:2,h:4500,use:'Commercial'},
   {role:'TYPICAL',from:3,to:12,h:3200,use:'Residential'},{role:'ROOF',from:13,to:13,h:3200,use:'Roof'}];
 const FG_ROLES=['TYPICAL','PODIUM','TRANSFER','ROOF','BASEMENT'];
-const FG_USES=['Residential','Office','Commercial','Industrial','Roof'];
+const FG_USES=['Residential','Office','Commercial','Roof'];
 const _li=()=>S.lang==='ko'?0:S.lang==='en'?1:2;
 function roleLbl(r){return ({TYPICAL:['표준층','Typical','標準層'],PODIUM:['기단부','Podium','裙樓'],TRANSFER:['전이층','Transfer','轉換層'],ROOF:['지붕','Roof','屋頂'],BASEMENT:['지하','Basement','地下室']}[r]||[r,r,r])[_li()];}
 function useLbl(u){return ({Residential:['주거','Residential','住宅'],Office:['사무','Office','辦公'],Commercial:['상업','Commercial','商業'],Industrial:['공업','Industrial','工業'],Roof:['지붕','Roof','屋頂']}[u]||[u,u,u])[_li()];}
