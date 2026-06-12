@@ -1039,7 +1039,7 @@ function beamRebarDXF(doc,ox,oy,P,prof){
   doc.text(ox,oy+h+T.mark*1.3,T.mark,`${P.mark}  ${b}x${h}`,L.t,{});
   doc.text(ox+Ln/2,oy-T.dim*3,T.dim,`Ln=${Math.round(Ln)}`,L.d,{align:'center'});
   // 단면도(우측)
-  const sx=ox+Ln+900, r=_barDia(P.barsTop.dia)/2;
+  const sx=ox+Ln+1400, r=_barDia(P.barsTop.dia)/2;
   doc.rect(sx,oy,b,h,L.o); doc.rect(sx+cov,oy+cov,b-2*cov,h-2*cov,L.s);
   const row=(n,yy,dia)=>{const rr=_barDia(dia)/2,iw=b-2*cov-2*rr;for(let i=0;i<n;i++){const xx=sx+cov+rr+(n>1?i*iw/(n-1):iw/2);doc.circle(xx,yy,rr,L.r);}};
   row(P.barsTop.n,oy+h-cov,P.barsTop.dia); row(P.barsBot.n,oy+cov,P.barsBot.dia);
@@ -1082,10 +1082,10 @@ function columnRebarDXF(doc,ox,oy,P,prof){
   const ys=[]; for(let y=cov;y<cz;y+=sEnd)ys.push(y); for(let y=cz;y<=Hs-cz;y+=sMid)ys.push(y); for(let y=Hs-cz;y<=Hs-cov;y+=sEnd)ys.push(y);
   ys.forEach(y=>doc.line(ox+cov,oy+y,ox+b-cov,oy+y,L.s));
   doc.text(ox,oy+Hs+T.mark*1.3,T.mark,`${P.mark}  ${b}x${h}`,L.t,{});
-  doc.text(ox+b+250,oy+Hs*0.6,T.callout,`主筋 ${P.bars.n}-${P.bars.dia} (ρ${(P.rho*100).toFixed(1)}%)`,L.t,{});
-  doc.text(ox+b+250,oy+cz/2,T.dim,`箍 ${P.tie.dia}@${sEnd} (端部加密)`,L.t,{});
-  doc.text(ox+b+250,oy+Hs*0.6-T.dim*1.6,T.dim,`@${sMid} (中央)`,L.t,{});
-  const sx=ox+b+1700; doc.rect(sx,oy,b,h,L.o); doc.rect(sx+cov,oy+cov,b-2*cov,h-2*cov,L.s);
+  const cxt=ox+b+400;   // 콜아웃 x(입면 우측, 단면과 충분히 이격)
+  doc.text(cxt,oy+Hs*0.62,T.callout,`主筋 ${P.bars.n}-${P.bars.dia} (ρ${(P.rho*100).toFixed(1)}%)`,L.t,{});
+  doc.text(cxt,oy+Hs*0.62-T.callout*1.8,T.dim,`箍 ${P.tie.dia}@${sMid} (中央) / @${sEnd} (端部加密)`,L.t,{});
+  const sx=ox+b+3200; doc.rect(sx,oy,b,h,L.o); doc.rect(sx+cov,oy+cov,b-2*cov,h-2*cov,L.s);
   _twoFaceBars(doc,sx+cov,oy+cov,b-2*cov,h-2*cov,P.bars.n,_barDia(P.bars.dia)/2,L.r);
   doc.text(sx+b/2,oy+h+T.dim,T.dim,'柱斷面',L.t,{align:'center'});
 }
@@ -1103,12 +1103,14 @@ function tableDXF(doc,ox,oy,headers,rows,colW,prof,title){
 }
 /* 표제란(公會 양식) — (ox,oy)=좌하단 */
 function titleBlockDXF(doc,ox,oy,info,prof){
-  prof=prof||DRAW_PROFILE.tw; const T=prof.txt, w=5200,h=1500,L='S-TITLE',LT='S-TEXT'; info=info||{};
-  doc.rect(ox,oy,w,h,L); doc.line(ox,oy+h*0.5,ox+w,oy+h*0.5,L); doc.line(ox+w*0.62,oy,ox+w*0.62,oy+h,L);
-  doc.text(ox+200,oy+h*0.62,T.title,info.title||'梁柱配筋圖',LT,{});
-  doc.text(ox+200,oy+h*0.18,T.callout,`圖號 ${info.sheet||'S-01'}    比例 ${info.scale||'NTS'}    日期 ${info.date||''}`,LT,{});
-  doc.text(ox+w*0.62+150,oy+h*0.62,T.callout,info.org||'依 公會 RC 標準圖',LT,{});
-  doc.text(ox+w*0.62+150,oy+h*0.18,T.callout,`設計 ${info.by||'Dennis'}  ${info.code||'TWD-USD112'}`,LT,{});
+  prof=prof||DRAW_PROFILE.tw; const T=prof.txt, w=6500,h=1600,L='S-TITLE',LT='S-TEXT'; info=info||{};
+  const xd=ox+w*0.58;                                  // 좌/우 칸 경계
+  doc.rect(ox,oy,w,h,L); doc.line(ox,oy+h*0.5,ox+w,oy+h*0.5,L); doc.line(xd,oy,xd,oy+h,L);
+  doc.text(ox+220,oy+h*0.60,T.title,info.title||'梁柱配筋圖',LT,{});                              // 좌상: 圖名(大)
+  doc.text(xd+200,oy+h*0.70,T.dim,info.code||'TWD-USD112',LT,{});                                 // 우상1
+  doc.text(xd+200,oy+h*0.55,T.dim,info.org||'依 公會 RC 標準圖',LT,{});                            // 우상2
+  doc.text(ox+220,oy+h*0.16,T.dim,`圖號 ${info.sheet||'S-01'}    比例 ${info.scale||'NTS'}`,LT,{}); // 좌하
+  doc.text(xd+200,oy+h*0.16,T.dim,`設計 ${info.by||'Dennis'}    日期 ${info.date||''}`,LT,{});      // 우하
 }
 /* 표준층 골조 평면도(모델 2D 투영, 참고용) — (ox,oy) 기준 */
 function framingPlanDXF(doc,ox,oy,spec,prof,colB){
@@ -1127,9 +1129,10 @@ function framingPlanDXF(doc,ox,oy,spec,prof,colB){
    data:{spec,groups,colB,storyH,roleLabel,project,date}. groups=S.model.rebar 형태 */
 function drawingSetDXF(data,opts){
   opts=opts||{}; const prof=opts.profile||DRAW_PROFILE.tw, doc=DxfDoc(prof), T=prof.txt;
-  const RL=data.roleLabel||(r=>r); const gap=3000; let y=0;
+  const RL=data.roleLabel||(r=>r); const gap=4500; let y=0;
   const head=s=>{ doc.text(0,y,T.title,s,'S-TITLE',{}); y-=T.title*1.8; };
-  const bmk=g=>`梁 ${RL(g.role)} ${g.from}~${g.to}F`, cmk=g=>`柱 ${RL(g.role)} ${g.from}~${g.to}F`;
+  const fr=g=>(g.from===g.to?`${g.from}F`:`${g.from}~${g.to}F`);
+  const bmk=g=>`梁 ${RL(g.role)} ${fr(g)}`, cmk=g=>`柱 ${RL(g.role)} ${fr(g)}`;
   // 1. 골조 평면도(보조)
   if(data.spec){ head('① '+(opts.t_plan||'標準層 골조 평면도 (參考)'));
     const sy=asSpans(data.spec.spanY,data.spec.bayY), ph=cumPos(sy).pop();
