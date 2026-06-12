@@ -1,5 +1,18 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.2.0 — 2026-06-12 (M2-A3) — Agent 전단벽 중앙코어
+
+새 파일 **`gen_nx_rc_agent_v2.2.0.html`**. 횡하중(지진·풍)에 이어 **횡저항 요소(전단벽)** 추가.
+
+- **자동 중앙코어 토글** — 편집 카드에 🧱 체크박스 + 벽 두께(mm). ON 시 `autoCore`가 평면
+  중앙 1베이에 4면 전단벽을 전층 자동 배치(`p.walls`) → `buildFrame`이 PLATE 패널 생성.
+- **빌드 적용** — 두께별 `db/thik`(VALUE) 생성 → PLATE(`SECT`=thik id, STYPE:1) `db/elem` 추가.
+  `clearModel`에 `thik` 추가(재빌드 시 잔존 방지). 빌드 결과에 🧱 패널 수 표시.
+- **3D 미리보기** — 전단벽을 반투명 `mesh3d` 면으로 렌더(보라). 편집 카드 즉시 반영.
+- **라이브 검증** — Agent와 동일한 N·MM 경로(`db/unit` N/MM · `db/thik` T_IN=250mm · mm 노드 ·
+  PLATE SECT→thik) 전부 수용·GET 확인. 엔진+에이전트 결합 파싱 OK, autoCore 48패널 수치 검증.
+- (참고) 폼 Wizard 코어 패리티는 별도(Wizard는 자체 지오메트리 `expand`/`buildOps` 사용).
+
 ## 엔진 — 2026-06-12 (M2-A3 1단계) — 전단벽/코어 PLATE 레이어
 
 `shared/rc_engine.js` `buildFrame` 에 **전단벽·코어 생성** 추가(프런트엔드 UI 배선은 후속).

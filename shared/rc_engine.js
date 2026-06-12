@@ -134,6 +134,15 @@ function buildFrame(p){
           walls,wallThks:[...wallThks].sort((a,b)=>a-b)};
 }
 
+/* 자동 중앙코어: 평면 중앙 1베이에 사각 코어(전단벽 4면, 전층) 배치.
+   대부분의 표준층 RC가 중앙코어형(계단·EV) — 토글 ON 시 spec.walls 에 추가. */
+function autoCore(p, thick){
+  const nbx=asSpans(p.spanX,p.bayX).length, nby=asSpans(p.spanY,p.bayY).length;
+  const bx=Math.max(0,Math.floor((nbx-1)/2)), by=Math.max(0,Math.floor((nby-1)/2));
+  return {kind:'core', ix0:bx, iy0:by, ix1:Math.min(bx+1,nbx), iy1:Math.min(by+1,nby),
+          from:1, to:p.stories, thick:+thick||250};
+}
+
 /* ════════════════════════════════════════════════════════════
    TAIWAN LOAD COMBINATIONS (TWD-USD112, ACI-style USD)
 ════════════════════════════════════════════════════════════ */
@@ -375,7 +384,7 @@ if(typeof window!=='undefined'){
   window.RCEngine={
     MATERIALS, FLOOR_USE, TYPE_USE, useOf, deriveFloorGroups, specToGroupRows,
     FG_ROLES, FG_USES, asSpans, cumPos, buildFrame, taiwanCombos,
-    DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType,
+    DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType, autoCore,
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,
