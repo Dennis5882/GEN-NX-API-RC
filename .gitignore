@@ -17,3 +17,8 @@ venv/
 20240301_113*.pdf
 Sederes_infoTable.csv
 _*.py
+
+# 비-제품 산출물(소개/요약 문서·캡처) — 로컬 전용
+*.pptx
+*.docx
+shot_*.png
