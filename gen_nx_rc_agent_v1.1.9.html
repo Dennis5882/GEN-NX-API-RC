@@ -375,7 +375,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
           <button class="clearchat" onclick="clearChat()" data-i18n="clearchat" data-i18n-title="clearchat_tip">🧹 清除對話</button>
         </div>
         <div class="row">
-          <textarea id="input" rows="1" data-i18n-ph="input_ph" placeholder="以自然語言下達指令…  例）建立 15 層公寓"></textarea>
+          <textarea id="input" rows="1" data-i18n-ph="input_ph" placeholder="以自然語言下達指令…  例）建立 15 層住宅"></textarea>
           <button class="send" id="sendBtn" onclick="onSend()">➤</button>
         </div>
       </div>
@@ -493,7 +493,7 @@ const I18N = {
     conn_unlinked:'미연결', conn_linked:'Gen NX 연결됨', conn_failed:'연결 실패',
     guide_title:'⌘ 명령 가이드', guide_close:'가이드 닫기', guide_open:'가이드 열기', guide_open_txt:'가이드',
     mode:'MODE', mode_local:'LOCAL · 규칙기반', mode_nokey:'키 없음→LOCAL', brain:' 두뇌',
-    input_ph:'자연어로 명령하세요…  예) 10층 아파트 만들어',
+    input_ph:'자연어로 명령하세요…  예) 주거 15층 만들어',
     tab_log:'⬡ 활동', tab_model:'▣ 모델 개요', tab_3d:'◈ 3D 미리보기', tab_res:'∑ 결과',
     log_empty:'',
     model_empty:'', view_empty:'', res_empty:'',
@@ -531,7 +531,7 @@ const I18N = {
     need_analyze:'아직 해석 결과가 없습니다. <code>해석 돌려</code> 라고 먼저 말해주세요.',
     edit_done:m=>`✏️ ${m}<br><span style="color:var(--muted);font-size:.82rem">변경 후 다시 <code>해석 돌려</code> 로 영향을 확인하세요.</span>`,
     err:m=>`⚠ ${m}`,
-    unknown:'이해하지 못했어요. 예시:<br><code>10층 아파트 만들어</code> · <code>해석 돌려</code> · <code>최대 변위 알려줘</code><br><span style="color:var(--cyan)">증분 편집:</span> <code>3층 기둥 700x700으로 키워</code> · <code>1동 가새 추가</code><br><span style="color:var(--muted);font-size:.82rem">자유 대화를 원하면 ⚙에서 LLM 모드를 켜세요.</span>',
+    unknown:'이해하지 못했어요. 예시:<br><code>주거 15층 만들어</code> · <code>해석 돌려</code> · <code>최대 변위 알려줘</code><br><span style="color:var(--cyan)">증분 편집:</span> <code>3층 기둥 700x700으로 키워</code> · <code>1동 가새 추가</code><br><span style="color:var(--muted);font-size:.82rem">자유 대화를 원하면 ⚙에서 LLM 모드를 켜세요.</span>',
     clear_chat_model:'모델을 초기화했습니다. 새로 만들 준비 완료.',
     rb_disp:(v,n)=>`최대 수직변위 <b>${v} mm</b> (Node ${n})<br>`,
     rb_react:(v,n)=>`최대 수직반력 <b>${v} kN</b> (Node ${n})<br>`,
@@ -542,7 +542,7 @@ const I18N = {
     st_counts:(n,c,bm,l)=>`절점 ${n} · 기둥 ${c} · 보 ${bm} · 연결보 ${l}<br>`,
     st_props:(m,c,b)=>`재료 ${m} · 기둥단면 ${c} · 보단면 ${b}<br>`,
     st_height:h=>`높이 ${h} m`,
-    welcome:'안녕하세요 — <b>Gen NX 대화형 에이전트</b>입니다. 🏗️<br><br>왼쪽 <b>명령 가이드</b>에서 클릭하거나 자연어로 입력하세요.<br>건물 유형: <code>🏠 아파트</code> · <code>🏢 사무실</code> · <code>🏭 공장</code> · <code>🏫 학교</code> · <code>🏥 병원</code><br><br>예) <code>10층 아파트 만들어</code> → <code>해석 돌려</code> → <code>최대 변위 알려줘</code><br><br><span style="color:var(--muted);font-size:.82rem">⚙에서 MAPI 연결 후 사용하세요. 상단에서 언어를 바꿀 수 있습니다.</span>',
+    welcome:'안녕하세요 — <b>Gen NX 대화형 에이전트</b>입니다. 🏗️<br><br>왼쪽 <b>명령 가이드</b>에서 클릭하거나 자연어로 입력하세요.<br>건물 유형: <code>🏠 주거</code> · <code>🏢 사무</code> · <code>🏬 상가</code> · <code>🏥 병원</code> · <code>🏫 학교</code><br><br>예) <code>주거 15층 만들어</code> → <code>해석 돌려</code> → <code>최대 변위 알려줘</code><br><br><span style="color:var(--muted);font-size:.82rem">⚙에서 MAPI 연결 후 사용하세요. 상단에서 언어를 바꿀 수 있습니다.</span>',
     tgt_col:'기둥', tgt_beam:'보',
     act_modsect:(t,n,c)=>`${t} 단면을 ${n} 로 변경 (해당 부재 ${c}개 적용).`,
     act_resize:(fl,t,c,H,B,n)=>`${fl}${t} ${c}개를 ${H}×${B}(${n})로 변경.`,
@@ -558,7 +558,7 @@ const I18N = {
     conn_unlinked:'Not connected', conn_linked:'Gen NX connected', conn_failed:'Connection failed',
     guide_title:'⌘ Command Guide', guide_close:'Collapse guide', guide_open:'Expand guide', guide_open_txt:'Guide',
     mode:'MODE', mode_local:'LOCAL · rule-based', mode_nokey:'no key→LOCAL', brain:' brain',
-    input_ph:'Type a command…  e.g. build a 10-story apartment',
+    input_ph:'Type a command…  e.g. build a 15-story residential',
     tab_log:'⬡ Activity', tab_model:'▣ Model Summary', tab_3d:'◈ 3D Preview', tab_res:'∑ Results',
     log_empty:'',
     model_empty:'', view_empty:'', res_empty:'',
@@ -596,7 +596,7 @@ const I18N = {
     need_analyze:'No analysis results yet. Say <code>run analysis</code> first.',
     edit_done:m=>`✏️ ${m}<br><span style="color:var(--muted);font-size:.82rem">Run analysis again to see the effect.</span>`,
     err:m=>`⚠ ${m}`,
-    unknown:'Sorry, I didn\'t understand. Examples:<br><code>build a 10 story apartment</code> · <code>run analysis</code> · <code>show max displacement</code><br><span style="color:var(--cyan)">Incremental edits:</span> <code>enlarge floor 3 columns to 700x700</code> · <code>add bracing to building 1</code><br><span style="color:var(--muted);font-size:.82rem">For free chat, enable LLM mode in ⚙.</span>',
+    unknown:'Sorry, I didn\'t understand. Examples:<br><code>build a 15 story residential</code> · <code>run analysis</code> · <code>show max displacement</code><br><span style="color:var(--cyan)">Incremental edits:</span> <code>enlarge floor 3 columns to 700x700</code> · <code>add bracing to building 1</code><br><span style="color:var(--muted);font-size:.82rem">For free chat, enable LLM mode in ⚙.</span>',
     clear_chat_model:'Model cleared. Ready to build a new one.',
     rb_disp:(v,n)=>`Max vertical displacement <b>${v} mm</b> (Node ${n})<br>`,
     rb_react:(v,n)=>`Max vertical reaction <b>${v} kN</b> (Node ${n})<br>`,
@@ -607,7 +607,7 @@ const I18N = {
     st_counts:(n,c,bm,l)=>`Nodes ${n} · columns ${c} · beams ${bm} · link beams ${l}<br>`,
     st_props:(m,c,b)=>`Material ${m} · column ${c} · beam ${b}<br>`,
     st_height:h=>`Height ${h} m`,
-    welcome:'Hello — this is the <b>Gen NX Conversational Agent</b>. 🏗️<br><br>Click items in the <b>Command Guide</b> on the left, or type in natural language.<br>Building types: <code>🏠 Apartment</code> · <code>🏢 Office</code> · <code>🏭 Factory</code> · <code>🏫 School</code> · <code>🏥 Hospital</code><br><br>e.g. <code>build a 10 story apartment</code> → <code>run analysis</code> → <code>show max displacement</code><br><br><span style="color:var(--muted);font-size:.82rem">Set up the MAPI connection in ⚙. You can change the language at the top.</span>',
+    welcome:'Hello — this is the <b>Gen NX Conversational Agent</b>. 🏗️<br><br>Click items in the <b>Command Guide</b> on the left, or type in natural language.<br>Building types: <code>🏠 Residential</code> · <code>🏢 Office</code> · <code>🏬 Commercial</code> · <code>🏥 Hospital</code> · <code>🏫 School</code><br><br>e.g. <code>build a 15 story residential</code> → <code>run analysis</code> → <code>show max displacement</code><br><br><span style="color:var(--muted);font-size:.82rem">Set up the MAPI connection in ⚙. You can change the language at the top.</span>',
     tgt_col:'Column', tgt_beam:'Beam',
     act_modsect:(t,n,c)=>`Changed ${t} section to ${n} (applied to ${c} members).`,
     act_resize:(fl,t,c,H,B,n)=>`Changed ${c} ${t}${fl} to ${H}×${B} (${n}).`,
@@ -623,7 +623,7 @@ const I18N = {
     conn_unlinked:'未連線', conn_linked:'Gen NX 已連線', conn_failed:'連線失敗',
     guide_title:'⌘ 指令導引', guide_close:'收合導引', guide_open:'展開導引', guide_open_txt:'導引',
     mode:'MODE', mode_local:'本地 · 規則式', mode_nokey:'無金鑰→本地', brain:' 大腦',
-    input_ph:'以自然語言下達指令…  例）建立 10 層公寓',
+    input_ph:'以自然語言下達指令…  例）建立 15 層住宅',
     tab_log:'⬡ 活動記錄', tab_model:'▣ 模型概要', tab_3d:'◈ 3D 預覽', tab_res:'∑ 結果',
     log_empty:'',
     model_empty:'', view_empty:'', res_empty:'',
@@ -661,7 +661,7 @@ const I18N = {
     need_analyze:'尚無分析結果。請先輸入 <code>執行分析</code>。',
     edit_done:m=>`✏️ ${m}<br><span style="color:var(--muted);font-size:.82rem">變更後請再次 <code>執行分析</code> 確認影響。</span>`,
     err:m=>`⚠ ${m}`,
-    unknown:'無法理解。範例：<br><code>建立 10 層公寓</code> · <code>執行分析</code> · <code>查詢最大變位</code><br><span style="color:var(--cyan)">增量編輯：</span> <code>第 3 樓柱加大為 700x700</code> · <code>第 1 棟新增斜撐</code><br><span style="color:var(--muted);font-size:.82rem">若需自由對話，請於 ⚙ 開啟 LLM 模式。</span>',
+    unknown:'無法理解。範例：<br><code>建立 15 層住宅</code> · <code>執行分析</code> · <code>查詢最大變位</code><br><span style="color:var(--cyan)">增量編輯：</span> <code>第 3 樓柱加大為 700x700</code> · <code>第 1 棟新增斜撐</code><br><span style="color:var(--muted);font-size:.82rem">若需自由對話，請於 ⚙ 開啟 LLM 模式。</span>',
     clear_chat_model:'模型已清除，可重新建立。',
     rb_disp:(v,n)=>`最大垂直變位 <b>${v} mm</b>（節點 ${n}）<br>`,
     rb_react:(v,n)=>`最大垂直反力 <b>${v} kN</b>（節點 ${n}）<br>`,
@@ -672,7 +672,7 @@ const I18N = {
     st_counts:(n,c,bm,l)=>`節點 ${n} · 柱 ${c} · 梁 ${bm} · 連接梁 ${l}<br>`,
     st_props:(m,c,b)=>`材料 ${m} · 柱斷面 ${c} · 梁斷面 ${b}<br>`,
     st_height:h=>`高度 ${h} m`,
-    welcome:'您好 — 我是 <b>Gen NX 對話式代理</b>。🏗️<br><br>點選左側 <b>指令導引</b> 的項目，或直接以自然語言輸入。<br>建築類型：<code>🏠 公寓</code> · <code>🏢 辦公室</code> · <code>🏭 工廠</code> · <code>🏫 學校</code> · <code>🏥 醫院</code><br><br>例）<code>建立 10 層公寓</code> → <code>執行分析</code> → <code>查詢最大變位</code><br><br><span style="color:var(--muted);font-size:.82rem">請於 ⚙ 設定 MAPI 連線後使用。可於上方切換語言。</span>',
+    welcome:'您好 — 我是 <b>Gen NX 對話式代理</b>。🏗️<br><br>點選左側 <b>指令導引</b> 的項目，或直接以自然語言輸入。<br>建築類型：<code>🏠 住宅</code> · <code>🏢 辦公</code> · <code>🏬 商場</code> · <code>🏥 醫院</code> · <code>🏫 學校</code><br><br>例）<code>建立 15 層住宅</code> → <code>執行分析</code> → <code>查詢最大變位</code><br><br><span style="color:var(--muted);font-size:.82rem">請於 ⚙ 設定 MAPI 連線後使用。可於上方切換語言。</span>',
     tgt_col:'柱', tgt_beam:'梁',
     act_modsect:(t,n,c)=>`已將 ${t} 斷面變更為 ${n}（套用桿件 ${c} 個）。`,
     act_resize:(fl,t,c,H,B,n)=>`已將 ${fl}${t} ${c} 個變更為 ${H}×${B}（${n}）。`,
