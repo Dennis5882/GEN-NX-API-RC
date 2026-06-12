@@ -1,5 +1,18 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## Wizard v2.3.0 — 2026-06-12 — Agent 기능 패리티 (지진·풍)
+
+`MIDAS_RC_Modeling_Wizard_v2.0.0.html` → **`MIDAS_RC_Modeling_Wizard_v2.3.0.html`** (파일·버전 통일).
+폼 Wizard를 **Agent v2.3.0과 버전·기능 동기화** — 지진·풍 횡하중 추가(전단벽 코어는 v2.0.0에 이미).
+
+- **지진 等效靜力 + 풍** — 새 「6. 횡하중」 필드셋: 지진 on + 工址 프리셋(ENG.SEISMIC_ZONES)·SDS/SD1·I·R,
+  풍 on + V10·地況. 공용엔진 `seismicStoryForces`/`windStoryForces` 호출(Wizard M단위 → `wizSpec`로 mm 변환).
+- **적용** — 층력을 절점 균등분배(POST `/db/cnld`, ITEMS 배열), STLD에 EX/EY(E)·WX/WY(W) 추가.
+  `taiwanCombos`에 횡 케이스 전달 → **cLCB1~7 자동**.
+- **검증** — 파싱 OK / 평형(ΣEX=V·ΣWX=Vx·ΣWY=Vy 정확) / **라이브 전체 op 시퀀스 16개 수용**
+  (CNLD 36절점·다중 STLD·7조합 cLCB1~7 모델 생성 확인).
+- **버전 정렬** — Agent와 Wizard 모두 v2.3.0. (M2-B 자동판정은 '신규 생성'형 폼과 안 맞아 Agent 전용 유지.)
+
 ## v2.3.0 — 2026-06-12 (M2-B) — 기존 모델 표준층 자동판정
 
 새 파일 **`gen_nx_rc_agent_v2.3.0.html`**. 기존 Gen NX 모델을 **읽어** 표준층 구조를 자동판정.

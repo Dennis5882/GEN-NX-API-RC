@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MIDAS RC Modeling Wizard v2.0.0</title>
+<title>MIDAS RC Modeling Wizard v2.3.0</title>
 <script src="shared/rc_engine.js"></script>
 <style>
   :root{--bg:#0e1116;--panel:#171c24;--panel2:#1e242e;--line:#2a323d;--text:#e6edf3;
@@ -72,7 +72,7 @@
       <button data-lang="ko" id="lko">한국어</button>
       <button data-lang="en" id="len">EN</button>
     </div>
-    <span class="v">v2.0.0</span>
+    <span class="v">v2.3.0</span>
   </div>
   <h1>🏗️ MIDAS RC Modeling Wizard</h1>
   <div class="sub" data-i18n="subtitle"></div>
@@ -136,6 +136,26 @@
         <input id="coreThick" type="number" value="250" min="100" step="10" style="width:72px;margin-left:6px"/> mm</label>
     </fieldset>
 
+    <fieldset>
+      <legend data-i18n="sec6"></legend>
+      <label><input type="checkbox" id="optSeis" style="width:auto"/> <span data-i18n="seisOn"></span></label>
+      <div class="row r3" style="margin-top:6px">
+        <div><label data-i18n="seisRegion"></label><select id="seis_region"></select></div>
+        <div><label>SDS</label><input id="seis_SDS" type="number" step="any" value="0.6"/></div>
+        <div><label>SD1</label><input id="seis_SD1" type="number" step="any" value="0.35"/></div>
+      </div>
+      <div class="row r2">
+        <div><label>I <span data-i18n="seisI"></span></label><input id="seis_I" type="number" step="any" value="1.0"/></div>
+        <div><label>R <span data-i18n="seisR"></span></label><input id="seis_R" type="number" step="any" value="4.5"/></div>
+      </div>
+      <label style="margin-top:12px"><input type="checkbox" id="optWind" style="width:auto"/> <span data-i18n="windOn"></span></label>
+      <div class="row r2" style="margin-top:6px">
+        <div><label data-i18n="windV10"></label><input id="wind_V10" type="number" step="any" value="42.5"/></div>
+        <div><label data-i18n="windExp"></label><select id="wind_exp"><option value="A">A</option><option value="B" selected>B</option><option value="C">C</option></select></div>
+      </div>
+      <div class="hint" data-i18n="latHint"></div>
+    </fieldset>
+
     <div class="actions">
       <button class="btn preview" id="btnPreview"></button>
       <button class="btn go" id="btnGo"></button>
@@ -197,6 +217,9 @@ const LANG = {
     addRow:"+ 층 그룹 추가", floorHint:"역할 기단부/전이층/지붕/지하 는 특수층(보통 단일층).",
     sec5:"5. 옵션", optCombo:"대만 하중조합 자동 생성 (TWD-USD112)", optBase:"최하단 고정 지지 자동 부여",
     optCore:"중앙 전단벽 코어 (PLATE, 전층)",
+    sec6:"6. 횡하중 (지진·풍)", seisOn:"지진 等效靜力 적용 (TWD 耐震)", seisRegion:"지역(工址)",
+    seisI:"用途係數", seisR:"系統係數", windOn:"풍하중 적용 (간이 정적풍)", windV10:"기본풍속 V10 (m/s)", windExp:"地況",
+    latHint:"지진 EX·EY / 풍 WX·WY 를 층력으로 절점 분배(CNLD) → cLCB4~7 자동. M·KN 단위 권장.",
     btnPreview:"미리보기 (드라이런)", btnGo:"▶ MIDAS Gen NX에 생성",
     goHint:"⚠️ 생성하려면 MIDAS Gen NX가 실행 중이어야 합니다. 현재 문서를 새로 만들고(/doc/new) 채웁니다.",
     view3dTitle:"3D 미리보기",
@@ -223,6 +246,9 @@ const LANG = {
     addRow:"+ Add floor group", floorHint:"Roles Podium/Transfer/Roof/Basement are special floors (usually single).",
     sec5:"5. Options", optCombo:"Auto-generate Taiwan load combinations (TWD-USD112)", optBase:"Auto-add fixed supports at base",
     optCore:"Central shear-wall core (PLATE, full height)",
+    sec6:"6. Lateral loads (Seismic·Wind)", seisOn:"Apply equivalent-static seismic (TWD)", seisRegion:"Site",
+    seisI:"importance", seisR:"system", windOn:"Apply wind (simplified static)", windV10:"Wind V10 (m/s)", windExp:"Exposure",
+    latHint:"Seismic EX·EY / Wind WX·WY distributed to nodes (CNLD) → cLCB4–7 auto. Use M·KN units.",
     btnPreview:"Preview (dry run)", btnGo:"▶ Generate in MIDAS Gen NX",
     goHint:"⚠️ MIDAS Gen NX must be running. A new document (/doc/new) is created and populated.",
     view3dTitle:"3D Preview",
@@ -249,6 +275,9 @@ const LANG = {
     addRow:"+ 新增樓層群組", floorHint:"類型 裙樓/轉換層/屋頂/地下室 為特殊層（通常為單層）。",
     sec5:"5. 選項", optCombo:"自動產生台灣載重組合 (TWD-USD112)", optBase:"底層自動加入固定支承",
     optCore:"中央剪力牆核心 (PLATE, 全高)",
+    sec6:"6. 橫向載重 (地震·風)", seisOn:"套用等效靜力地震 (TWD 耐震)", seisRegion:"工址",
+    seisI:"用途係數", seisR:"系統係數", windOn:"套用風力 (簡化靜風)", windV10:"基本風速 V10 (m/s)", windExp:"地況",
+    latHint:"地震 EX·EY / 風 WX·WY 以樓層力分配至節點(CNLD) → cLCB4~7 自動。建議 M·KN 單位。",
     btnPreview:"預覽 (試算)", btnGo:"▶ 在 MIDAS Gen NX 建立",
     goHint:"⚠️ 須先開啟 MIDAS Gen NX。將新建文件 (/doc/new) 並填入模型。",
     view3dTitle:"3D 預覽",
@@ -357,7 +386,13 @@ function readModel(){
       h:+tr.querySelector(".c-h").value, use:tr.querySelector(".c-use").value, dia:tr.querySelector(".c-dia").checked});
   });
   const core={on:$("optCore").checked, thick:(+$("coreThick").value||250)};
-  return {xc, yc, fc, sect, floors, combo:$("optCombo").checked, base:$("optBase").checked, core};
+  const seismic={on:$("optSeis").checked};
+  ["SDS","SD1","I","R"].forEach(k=>{ const e=$("seis_"+k); if(e&&e.value!=="") seismic[k]=parseFloat(e.value); });
+  const wind={on:$("optWind").checked};
+  { const e=$("wind_V10"); if(e&&e.value!=="") wind.V10=parseFloat(e.value); }
+  { const e=$("wind_exp"); if(e) wind.exposure=e.value; }
+  if(seismic.I!=null) wind.I=seismic.I;   // 用途係數 공유
+  return {xc, yc, fc, sect, floors, combo:$("optCombo").checked, base:$("optBase").checked, core, seismic, wind};
 }
 
 /* ───────────────── 전개기 (Python 코어와 동일 규약) ───────────────── */
@@ -410,14 +445,34 @@ function expand(m){
 
 /* 하중조합 — 엔진 taiwanCombos(loadCases) 위임. 사용된 용도에서 D/L/LR 추출 →
    엔진이 cLCB1~3(현 Wizard는 지진·풍 미적용) 생성. 향후 E/W 추가 시 cLCB4~7 자동 확장. */
-function taiwanCombos(usedTypes){
+function taiwanCombos(usedTypes, extra){
   const types=new Set();
   usedTypes.forEach(u=>(PRESETS[u]?PRESETS[u].items:[]).forEach(([lc])=>types.add(lc==="LR"?"LR":(lc==="L"?"L":"D"))));
   const lcs=[];
   if(types.has("D"))  lcs.push({name:"D", type:"D"});
   if(types.has("L"))  lcs.push({name:"L", type:"L"});
   if(types.has("LR")) lcs.push({name:"LR",type:"LR"});
+  (extra||[]).forEach(e=>lcs.push(e));   // 橫向(E/W) 케이스 → cLCB4~7 자동
   return ENG.taiwanCombos(lcs);
+}
+/* 지진 工址 프리셋 드롭다운 채우기 + 선택 시 SDS/SD1 자동 입력 */
+function populateSeisRegion(){
+  const sel=$("seis_region"); if(!sel||!ENG.SEISMIC_ZONES) return;
+  sel.innerHTML='<option value="">'+t("seisRegion")+'…</option>'+
+    ENG.SEISMIC_ZONES.map((z,i)=>`<option value="${i}">${z.city} ${z.dist} · SDS ${z.SDS}</option>`).join('');
+  sel.onchange=()=>{ const z=ENG.SEISMIC_ZONES[+sel.value]; if(!z) return;
+    $("seis_SDS").value=z.SDS; if(z.SD1!=null) $("seis_SD1").value=z.SD1; preview(true); };
+}
+/* Wizard 모델(m, M단위) → 엔진 spec(mm) 변환 — 지진/풍 함수 입력용 */
+function wizSpec(m){
+  const sx=[],sy=[];
+  for(let i=1;i<m.xc.length;i++) sx.push((m.xc[i]-m.xc[i-1])*1000);
+  for(let i=1;i<m.yc.length;i++) sy.push((m.yc[i]-m.yc[i-1])*1000);
+  const stories=Math.max(1,...m.floors.map(f=>f.end));
+  const groups=m.floors.map(f=>({role:f.role,from:f.start,to:f.end,h:f.h*1000,use:f.use,dia:f.dia}));
+  const typ=m.floors.find(f=>f.role==='TYPICAL')||m.floors[m.floors.length-1];
+  return {buildings:1,spanX:sx,spanY:sy,bayX:sx.length,bayY:sy.length,stories,groups,
+          h1:m.floors[0].h*1000,hTyp:typ.h*1000};
 }
 
 function buildOps(m, ex){
@@ -441,7 +496,35 @@ function buildOps(m, ex){
   push("POST","/db/bodf",{Assign:{1:{LCNAME:"D",FV:[0,0,-1]}}});
   if(Object.keys(ex.fbla).length) push("POST","/db/fbla",{Assign:ex.fbla});
   if(ex.baseNodes.length){ const c={}; ex.baseNodes.forEach(n=>c[n]={ITEMS:[{ID:1,CONSTRAINT:"1111111"}]}); push("POST","/db/cons",{Assign:c}); }
-  if(m.combo){ const combos=taiwanCombos(ex.usedTypes);
+  /* ── 橫向載重 (地震 EX/EY + 風 WX/WY) — 공용엔진 사용, 층력 절점 균등분배(CNLD).
+     힘은 FORCE 기준값(kN) — 중력 FLOOR_LOAD 와 동일 기준(M·KN 권장). ── */
+  const latLC=[]; const cnld={}; let lno=4;
+  const pushCN=(nid,it)=>{(cnld[nid]=cnld[nid]||[]).push(it);};
+  const byZ={}; for(const id in ex.nodes){ const z=+ex.nodes[id][2].toFixed(3); (byZ[z]=byZ[z]||[]).push(+id); }
+  const spec=wizSpec(m);
+  if(m.seismic && m.seismic.on){
+    const r=ENG.seismicStoryForces(spec,m.seismic);
+    latLC.push({no:lno++,name:"EX",type:"E"},{no:lno++,name:"EY",type:"E"});
+    r.forces.forEach(fcst=>{ const zt=+(fcst.h/1000).toFixed(3); const ns=byZ[zt]||[];
+      if(!ns.length||!fcst.F) return; const per=fcst.F/ns.length;
+      ns.forEach(nid=>{ pushCN(nid,{LCNAME:"EX",FX:per,FY:0}); pushCN(nid,{LCNAME:"EY",FX:0,FY:per}); }); });
+  }
+  if(m.wind && m.wind.on){
+    const r=ENG.windStoryForces(spec,m.wind);
+    latLC.push({no:lno++,name:"WX",type:"W"},{no:lno++,name:"WY",type:"W"});
+    for(let i=0;i<r.forcesX.length;i++){ const fx=r.forcesX[i], fy=r.forcesY[i];
+      const zt=+(fx.h/1000).toFixed(3); const ns=byZ[zt]||[]; if(!ns.length) continue;
+      const px=fx.F/ns.length, py=fy.F/ns.length;
+      ns.forEach(nid=>{ pushCN(nid,{LCNAME:"WX",FX:px,FY:0}); pushCN(nid,{LCNAME:"WY",FX:0,FY:py}); }); }
+  }
+  if(latLC.length){
+    const sl={}; latLC.forEach(l=>sl[l.no]={NAME:l.name,TYPE:l.type,DESC:""});
+    push("POST","/db/stld",{Assign:sl});
+    const ca={}; for(const nid in cnld){ ca[nid]={ITEMS:cnld[nid].map((it,i)=>(
+      {ID:i+1,LCNAME:it.LCNAME,GROUP_NAME:"",FX:it.FX||0,FY:it.FY||0,FZ:0,MX:0,MY:0,MZ:0}))}; }
+    push("POST","/db/cnld",{Assign:ca});
+  }
+  if(m.combo){ const combos=taiwanCombos(ex.usedTypes, latLC.map(l=>({name:l.name,type:l.type})));
     if(combos.length){ const a={}; combos.forEach((cb,i)=>a[i+1]={NAME:cb.name,ACTIVE:"ACTIVE",iTYPE:0,DESC:cb.desc,
       vCOMB:cb.terms.map(([lc,f])=>({ANAL:"ST",LCNAME:lc,FACTOR:f}))}); push("POST","/db/lcom-gen",{Assign:a}); } }
   return ops;
@@ -616,6 +699,7 @@ updateEffUrl();
   window.addEventListener("resize",()=>render());
 })();
 
+populateSeisRegion();
 applyLang();   // 언어 적용 + 초기 미리보기 (preview→buildScene→render)
 </script>
 </body>
