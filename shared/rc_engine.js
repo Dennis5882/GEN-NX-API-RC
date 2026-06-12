@@ -65,8 +65,6 @@ function specToGroupRows(p){
 /* 표준층 표 옵션 */
 const FG_ROLES=['TYPICAL','PODIUM','TRANSFER','ROOF','BASEMENT'];
 const FG_USES=['Residential','Office','Commercial','School','Hospital','Equipment','Roof'];
-const FORM_GROUPS=[{role:'PODIUM',from:1,to:2,h:4500,use:'Commercial'},
-  {role:'TYPICAL',from:3,to:12,h:3200,use:'Residential'},{role:'ROOF',from:13,to:13,h:3200,use:'Roof'}];
 
 /* ════════════════════════════════════════════════════════════
    FRAME GENERATOR
@@ -219,7 +217,7 @@ function detectBuildingType(t){
 if(typeof window!=='undefined'){
   window.RCEngine={
     MATERIALS, FLOOR_USE, TYPE_USE, useOf, deriveFloorGroups, specToGroupRows,
-    FG_ROLES, FG_USES, FORM_GROUPS, asSpans, cumPos, buildFrame, taiwanCombos,
+    FG_ROLES, FG_USES, asSpans, cumPos, buildFrame, taiwanCombos,
     DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType,
     _MPA2CNS, _CNS_CONC
   };

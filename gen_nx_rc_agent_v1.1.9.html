@@ -131,7 +131,6 @@ main{flex:1;display:grid;grid-template-columns:1fr 1.05fr;gap:1px;background:var
   background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 9px;
   cursor:pointer;transition:.15s;white-space:nowrap;flex-shrink:0}
 .clearchat:hover{border-color:var(--red);color:var(--red);background:rgba(255,107,107,.06)}
-.param-status{font-family:'IBM Plex Mono','Noto Sans TC';font-size:.8rem;color:#e8eef7;margin-bottom:12px;min-height:18px}
 
 /* ═══════════════════════════════════════════
    GUIDE SIDEBAR — v3
@@ -1950,7 +1949,7 @@ function hint(tt){ const i=$('input'); i.value=tt; i.focus(); i.dispatchEvent(ne
 function quick(tt){ $('input').value=tt; onSend(); }
 
 function L3(k,e,z){return S.lang==='ko'?k:S.lang==='en'?e:z;}
-/* FORM_GROUPS · FG_ROLES · FG_USES → shared/rc_engine.js */
+/* FG_ROLES · FG_USES → shared/rc_engine.js */
 const _li=()=>S.lang==='ko'?0:S.lang==='en'?1:2;
 function roleLbl(r){return ({TYPICAL:['표준층','Typical','標準層'],PODIUM:['기단부','Podium','裙樓'],TRANSFER:['전이층','Transfer','轉換層'],ROOF:['지붕','Roof','屋頂'],BASEMENT:['지하','Basement','地下室']}[r]||[r,r,r])[_li()];}
 function useLbl(u){return ({Residential:['주거','Residential','住宅'],Office:['사무','Office','辦公'],Commercial:['상업','Commercial','商業'],School:['학교','School','學校'],Hospital:['병원','Hospital','病房'],Equipment:['설비','Equipment','設備層'],Roof:['지붕','Roof','屋頂']}[u]||[u,u,u])[_li()];}
@@ -1966,19 +1965,16 @@ function fgRow(g){
     <td style="text-align:center"><input class="fg-dia" type="checkbox" ${g.dia===false?'':'checked'} onchange="fgChanged(this)"></td>
     <td><button class="btn btn-ghost" style="padding:2px 8px" onclick="fgDel(this)">×</button></td></tr>`;
 }
-/* 표준층 표는 파라미터 폼(.param-form-root)과 대화형 편집 카드(.plan-editor) 양쪽에서 공용 */
-function fgChanged(el){ const ed=el.closest('.plan-editor'); if(ed){ previewEditorEl(ed); } else { previewFromForm(); } }
-function fgDel(btn){ const ed=btn.closest('.plan-editor'); const fc=btn.closest('.param-form-root');
-  const tr=btn.closest('tr'); if(tr) tr.remove();
-  if(ed) previewEditorEl(ed); else if(fc) previewFromForm(); }
+/* 표준층 표 핸들러 — 대화형 편집 카드(.plan-editor) 전용 */
+function fgChanged(el){ const ed=el.closest('.plan-editor'); if(ed) previewEditorEl(ed); }
+function fgDel(btn){ const ed=btn.closest('.plan-editor'); const tr=btn.closest('tr'); if(tr) tr.remove(); if(ed) previewEditorEl(ed); }
 /* 표준층 추가: 새 표준층을 '지붕 행 바로 위'(표준층과 지붕 사이)에 끼워 넣고
    지붕은 한 층 위로 올림 → 건물이 한 층 높아지며 순서가 유지됨. 지붕이 없으면 맨 끝에 추가. */
 function fgAddRow(btn){
-  const c = btn ? btn.closest('.param-form-root, .plan-editor') : document.querySelector('.param-form-root');
+  const c = btn ? btn.closest('.plan-editor') : null;
   const tb = c ? c.querySelector('.fgtable tbody') : null; if(!tb) return;
-  const isEditor=c.classList.contains('plan-editor');
-  const baseH=(isEditor&&pendingBuild?pendingBuild.hTyp:3200)||3200;
-  const baseUse=isEditor?useOf(pendingBuild||{}):'Residential';
+  const baseH=(pendingBuild?pendingBuild.hTyp:3200)||3200;
+  const baseUse=useOf(pendingBuild||{});
   const rows=[...tb.querySelectorAll('.fg-row')];
   const roof=rows.find(r=>r.querySelector('.fg-role').value==='ROOF');
   if(roof){
@@ -1990,65 +1986,7 @@ function fgAddRow(btn){
     const maxTo=rows.length?Math.max(...rows.map(r=>+r.querySelector('.fg-to').value)):0;
     tb.insertAdjacentHTML('beforeend', fgRow({role:'TYPICAL',from:maxTo+1,to:maxTo+1,h:baseH,use:baseUse}));
   }
-  if(isEditor) previewEditorEl(c); else previewFromForm(); }
-function readForm(){
-  const card=document.querySelector('.param-form-root'); if(!card||!card.querySelector('[data-g="colH"]')) return null;
-  const gv=k=>card.querySelector(`[data-g="${k}"]`).value;
-  const groups=[...card.querySelectorAll('.fg-row')].map(r=>({role:r.querySelector('.fg-role').value,
-    from:+r.querySelector('.fg-from').value,to:+r.querySelector('.fg-to').value,
-    h:+r.querySelector('.fg-h').value,use:r.querySelector('.fg-use').value,
-    dia:(r.querySelector('.fg-dia')?r.querySelector('.fg-dia').checked:true)})).filter(g=>g.to>=g.from);
-  const stories=Math.max(1,...groups.map(g=>g.to));
-  const colH=+gv('colH'),colB=+gv('colB'),beamH=+gv('beamH'),beamB=+gv('beamB'),matName=gv('matName');
-  const mt=MATERIALS[matName]||{E:24990,poisn:0.18,den:2.4e-9};
-  return {buildings:+gv('buildings'),bayX:+gv('bayX'),bayY:+gv('bayY'),spanX:+gv('spanX'),spanY:+gv('spanY'),
-    stories,h1:(groups[0]?groups[0].h:3200),hTyp:3200,gap:14000,connectFloor:0,bldgType:null,
-    colH,colB,beamH,beamB,colName:`C${colH}x${colB}`,beamName:`B${beamB}x${beamH}`,
-    matName,E:mt.E,poisn:mt.poisn,den:mt.den,groups,diaphragm:true};
-}
-function previewFromForm(){ const sp=readForm(); if(!sp)return; pendingBuild=sp; tab('viewP'); previewSpec(sp); }
-async function buildFromForm(){
-  const sp=readForm(); if(!sp)return; const st=$('paramStatus');
-  if(st) st.textContent=L3('생성 중…','Building…','建立中…');
-  try{ tab('logP'); await actBuildFrame(sp); tab('viewP');
-    const e=S.model.cols.length+S.model.beams.length+S.model.links.length;
-    if(st) st.innerHTML='✅ '+t('build_ok',sp.buildings,sp.stories,S.model.nodes.length,e);
-  }catch(err){ if(st) st.textContent=t('build_fail',err.message); }
-}
-function paramFormHTML(){
-  const matOpts=Object.keys(MATERIALS).map(m=>`<option${m==='C280'?' selected':''}>${m}</option>`).join('');
-  const gf=(k,lbl,val,unit)=>`<div class="pe-f"><label>${lbl}</label><div class="pe-in"><input data-g="${k}" type="number" value="${val}" onchange="previewFromForm()">${unit?`<span class="pe-u">${unit}</span>`:''}</div></div>`;
-  const rows=FORM_GROUPS.map(fgRow).join('');
-  return `<div class="param-status" id="paramStatus">${L3('파라미터를 입력하고 실행을 누르세요.','Set parameters and press Run.','設定參數後按執行。')}</div>
-  <div class="plan-editor" style="border:none;padding-left:0">
-    <div class="pe-head" style="display:flex;align-items:center;gap:10px">⚙ <span style="color:var(--cyan);font-weight:700">${L3('파라미터 모델링 (표준층)','Parametric modeling (typical floor)','參數化建模（標準層）')}</span></div>
-    <div class="pe-grid">
-      ${gf('buildings',L3('동수','Buildings','棟數'),1)}${gf('bayX',L3('X베이','X bays','X 跨'),3)}
-      ${gf('bayY',L3('Y베이','Y bays','Y 跨'),2)}${gf('spanX',L3('X스팬','X span','X 跨距'),6500,'mm')}
-      ${gf('spanY',L3('Y스팬','Y span','Y 跨距'),7000,'mm')}
-      <div class="pe-f"><label>${L3('재료','Material','材料')}</label><div class="pe-in"><select data-g="matName" onchange="previewFromForm()">${matOpts}</select></div></div>
-      ${gf('colH',L3('기둥H','Col H','柱 H'),600,'mm')}${gf('colB',L3('기둥B','Col B','柱 B'),600,'mm')}
-      ${gf('beamH',L3('보H','Beam H','梁 H'),600,'mm')}${gf('beamB',L3('보B','Beam B','梁 B'),400,'mm')}
-    </div>
-    <div style="margin-top:14px">
-      <div style="font-size:.7rem;color:var(--amber);font-family:'IBM Plex Mono','Noto Sans TC';letter-spacing:.5px;margin-bottom:6px">${L3('표준층 / 특수층 구성 (1:N 매핑)','Typical / special floors (1:N)','標準層 / 特殊層 (1:N)')}</div>
-      <table class="fgtable" style="width:100%"><thead><tr>
-        <th>${L3('역할','Role','類型')}</th><th>${L3('시작','From','起')}</th><th>${L3('끝','To','迄')}</th><th>${L3('층고','Ht','層高')}</th><th>${L3('용도','Use','用途')}</th><th>${L3('다이어프램','Diaph.','剛性樓板')}</th><th></th>
-      </tr></thead><tbody>${rows}</tbody></table>
-      <button class="btn btn-ghost" style="margin-top:8px;padding:5px 12px" onclick="fgAddRow(this)">+ ${L3('층그룹','Floor group','樓層群')}</button>
-    </div>
-    <div class="pe-tip">${L3('역할·층범위·층고·용도를 표로 정의 → 표준층 1개가 자연층 N개로 전개. CNS560·다이어프램·하중조합 자동.','Define role/range/height/use as a table → one typical floor expands to N stories. CNS560·diaphragm·combos auto.','以表格定義 類型/範圍/層高/用途 → 一個標準層展開為 N 自然層。自動套用 CNS560·剛性樓板·載重組合。')}</div>
-    <div style="display:flex;gap:8px;margin-top:14px">
-      <button class="btn btn-c" onclick="buildFromForm()">${t('exec')}</button>
-      <button class="btn btn-ghost" onclick="previewFromForm()">${L3('미리보기','Preview','預覽')}</button>
-    </div>
-  </div>`;
-}
-/* 파라미터 폼을 대화 카드로 띄움(대화창은 유지). 한 번에 하나만 활성화. */
-function addParamCard(){
-  document.querySelectorAll('.param-form-root').forEach(el=>{ const m=el.closest('.msg'); if(m) m.remove(); });
-  addMsg('bot', `<div class="param-form-root">${paramFormHTML()}</div>`);
-  const sp=readForm(); if(sp){ pendingBuild=sp; tab('viewP'); previewSpec(sp); }
+  previewEditorEl(c);
 }
 
 function clearChat(){
