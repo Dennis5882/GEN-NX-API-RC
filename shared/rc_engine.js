@@ -588,6 +588,111 @@ function rebarSheetDXF(groups,opts){
   return doc.toString();
 }
 
+/* 한자 수사 / 대만 층 표기 */
+const _ZH=['零','一','二','三','四','五','六','七','八','九','十'];
+function zhNum(n){ n=Math.abs(n); if(n<=10)return _ZH[n]; if(n<20)return '十'+(n%10?_ZH[n%10]:''); const t=Math.floor(n/10),o=n%10; return (t>1?_ZH[t]:'')+'十'+(o?_ZH[o]:''); }
+function floorLabelTW(idx,role){
+  if(role==='BASEMENT')return {short:'B'+idx, zh:'地下'+zhNum(idx)+'層'};
+  if(role==='ROOF')return {short:'RF', zh:'屋頂層'};
+  return {short:idx+'F', zh:zhNum(idx)+'樓'};
+}
+/* 사각형 단면 둘레(상/하 2면 대칭) 주근 배치 — 설계모델(대칭 2층)과 일치 */
+function _twoFaceBars(doc,x,y,w,h,n,r,ly){
+  const nb=Math.ceil(n/2), nt=Math.max(1,n-nb);
+  const row=(c,yy)=>{for(let i=0;i<c;i++){const xx=x+r+(c>1?i*(w-2*r)/(c-1):(w-2*r)/2);doc.circle(xx,yy,r,ly);}};
+  row(nb,y+r); row(nt,y+h-r);
+}
+/* 기둥 배근도(입면+단면). P:{mark,b,h,storyH,bars{n,dia},tie{dia,s},rho,Pu,Mux,Muy} */
+function columnRebarDXF(doc,ox,oy,P,prof){
+  prof=prof||DRAW_PROFILE.tw; const b=P.b,h=P.h,Hs=P.storyH||3200,cov=40,T=prof.txt;
+  const L={o:'S-OUTLINE',r:'S-REBAR',s:'S-STIRR',t:'S-TEXT',d:'S-DIM'};
+  doc.rect(ox,oy,b,Hs,L.o);
+  doc.line(ox+cov,oy,ox+cov,oy+Hs,L.r); doc.line(ox+b-cov,oy,ox+b-cov,oy+Hs,L.r);
+  const cz=Math.max(h,Hs/6), sEnd=Math.max(50,Math.round(P.tie.s/2/10)*10), sMid=P.tie.s;
+  const ys=[]; for(let y=cov;y<cz;y+=sEnd)ys.push(y); for(let y=cz;y<=Hs-cz;y+=sMid)ys.push(y); for(let y=Hs-cz;y<=Hs-cov;y+=sEnd)ys.push(y);
+  ys.forEach(y=>doc.line(ox+cov,oy+y,ox+b-cov,oy+y,L.s));
+  doc.text(ox,oy+Hs+T.mark*1.3,T.mark,`${P.mark}  ${b}x${h}`,L.t,{});
+  doc.text(ox+b+250,oy+Hs*0.6,T.callout,`主筋 ${P.bars.n}-${P.bars.dia} (ρ${(P.rho*100).toFixed(1)}%)`,L.t,{});
+  doc.text(ox+b+250,oy+cz/2,T.dim,`箍 ${P.tie.dia}@${sEnd} (端部加密)`,L.t,{});
+  doc.text(ox+b+250,oy+Hs*0.6-T.dim*1.6,T.dim,`@${sMid} (中央)`,L.t,{});
+  const sx=ox+b+1700; doc.rect(sx,oy,b,h,L.o); doc.rect(sx+cov,oy+cov,b-2*cov,h-2*cov,L.s);
+  _twoFaceBars(doc,sx+cov,oy+cov,b-2*cov,h-2*cov,P.bars.n,_barDia(P.bars.dia)/2,L.r);
+  doc.text(sx+b/2,oy+h+T.dim,T.dim,'柱斷面',L.t,{align:'center'});
+}
+/* 일람표(梁表/柱表 등) — (ox,oy)=좌상단, 아래로 그림 */
+function tableDXF(doc,ox,oy,headers,rows,colW,prof,title){
+  prof=prof||DRAW_PROFILE.tw; const T=prof.txt, rh=T.callout*2.2, L='S-TEXT', LO='S-OUTLINE';
+  const totW=colW.reduce((a,c)=>a+c,0); let top=oy;
+  if(title){ doc.text(ox,oy+rh*0.4,T.mark,title,L,{}); top=oy-rh*0.7; }
+  const all=[headers].concat(rows), nR=all.length;
+  all.forEach((rw,ri)=>{ const ry=top-ri*rh; let cx=ox;
+    rw.forEach((cell,ci)=>{ doc.text(cx+colW[ci]/2,ry-rh*0.66,T.callout,String(cell),L,{align:'center'}); cx+=colW[ci]; }); });
+  const bot=top-nR*rh; let cx=ox; for(let i=0;i<=colW.length;i++){ doc.line(cx,top,cx,bot,LO); if(i<colW.length)cx+=colW[i]; }
+  for(let i=0;i<=nR;i++) doc.line(ox,top-i*rh,ox+totW,top-i*rh,LO);
+  return {w:totW,h:nR*rh+ (title?rh:0)};
+}
+/* 표제란(公會 양식) — (ox,oy)=좌하단 */
+function titleBlockDXF(doc,ox,oy,info,prof){
+  prof=prof||DRAW_PROFILE.tw; const T=prof.txt, w=5200,h=1500,L='S-TITLE',LT='S-TEXT'; info=info||{};
+  doc.rect(ox,oy,w,h,L); doc.line(ox,oy+h*0.5,ox+w,oy+h*0.5,L); doc.line(ox+w*0.62,oy,ox+w*0.62,oy+h,L);
+  doc.text(ox+200,oy+h*0.62,T.title,info.title||'梁柱配筋圖',LT,{});
+  doc.text(ox+200,oy+h*0.18,T.callout,`圖號 ${info.sheet||'S-01'}    比例 ${info.scale||'NTS'}    日期 ${info.date||''}`,LT,{});
+  doc.text(ox+w*0.62+150,oy+h*0.62,T.callout,info.org||'依 公會 RC 標準圖',LT,{});
+  doc.text(ox+w*0.62+150,oy+h*0.18,T.callout,`設計 ${info.by||'Dennis'}  ${info.code||'TWD-USD112'}`,LT,{});
+}
+/* 표준층 골조 평면도(모델 2D 투영, 참고용) — (ox,oy) 기준 */
+function framingPlanDXF(doc,ox,oy,spec,prof,colB){
+  prof=prof||DRAW_PROFILE.tw; const T=prof.txt, LO='S-OUTLINE', LB='S-REBAR', LT='S-TEXT';
+  const sx=asSpans(spec.spanX,spec.bayX), sy=asSpans(spec.spanY,spec.bayY);
+  const Xp=cumPos(sx), Yp=cumPos(sy); colB=colB||600;
+  const x1=Xp[Xp.length-1], y1=Yp[Yp.length-1];
+  Yp.forEach(y=>doc.line(ox+Xp[0],oy+y,ox+x1,oy+y,LB));
+  Xp.forEach(x=>doc.line(ox+x,oy+Yp[0],ox+x,oy+y1,LB));
+  Xp.forEach(x=>Yp.forEach(y=>doc.rect(ox+x-colB/2,oy+y-colB/2,colB,colB,LO)));
+  Xp.forEach((x,i)=>doc.text(ox+x,oy+Yp[0]-800,T.callout,String(i+1),LT,{align:'center'}));
+  Yp.forEach((y,i)=>doc.text(ox+Xp[0]-800,oy+y,T.callout,String.fromCharCode(65+i),LT,{align:'center'}));
+  return {w:x1,h:y1};
+}
+/* 전체 도면 세트(평면도+梁/柱配筋圖+梁表/柱表+표제란) → DXF 문자열.
+   data:{spec,groups,colB,storyH,roleLabel,project,date}. groups=S.model.rebar 형태 */
+function drawingSetDXF(data,opts){
+  opts=opts||{}; const prof=opts.profile||DRAW_PROFILE.tw, doc=DxfDoc(prof), T=prof.txt;
+  const RL=data.roleLabel||(r=>r); const gap=3000; let y=0;
+  const head=s=>{ doc.text(0,y,T.title,s,'S-TITLE',{}); y-=T.title*1.8; };
+  const bmk=g=>`梁 ${RL(g.role)} ${g.from}~${g.to}F`, cmk=g=>`柱 ${RL(g.role)} ${g.from}~${g.to}F`;
+  // 1. 골조 평면도(보조)
+  if(data.spec){ head('① '+(opts.t_plan||'標準層 골조 평면도 (參考)'));
+    const sy=asSpans(data.spec.spanY,data.spec.bayY), ph=cumPos(sy).pop();
+    framingPlanDXF(doc,0,y-ph,data.spec,prof,data.colB); y-=(ph+gap+1500); }
+  // 2. 梁配筋圖
+  head('② 梁配筋圖'); doc.text(0,y,T.callout,`配筋詳圖依 ${prof.ref.beam} / ${prof.ref.note}`,'S-TEXT',{}); y-=T.callout*2;
+  (data.groups||[]).filter(g=>g.beam).forEach(g=>{ const h=g.beam.sec.H; y-=(h+gap+1200);
+    beamRebarDXF(doc,0,y,{mark:bmk(g),b:g.beam.sec.B,h:h,Ln:data.repSpan||6600,
+      barsTop:g.beam.d.barsTop,barsBot:g.beam.d.barsBot,stirrup:g.beam.d.stirrup,
+      MuPos:g.beam.MuPos,MuNeg:g.beam.MuNeg,Vu:g.beam.Vu},prof); });
+  y-=gap;
+  // 3. 柱配筋圖
+  head('③ 柱配筋圖'); doc.text(0,y,T.callout,`配筋詳圖依 ${prof.ref.col}`,'S-TEXT',{}); y-=T.callout*2;
+  (data.groups||[]).filter(g=>g.col).forEach(g=>{ const Hs=data.storyH||3200; y-=(Hs+gap+1200);
+    columnRebarDXF(doc,0,y,{mark:cmk(g),b:g.col.sec.B,h:g.col.sec.H,storyH:Hs,
+      bars:g.col.d.bars,tie:g.col.d.tie,rho:g.col.d.rho},prof); });
+  y-=gap;
+  // 4. 梁表 / 柱表
+  head('④ 梁表 / 柱表');
+  const bRows=(data.groups||[]).filter(g=>g.beam).map(g=>[bmk(g),`${g.beam.sec.B}x${g.beam.sec.H}`,
+    `${g.beam.d.barsTop.n}-${g.beam.d.barsTop.dia}`,`${g.beam.d.barsBot.n}-${g.beam.d.barsBot.dia}`,
+    `${g.beam.d.stirrup.leg}-${g.beam.d.stirrup.dia}@${g.beam.d.stirrup.s}`]);
+  const rb=tableDXF(doc,0,y,['梁','斷面','上筋','下筋','箍筋'],bRows,[3600,1800,1800,1800,2400],prof,'梁表');
+  const cRows=(data.groups||[]).filter(g=>g.col).map(g=>[cmk(g),`${g.col.sec.B}x${g.col.sec.H}`,
+    `${g.col.d.bars.n}-${g.col.d.bars.dia}`,`${g.col.d.tie.dia}@${g.col.d.tie.s}`,`${(g.col.d.rho*100).toFixed(1)}%`]);
+  tableDXF(doc,rb.w+1500,y,['柱','斷面','主筋','箍筋','ρ'],cRows,[3600,1800,1800,1800,1200],prof,'柱表');
+  y-=(Math.max(rb.h,1)+gap);
+  // 5. 표제란
+  titleBlockDXF(doc,0,y-1500,{title:opts.title||'梁柱配筋圖',sheet:opts.sheet||'S-01',
+    date:data.date||'',by:'Dennis',org:'依 公會 RC01/RC04/RC06 標準圖',code:'TWD-USD112'},prof);
+  return doc.toString();
+}
+
 /* ── 네임스페이스 노출 (M2 확장·다른 프런트엔드용) ── */
 if(typeof window!=='undefined'){
   window.RCEngine={
@@ -601,6 +706,7 @@ if(typeof window!=='undefined'){
     KGFCM2_TO_MPA, fcMPa, REBAR_FY, BAR_AREA, DEFAULT_REBAR, beamEffDepth,
     flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign,
     ES_STEEL, beta1, colPMpoints, colMcapAt, pickColBars, rcColumnDesign,
-    DRAW_PROFILE, dxfStr, DxfDoc, beamRebarDXF, rebarSheetDXF
+    DRAW_PROFILE, dxfStr, DxfDoc, beamRebarDXF, rebarSheetDXF,
+    zhNum, floorLabelTW, columnRebarDXF, tableDXF, titleBlockDXF, framingPlanDXF, drawingSetDXF
   };
 }
