@@ -11,7 +11,9 @@
 - **3D 미리보기** — 전단벽을 반투명 `mesh3d` 면으로 렌더(보라). 편집 카드 즉시 반영.
 - **라이브 검증** — Agent와 동일한 N·MM 경로(`db/unit` N/MM · `db/thik` T_IN=250mm · mm 노드 ·
   PLATE SECT→thik) 전부 수용·GET 확인. 엔진+에이전트 결합 파싱 OK, autoCore 48패널 수치 검증.
-- (참고) 폼 Wizard 코어 패리티는 별도(Wizard는 자체 지오메트리 `expand`/`buildOps` 사용).
+- **폼 Wizard 패리티** — `MIDAS_RC_Modeling_Wizard_v2.0.0.html` 에도 옵션 「중앙 전단벽 코어」 추가
+  (Wizard 자체 지오메트리 `expand`/`buildOps`에 배선: 중앙 1베이 4면 PLATE, THIK id 2=벽, M단위).
+  캔버스 3D에 벽 패널(보라) 렌더. 통합 검증: 9층 모델 → 벽 PLATE 36개·THIK 2종.
 
 ## 엔진 — 2026-06-12 (M2-A3 1단계) — 전단벽/코어 PLATE 레이어
 

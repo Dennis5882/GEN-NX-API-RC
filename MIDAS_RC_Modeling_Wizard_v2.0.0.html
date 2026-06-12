@@ -132,6 +132,8 @@
       <legend data-i18n="sec5"></legend>
       <label><input type="checkbox" id="optCombo" checked style="width:auto"/> <span data-i18n="optCombo"></span></label>
       <label><input type="checkbox" id="optBase" checked style="width:auto"/> <span data-i18n="optBase"></span></label>
+      <label><input type="checkbox" id="optCore" style="width:auto"/> <span data-i18n="optCore"></span>
+        <input id="coreThick" type="number" value="250" min="100" step="10" style="width:72px;margin-left:6px"/> mm</label>
     </fieldset>
 
     <div class="actions">
@@ -194,6 +196,7 @@ const LANG = {
     thName:"이름", thRole:"역할", thStart:"시작층", thEnd:"끝층", thHt:"층고m", thUse:"용도(하중)", thDia:"다이어프램",
     addRow:"+ 층 그룹 추가", floorHint:"역할 기단부/전이층/지붕/지하 는 특수층(보통 단일층).",
     sec5:"5. 옵션", optCombo:"대만 하중조합 자동 생성 (TWD-USD112)", optBase:"최하단 고정 지지 자동 부여",
+    optCore:"중앙 전단벽 코어 (PLATE, 전층)",
     btnPreview:"미리보기 (드라이런)", btnGo:"▶ MIDAS Gen NX에 생성",
     goHint:"⚠️ 생성하려면 MIDAS Gen NX가 실행 중이어야 합니다. 현재 문서를 새로 만들고(/doc/new) 채웁니다.",
     view3dTitle:"3D 미리보기",
@@ -219,6 +222,7 @@ const LANG = {
     thName:"Name", thRole:"Role", thStart:"Start", thEnd:"End", thHt:"Ht(m)", thUse:"Use (Load)", thDia:"Diaphragm",
     addRow:"+ Add floor group", floorHint:"Roles Podium/Transfer/Roof/Basement are special floors (usually single).",
     sec5:"5. Options", optCombo:"Auto-generate Taiwan load combinations (TWD-USD112)", optBase:"Auto-add fixed supports at base",
+    optCore:"Central shear-wall core (PLATE, full height)",
     btnPreview:"Preview (dry run)", btnGo:"▶ Generate in MIDAS Gen NX",
     goHint:"⚠️ MIDAS Gen NX must be running. A new document (/doc/new) is created and populated.",
     view3dTitle:"3D Preview",
@@ -244,6 +248,7 @@ const LANG = {
     thName:"名稱", thRole:"類型", thStart:"起始層", thEnd:"結束層", thHt:"層高m", thUse:"用途(載重)", thDia:"剛性樓板",
     addRow:"+ 新增樓層群組", floorHint:"類型 裙樓/轉換層/屋頂/地下室 為特殊層（通常為單層）。",
     sec5:"5. 選項", optCombo:"自動產生台灣載重組合 (TWD-USD112)", optBase:"底層自動加入固定支承",
+    optCore:"中央剪力牆核心 (PLATE, 全高)",
     btnPreview:"預覽 (試算)", btnGo:"▶ 在 MIDAS Gen NX 建立",
     goHint:"⚠️ 須先開啟 MIDAS Gen NX。將新建文件 (/doc/new) 並填入模型。",
     view3dTitle:"3D 預覽",
@@ -351,7 +356,8 @@ function readModel(){
       start:+tr.querySelector(".c-start").value, end:+tr.querySelector(".c-end").value,
       h:+tr.querySelector(".c-h").value, use:tr.querySelector(".c-use").value, dia:tr.querySelector(".c-dia").checked});
   });
-  return {xc, yc, fc, sect, floors, combo:$("optCombo").checked, base:$("optBase").checked};
+  const core={on:$("optCore").checked, thick:(+$("coreThick").value||250)};
+  return {xc, yc, fc, sect, floors, combo:$("optCombo").checked, base:$("optBase").checked, core};
 }
 
 /* ───────────────── 전개기 (Python 코어와 동일 규약) ───────────────── */
@@ -380,13 +386,26 @@ function expand(m){
       fbla[faid++]={FLOOR_LOAD_TYPE_NAME:f.use,FLOOR_DIST_TYPE:2,DIR:"GZ",NODES:corners.map(([x,y])=>N(x,y,zt)),GROUP_NAME:""};
     }
   }
+  // 中央剪力牆核心 (PLATE, SECT:2=벽 THIK) — 평면 중앙 1베이 4면, 전층. 그리드 정렬·절점 재사용.
+  let hasWall=false;
+  if(m.core && m.core.on && m.xc.length>=2 && m.yc.length>=2){
+    const nbx=m.xc.length-1, nby=m.yc.length-1;
+    const bx=Math.max(0,Math.floor((nbx-1)/2)), by=Math.max(0,Math.floor((nby-1)/2));
+    const x0=m.xc[bx], x1=m.xc[bx+1], y0=m.yc[by], y1=m.yc[by+1];
+    const edges=[[x0,y0,x1,y0],[x0,y1,x1,y1],[x0,y0,x0,y1],[x1,y0,x1,y1]];
+    for(const s of stories){ const [zb,zt]=levels[s];
+      edges.forEach(([ex0,ey0,ex1,ey1])=>{ elems[eid++]={TYPE:"PLATE",MATL:1,SECT:2,
+        NODE:[N(ex0,ey0,zb),N(ex1,ey1,zb),N(ex1,ey1,zt),N(ex0,ey0,zt)],STYPE:1,ANGLE:0}; });
+    }
+    hasWall=true;
+  }
   const byZ={}; for(const id in nodes){const z=nodes[id][2].toFixed(6); (byZ[z]=byZ[z]||[]).push(+id);}
   const wantDia={}; for(const f of m.floors){ for(let s=f.start;s<=f.end;s++) wantDia[levels[s][1].toFixed(6)]=f.dia; }
   const rigd={}; let rid=1;
   for(const z in wantDia){ if(!wantDia[z])continue; const ns=(byZ[z]||[]).sort((a,b)=>a-b);
     if(ns.length>=2) rigd[ns[0]]={ITEMS:[{ID:rid++,GROUP_NAME:"",DOF:110001,S_NODE:ns.slice(1)}]}; }
   const baseNodes = m.base ? Object.keys(nodes).filter(id=>nodes[id][2].toFixed(6)==="0.000000").map(Number) : [];
-  return {nodes, elems, rigd, fbla, baseNodes, usedTypes:[...usedTypes], stories, levels};
+  return {nodes, elems, rigd, fbla, baseNodes, usedTypes:[...usedTypes], stories, levels, hasWall};
 }
 
 /* 하중조합 — 엔진 taiwanCombos(loadCases) 위임. 사용된 용도에서 D/L/LR 추출 →
@@ -409,7 +428,9 @@ function buildOps(m, ex){
   push("POST","/db/sect",{Assign:{
     1:{SECTTYPE:"DBUSER",SECT_NAME:"COL",SECT_BEFORE:{USE_SHEAR_DEFORM:true,SHAPE:"SB",DATATYPE:2,SECT_I:{vSIZE:[m.sect.ch,m.sect.cb]}}},
     2:{SECTTYPE:"DBUSER",SECT_NAME:"BEAM",SECT_BEFORE:{USE_SHEAR_DEFORM:true,SHAPE:"SB",DATATYPE:2,SECT_I:{vSIZE:[m.sect.bh,m.sect.bb]}}}}});
-  push("POST","/db/thik",{Assign:{1:{NAME:"SLAB",TYPE:"VALUE",bINOUT:false,T_IN:m.sect.slab,T_OUT:0,O_VALUE:0}}});
+  const thik={1:{NAME:"SLAB",TYPE:"VALUE",bINOUT:false,T_IN:m.sect.slab,T_OUT:0,O_VALUE:0}};
+  if(ex.hasWall) thik[2]={NAME:"WALL",TYPE:"VALUE",bINOUT:false,T_IN:(m.core.thick/1000),T_OUT:0,O_VALUE:0};
+  push("POST","/db/thik",{Assign:thik});
   push("POST","/db/stld",{Assign:{1:{NAME:"D",TYPE:"D",DESC:"Dead"},2:{NAME:"L",TYPE:"L",DESC:"Live"},3:{NAME:"LR",TYPE:"LR",DESC:"Roof"}}});
   const fbld={}; ex.usedTypes.forEach((tp,i)=>{ fbld[i+1]={NAME:tp,DESC:"",ITEM:PRESETS[tp].items.map(([lc,v])=>({LCNAME:lc,FLOOR_LOAD:v,OPT_SUB_BEAM_WEIGHT:true}))}; });
   push("POST","/db/fbld",{Assign:fbld});
@@ -447,11 +468,21 @@ function buildScene(m, ex){
       slabs.push({pts:[[xc[i],yc[j],zt],[xc[i+1],yc[j],zt],[xc[i+1],yc[j+1],zt],[xc[i],yc[j+1],zt]],c});
   }
   for(const id of ex.baseNodes){const p=ex.nodes[id]; sups.push([p[0],p[1],p[2]]);}
+  // 中央剪力牆 패널 (expand 와 동일 중앙 1베이)
+  const walls=[];
+  if(m.core && m.core.on && xc.length>=2 && yc.length>=2){
+    const nbx=xc.length-1, nby=yc.length-1;
+    const bx=Math.max(0,Math.floor((nbx-1)/2)), by=Math.max(0,Math.floor((nby-1)/2));
+    const x0=xc[bx],x1=xc[bx+1],y0=yc[by],y1=yc[by+1];
+    const ed=[[x0,y0,x1,y0],[x0,y1,x1,y1],[x0,y0,x0,y1],[x1,y0,x1,y1]];
+    for(const st of stories){ const [zb,zt]=ex.levels[st];
+      ed.forEach(([a,b,c2,d])=>walls.push({pts:[[a,b,zb],[c2,d,zb],[c2,d,zt],[a,b,zt]]})); }
+  }
   const totalH = stories.length ? ex.levels[stories[stories.length-1]][1] : 1;
   const cx=(xc[0]+xc[xc.length-1])/2, cy=(yc[0]+yc[yc.length-1])/2, cz=totalH/2;
   const spanX=xc[xc.length-1]-xc[0], spanY=yc[yc.length-1]-yc[0];
   const radius=0.5*Math.sqrt(spanX*spanX+spanY*spanY+totalH*totalH)||1;
-  return {cols,beams,slabs,sups,cx,cy,cz,radius,roles:[...new Set(Object.values(roleOf))]};
+  return {cols,beams,slabs,sups,walls,cx,cy,cz,radius,roles:[...new Set(Object.values(roleOf))]};
 }
 
 function project(p){
@@ -480,6 +511,10 @@ function render(){
   if(view.show.slab) for(const sl of SCENE.slabs){ ctx.beginPath();
     sl.pts.forEach((p,i)=>{const t=TX(p); i?ctx.lineTo(t[0],t[1]):ctx.moveTo(t[0],t[1]);});
     ctx.closePath(); ctx.fillStyle=hexA(sl.c,0.07); ctx.fill(); }
+  if(SCENE.walls) for(const w of SCENE.walls){ ctx.beginPath();
+    w.pts.forEach((p,i)=>{const t=TX(p); i?ctx.lineTo(t[0],t[1]):ctx.moveTo(t[0],t[1]);});
+    ctx.closePath(); ctx.fillStyle="rgba(155,140,255,0.22)"; ctx.fill();
+    ctx.strokeStyle="rgba(155,140,255,0.6)"; ctx.lineWidth=1; ctx.stroke(); }
   if(view.show.beam) batch(SCENE.beams,0.55,1);
   if(view.show.col)  batch(SCENE.cols,0.85,1.4);
   if(view.show.sup){ ctx.fillStyle="#ffd33d"; for(const p of SCENE.sups){const t=TX(p);
