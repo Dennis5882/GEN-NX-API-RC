@@ -213,12 +213,86 @@ function detectBuildingType(t){
   return null;
 }
 
+/* ════════════════════════════════════════════════════════════
+   M2-A1 — 지진 等效靜力 (Equivalent Static Lateral Force)
+   대만 건축물내진설계규범 기반. 스펙트럼계수식 + 수동 override.
+   ⚠ 정확한 SaD·R·αy 계수는 工址/構造系統에 따라 사용자가 확정(UI 노출·조정).
+   순수 함수 — DOM/MAPI/상태 비의존. 힘 단위 kN, 길이 mm(높이 계산 시 m 변환).
+════════════════════════════════════════════════════════════ */
+/* 층 표고 elev[0..stories] (buildFrame 과 동일 규칙) */
+function storyElevations(spec){
+  const elev=[0];
+  if(spec.groups&&spec.groups.length){ const hByS={}; spec.groups.forEach(g=>{for(let s=g.from;s<=g.to;s++) hByS[s]=g.h;});
+    for(let s=1;s<=spec.stories;s++) elev.push(elev[s-1]+(hByS[s]||spec.hTyp||3000)); }
+  else for(let s=1;s<=spec.stories;s++) elev.push(elev[s-1]+(s===1?spec.h1:spec.hTyp));
+  return elev;
+}
+/* 평면 면적 (m²) — 1개 동 기준 */
+function planAreaM2(spec){
+  const Xp=cumPos(asSpans(spec.spanX,spec.bayX)), Yp=cumPos(asSpans(spec.spanY,spec.bayY));
+  const Lx=Xp[Xp.length-1]||0, Ly=Yp[Yp.length-1]||0;
+  return (Lx*Ly)/1e6;
+}
+/* 층별 지진중량 W_i (kN) = 층면적 × (단위중량 w0 + 활하중비율·활하중) × 동수
+   w0: 자중 추정(kN/m², 기본 12), liveRatio: 활하중 질량 반영비(기본 0.25) */
+function seismicStoryWeights(spec, params){
+  params=params||{};
+  const w0=(params.w0!=null?params.w0:12), lr=(params.liveRatio!=null?params.liveRatio:0.25);
+  const area=planAreaM2(spec)*(spec.buildings||1);
+  const g=deriveFloorGroups(spec); const W=[];
+  for(let s=1;s<=spec.stories;s++){
+    const use=(g[s]&&g[s].use)||'Residential';
+    const live=(FLOOR_USE[use]?FLOOR_USE[use].liveVal:0);
+    W[s]=area*(w0+lr*live);
+  }
+  return W;   // W[1..stories]
+}
+/* 기본진동주기 T(s). 수동 입력 없으면 콘크리트 모멘트골조 경험식 Ta=0.0466·hn^0.9 (hn: m) */
+function fundamentalPeriod(spec, params){
+  if(params&&params.T) return params.T;
+  const elev=storyElevations(spec); const hn=(elev[elev.length-1]||0)/1000;
+  return 0.0466*Math.pow(Math.max(hn,0.1),0.9);
+}
+/* 밑면전단계수 Cs = SDS·I/R, 상한 SD1·I/(R·T), 하한 max(0.044·SDS·I, 0.01) */
+function seismicCs(params, T){
+  params=params||{};
+  const I=(params.I!=null?params.I:1.0), R=(params.R!=null?params.R:4.5);
+  const SDS=params.SDS||0, SD1=params.SD1||0;
+  let Cs=R>0?SDS*I/R:0;
+  if(SD1>0 && T>0 && R>0) Cs=Math.min(Cs, SD1*I/(R*T));
+  return Math.max(Cs, 0.044*SDS*I, 0.01);
+}
+/* 수직분포 지수 k: T≤0.5→1, T≥2.5→2, 사이 선형보간 */
+function seismicKExp(T){ return T<=0.5?1:(T>=2.5?2:1+(T-0.5)/2); }
+/* 等效靜力: spec+params → {T,k,Cs,V,Wtot,W,forces[{story,h,w,F(kN)}]}
+   override 우선순위: params.V(직접 밑면전단) > params.Cs(계수) > 스펙트럼식 */
+function seismicStoryForces(spec, params){
+  params=params||{};
+  const W=seismicStoryWeights(spec,params);
+  const elev=storyElevations(spec);
+  const Wtot=W.reduce((a,b)=>a+(b||0),0);
+  const T=fundamentalPeriod(spec,params);
+  let Cs, V;
+  if(params.V!=null){ V=params.V; Cs=Wtot>0?V/Wtot:0; }
+  else { Cs=(params.Cs!=null?params.Cs:seismicCs(params,T)); V=Cs*Wtot; }
+  const k=seismicKExp(T);
+  let denom=0; for(let s=1;s<=spec.stories;s++) denom+=(W[s]||0)*Math.pow((elev[s]||0)/1000,k);
+  const forces=[];
+  for(let s=1;s<=spec.stories;s++){
+    const cvx=denom>0?((W[s]||0)*Math.pow((elev[s]||0)/1000,k))/denom:0;
+    forces.push({story:s, h:elev[s], w:W[s], F:V*cvx});
+  }
+  return {T,k,Cs,V,Wtot,W,forces};
+}
+
 /* ── 네임스페이스 노출 (M2 확장·다른 프런트엔드용) ── */
 if(typeof window!=='undefined'){
   window.RCEngine={
     MATERIALS, FLOOR_USE, TYPE_USE, useOf, deriveFloorGroups, specToGroupRows,
     FG_ROLES, FG_USES, asSpans, cumPos, buildFrame, taiwanCombos,
     DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType,
-    _MPA2CNS, _CNS_CONC
+    _MPA2CNS, _CNS_CONC,
+    storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
+    seismicCs, seismicKExp, seismicStoryForces
   };
 }
