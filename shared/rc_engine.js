@@ -253,11 +253,18 @@ function fundamentalPeriod(spec, params){
   const elev=storyElevations(spec); const hn=(elev[elev.length-1]||0)/1000;
   return 0.0466*Math.pow(Math.max(hn,0.1),0.9);
 }
+/* SD1 환산: 직접 주어지면 그대로, 없고 T0(전환주기)가 있으면 SD1=SDS·T0
+   (臺北盆地 등 Sederes가 Sa1을 N/A로 주고 T0만 줄 때 — 감쇠구간 SD1/T = SDS·T0/T) */
+function effSD1(params){
+  if(params.SD1!=null) return params.SD1;
+  if(params.SDS && params.T0) return params.SDS*params.T0;
+  return 0;
+}
 /* 밑면전단계수 Cs = SDS·I/R, 상한 SD1·I/(R·T), 하한 max(0.044·SDS·I, 0.01) */
 function seismicCs(params, T){
   params=params||{};
   const I=(params.I!=null?params.I:1.0), R=(params.R!=null?params.R:4.5);
-  const SDS=params.SDS||0, SD1=params.SD1||0;
+  const SDS=params.SDS||0, SD1=effSD1(params);
   let Cs=R>0?SDS*I/R:0;
   if(SD1>0 && T>0 && R>0) Cs=Math.min(Cs, SD1*I/(R*T));
   return Math.max(Cs, 0.044*SDS*I, 0.01);
@@ -290,6 +297,8 @@ function seismicStoryForces(spec, params){
    ⚠ 臺北盆地(表2-6a, 臺北一/二/三區) 행정구는 미분구 설계스펙트럼 別表 필요 → 미수록.
    ⚠ 그 외 縣市는 해당 震區表 입수 후 확장. */
 const SEISMIC_ZONES=[
+  /* 臺北盆地 微分區 (表2-6a, Sederes 조회값) — Sa1=N/A, T0로 정의 → SD1=SDS·T0 */
+  {city:'臺北盆地', dist:'臺北三區', SDS:0.6, T0:1.6, SD1:0.96, note:'盆地(예: 大安區 仁愛里). 부지별 상이 — Sederes 확인 권장'},
   {city:'新北市', dist:'三峽區',  SDS:0.7, SD1:0.40},
   {city:'新北市', dist:'石碇區',  SDS:0.7, SD1:0.40},
   {city:'新北市', dist:'坪林區',  SDS:0.7, SD1:0.40},
@@ -315,6 +324,6 @@ if(typeof window!=='undefined'){
     DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType,
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
-    seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES
+    effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES
   };
 }
