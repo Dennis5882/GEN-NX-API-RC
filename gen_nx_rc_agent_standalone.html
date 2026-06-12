@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gen NX 대화형 모델링 에이전트 v2.9.0 (M4 층별차이)</title>
+<title>Gen NX 대화형 모델링 에이전트 v2.10.0 (M2-A4 동적해석)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -335,7 +335,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.9.0</span><small data-i18n="subtitle">對話式結構建模</small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.10.0</span><small data-i18n="subtitle">對話式結構建模</small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <button data-l="ko" onclick="setLang('ko')">한국어</button>
@@ -1201,6 +1201,62 @@ function drawingSetDXF(data,opts){
   return doc.toString();
 }
 
+/* ════════════════════════════════════════════════════════════
+   M2-A4 — 동적해석 보조 (고유치·응답스펙트럼)
+   db/EIGV·db/SPFC·db/SPLC 라이브 검증된 스키마 사용. (MAPI_FINDINGS.md)
+════════════════════════════════════════════════════════════ */
+/* 설계 수평반응스펙트럼 SaD(T) [g] — SDS/SD1 기반 ASCE-7 형상(대만 규범과 정합: Cs도 동일식 사용).
+   T0=0.2·SD1/SDS, Ts=SD1/SDS. T<T0 선형상승, T0~Ts 평탄(SDS), Ts~TL 감쇠(SD1/T), T>TL (SD1·TL/T²).
+   반환: {func:[{PERIOD,VALUE(g)}], T0, Ts, SDS, SD1, TL} — func는 db/SPFC 의 aFUNC 로 사용. */
+function twDesignSpectrum(params){
+  params=params||{};
+  const SDS=params.SDS||0, SD1=(effSD1?effSD1(params):(params.SD1||0)), TL=(params.TL!=null?params.TL:2.5);
+  const Ts=(SDS>0?SD1/SDS:0), T0=0.2*Ts;
+  const Sa=T=>{
+    if(SDS<=0) return 0;
+    if(T<=0) return 0.4*SDS;
+    if(T<T0) return SDS*(0.4+0.6*T/T0);
+    if(T<=Ts) return SDS;
+    if(T<=TL) return SD1/T;
+    return SD1*TL/(T*T);
+  };
+  const pts=[0,T0,Ts,0.3,0.5,0.75,1.0,1.5,2.0,TL,3.0,4.0,5.0]
+    .filter(t=>t>=0 && isFinite(t));
+  const seen={}, func=[];
+  pts.sort((a,b)=>a-b).forEach(T=>{ const k=T.toFixed(4); if(seen[k])return; seen[k]=1;
+    func.push({PERIOD:+T.toFixed(4), VALUE:+Sa(T).toFixed(5)}); });
+  return {func, T0:+T0.toFixed(4), Ts:+Ts.toFixed(4), SDS, SD1, TL};
+}
+/* db/EIGV 페이로드 (Subspace). modes 기본 = min(stories*3, 30) 권장값을 호출부가 결정. */
+function eigvPayload(modes){
+  return {TYPE:'EIGEN', iFREQ:Math.max(1,modes|0), iITER:20, iDIM:1,
+    TOL:1e-10, bMINMAX:false, FRMIN:0, FRMAX:0, bSTRUM:false};
+}
+/* db/SPLC 응답스펙트럼 하중케이스 (전체 모드 사용 bMODE:false, CQC). funcName=SPFC NAME */
+function splcPayload(name, dir, funcName, scale){
+  return {NAME:name, DIR:dir||'XY', ANGLE:0, SCALE:(scale!=null?scale:1), PMFT:1,
+    bDAMP:false, INTERP:'LOG', DESC:'', COMTYPE:'CQC', bADDSIGN:true, iSIGNTYPE:0,
+    bMODE:false, aFUNCNAME:[funcName]};
+}
+/* PARTICIPATIONVECTORMODE 응답에서 주기 추출 — 다중 서브테이블 중 HEAD에 'Period' 포함 테이블 파싱.
+   반환 {modes:[{mode,period,fcyc}], T1} (T1=최대 주기 = 1차모드). 실패 시 {modes:[],T1:null} */
+function pickModalPeriods(resp){
+  const out=[]; if(!resp||typeof resp!=='object') return {modes:[],T1:null};
+  for(const k in resp){
+    const tb=resp[k]; if(!tb||!tb.HEAD||!tb.DATA) continue;
+    const H=tb.HEAD.map(x=>String(x).toLowerCase());
+    const ip=H.findIndex(h=>h.includes('period'));
+    if(ip<0) continue;
+    const im=H.findIndex(h=>h.includes('mode'));
+    const ifc=H.findIndex(h=>h.includes('cycle'));
+    tb.DATA.forEach(r=>{ const T=parseFloat(r[ip]); if(isFinite(T)&&T>0)
+      out.push({mode:(im>=0?r[im]:out.length+1), period:T, fcyc:(ifc>=0?parseFloat(r[ifc]):null)}); });
+    if(out.length) break;
+  }
+  const T1=out.reduce((m,x)=>Math.max(m,x.period),0)||null;
+  return {modes:out, T1};
+}
+
 /* ── 네임스페이스 노출 (M2 확장·다른 프런트엔드용) ── */
 if(typeof window!=='undefined'){
   window.RCEngine={
@@ -1216,7 +1272,8 @@ if(typeof window!=='undefined'){
     ES_STEEL, beta1, colPMpoints, colMcapAt, pickColBars, rcColumnDesign,
     DRAW_PROFILE, dxfStr, DxfDoc, beamRebarDXF, rebarSheetDXF,
     zhNum, floorLabelTW, columnRebarDXF, tableDXF, titleBlockDXF, framingPlanDXF, drawingSetDXF,
-    groupDiffNotes, diffNoteDXF
+    groupDiffNotes, diffNoteDXF,
+    twDesignSpectrum, eigvPayload, splcPayload, pickModalPeriods
   };
 }
 
@@ -1258,7 +1315,10 @@ const I18N = {
     model_hint:'모델명은 직접 수정 가능 (공급자가 최신 모델을 자주 갱신함).', save:'저장', close:'닫기',
     exec:'실행 ▶', cancel:'취소', edit_btn:'✎ 수정',
     test_need:'Base URL과 MAPI Key를 모두 입력하세요.', test_ing:'연결 테스트 중…',
-    test_ok:'✅ Gen NX 연결 성공', test_http:c=>`❌ 연결 실패 (HTTP ${c})`, test_err:m=>`❌ ${m} — Gen NX 실행/Connect 상태 및 CORS를 확인하세요.`,
+    test_ok:(prog,user)=>`✅ Gen NX 연결 성공 (제품: ${prog}${user?' · '+user:''})`,
+    test_keyfail:'❌ 키 미검증 또는 제품 미연결 — Gen NX 실행/Connect 상태를 확인하세요.',
+    test_wrongprod:p=>`⚠️ 연결됨 — 그러나 제품이 "${p}"입니다. 이 도구는 Gen NX 전용이라 일부 기능(전단벽·풍 등)이 다르게 동작할 수 있습니다.`,
+    test_http:c=>`❌ 연결 실패 (HTTP ${c})`, test_err:m=>`❌ ${m} — Gen NX 실행/Connect 상태 및 CORS를 확인하세요.`,
     sec_geom:'▣ 형상', sec_prop:'◫ 속성', sec_edits:'✏ 편집 이력',
     kv_type:'건물 유형', kv_bs:'동수 / 층수', kv_bay:'평면 bay', kv_span:'스팬 (mm)', kv_h:'층고 1F / 기준',
     kv_cb:'기둥 / 보', kv_link:f=>`연결보 (${f}F)`, kv_mat:'재료', kv_csect:'기둥 단면', kv_bsect:'보 단면',
@@ -1323,7 +1383,10 @@ const I18N = {
     model_hint:'Model name is editable (providers update models often).', save:'Save', close:'Close',
     exec:'Run ▶', cancel:'Cancel', edit_btn:'✎ Edit',
     test_need:'Enter both Base URL and MAPI Key.', test_ing:'Testing connection…',
-    test_ok:'✅ Gen NX connected', test_http:c=>`❌ Connection failed (HTTP ${c})`, test_err:m=>`❌ ${m} — Check Gen NX is running/Connect and CORS.`,
+    test_ok:(prog,user)=>`✅ Gen NX connected (product: ${prog}${user?' · '+user:''})`,
+    test_keyfail:'❌ Key not verified or product not connected — check Gen NX is running/Connect.',
+    test_wrongprod:p=>`⚠️ Connected — but product is "${p}". This tool targets Gen NX; some features (shear wall, wind…) may differ.`,
+    test_http:c=>`❌ Connection failed (HTTP ${c})`, test_err:m=>`❌ ${m} — Check Gen NX is running/Connect and CORS.`,
     sec_geom:'▣ Geometry', sec_prop:'◫ Properties', sec_edits:'✏ Edit history',
     kv_type:'Building type', kv_bs:'Buildings / Stories', kv_bay:'Plan bays', kv_span:'Span (mm)', kv_h:'Height 1F / typ',
     kv_cb:'Columns / Beams', kv_link:f=>`Link beams (${f}F)`, kv_mat:'Material', kv_csect:'Column section', kv_bsect:'Beam section',
@@ -1388,7 +1451,10 @@ const I18N = {
     model_hint:'模型名稱可自行修改（供應商常更新最新模型）。', save:'儲存', close:'關閉',
     exec:'執行 ▶', cancel:'取消', edit_btn:'✎ 修改',
     test_need:'請輸入 Base URL 與 MAPI Key。', test_ing:'連線測試中…',
-    test_ok:'✅ Gen NX 連線成功', test_http:c=>`❌ 連線失敗 (HTTP ${c})`, test_err:m=>`❌ ${m} — 請確認 Gen NX 執行／Connect 狀態及 CORS。`,
+    test_ok:(prog,user)=>`✅ Gen NX 連線成功 (產品: ${prog}${user?' · '+user:''})`,
+    test_keyfail:'❌ 金鑰未驗證或產品未連線 — 請確認 Gen NX 執行／Connect 狀態。',
+    test_wrongprod:p=>`⚠️ 已連線 — 但產品為「${p}」。本工具專為 Gen NX 設計，部分功能（剪力牆・風力等）可能不同。`,
+    test_http:c=>`❌ 連線失敗 (HTTP ${c})`, test_err:m=>`❌ ${m} — 請確認 Gen NX 執行／Connect 狀態及 CORS。`,
     sec_geom:'▣ 幾何', sec_prop:'◫ 性質', sec_edits:'✏ 編輯紀錄',
     kv_type:'建築類型', kv_bs:'棟數 / 樓層', kv_bay:'平面 跨', kv_span:'跨距 (mm)', kv_h:'樓高 1F / 標準',
     kv_cb:'柱 / 梁', kv_link:f=>`連接梁 (${f}F)`, kv_mat:'材料', kv_csect:'柱斷面', kv_bsect:'梁斷面',
@@ -1571,8 +1637,12 @@ async function runAnalysis(){
   await mapi('POST','/doc/anal',{});
   log(tl('analDone'),'ok');
 }
+/* Track D: post/table에 UNIT을 명시 → 모델 전역 단위와 무관하게 항상 N·mm로 회수
+   (설계 엔진은 N·mm 기준). STYLES/LOAD_CASE_NAMES 유지. extra로 UNIT 등 override 가능. */
 async function fetchTable(type,lcNames,extra={}){
-  const body={Argument:{TABLE_NAME:'SS',TABLE_TYPE:type,STYLES:{FORMAT:'Fixed',PLACE:4},
+  const body={Argument:{TABLE_NAME:'SS',TABLE_TYPE:type,
+    UNIT:{FORCE:'N',DIST:'MM'},
+    STYLES:{FORMAT:'Fixed',PLACE:4},
     LOAD_CASE_NAMES:lcNames,...extra}};
   const j=await mapi('POST','/post/table',body);
   return (j?.SS?.HEAD&&j?.SS?.DATA)?{head:j.SS.HEAD,data:j.SS.DATA}:null;
@@ -1880,6 +1950,86 @@ function exportRebarCSV(){
   a.download='rebar_TWD-USD112.csv'; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
+/* ════════════════════════════════════════════════════════════
+   M2-A4: 동적해석 — 질량(자중+하중→질량) → 고유치(db/EIGV) → 실주기 T₁
+   → 지진 Cs 재산정. + (옵션) 응답스펙트럼(db/SPFC 대만 설계스펙트럼 + db/SPLC, CQC).
+   모든 엔드포인트 라이브 검증 스키마(MAPI_FINDINGS.md). 단위: KN/M (GRAV 9.806 정합).
+   ⚠ 수치 모달결과는 질량·강성이 있는 실모델에서 의미를 가짐(빈 모델은 결과 없음).
+════════════════════════════════════════════════════════════ */
+async function actDynamic(opt={}){
+  if(!S.connected) throw new Error(t('e_notconn'));
+  if(!S.model.nodes||!S.model.nodes.length) throw new Error(t('e_nomodel'));
+  const p=S.model.spec||{}; const sp=p.seismic||{};
+  const stories=p.stories||Math.max(1,...(S.model.elemRecs||[]).map(r=>r.iz||1));
+  const doRS=!!opt.rs;
+  await setUnit('KN','M');
+  /* 1) 질량원: 자중→질량(db/styp) + 바닥/절점/보하중→질량(db/LTOM: DL×1.0 + 활하중×liveF) */
+  await mapi('PUT','styp',{Assign:{1:{bSELFWEIGHT:true}}});
+  const liveF=(sp.massLiveRatio!=null?sp.massLiveRatio:0.25);
+  const vLC=[{LCNAME:'DL',FACTOR:1.0}];
+  (S.model.loadCases||[]).forEach(l=>{ if(l.type==='L'||l.type==='LR') vLC.push({LCNAME:l.name,FACTOR:liveF}); });
+  await mapi('PUT','ltom',{Assign:{1:{DIR:'XY',bNODAL:true,bBEAM:true,bFLOOR:true,GRAV:9.806,vLC}}});
+  log('▸ '+L3('질량원: 자중 + (DL×1.0, 활하중×'+liveF+')','Mass: self-weight + (DL×1.0, live×'+liveF+')','質量源: 自重 + (DL×1.0, 活載×'+liveF+')'),'ok');
+  /* 2) 고유치 해석 제어 (Subspace), 모드수 = clamp(층수×3, 6..30) */
+  const modes=Math.min(Math.max(stories*3,6),30);
+  await mapi('PUT','eigv',{Assign:{1:eigvPayload(modes)}});
+  log('▸ '+L3('고유치 설정','Eigenvalue setup','特徵值設定')+` (${modes} modes)`,'ok');
+  /* 3) (옵션) 응답스펙트럼: 대만 설계스펙트럼(SDS/SD1) → SPFC, RSX·RSY → SPLC(CQC) */
+  let ds=null;
+  if(doRS){
+    ds=twDesignSpectrum({SDS:sp.SDS,SD1:sp.SD1,T0:sp.T0});
+    if(!(sp.SDS>0)||!ds.func.length){
+      log('▸ '+L3('SDS/SD1 없음 — 응답스펙트럼 생략','no SDS/SD1 — RS skipped','無SDS/SD1 — 略過反應譜'),'warn'); ds=null;
+    } else {
+      await mapi('PUT','spfc',{Assign:{1:{NAME:'TW-RS',iTYPE:1,iMETHOD:0,SCALE:1,GRAV:9.806,DRATIO:0.05,DESC:'TWD design spectrum',aFUNC:ds.func}}});
+      await mapi('PUT','splc',{Assign:{1:splcPayload('RSX','X','TW-RS'),2:splcPayload('RSY','Y','TW-RS')}});
+      log('▸ '+L3('응답스펙트럼(대만) RSX·RSY','Response spectrum (TW) RSX·RSY','反應譜(臺灣) RSX·RSY')+` · T0=${ds.T0}s Ts=${ds.Ts}s`,'ok');
+    }
+  }
+  /* 4) 해석 실행 */
+  await runAnalysis();
+  /* 5) 주기 회수 (PARTICIPATIONVECTORMODE 응답의 Period 서브테이블 파싱) */
+  let modal={modes:[],T1:null};
+  try{
+    const resp=await mapi('POST','/post/table',{Argument:{TABLE_NAME:'PV',TABLE_TYPE:'PARTICIPATIONVECTORMODE',UNIT:{FORCE:'KN',DIST:'M'}}});
+    modal=pickModalPeriods(resp);
+  }catch(e){ log('▸ '+L3('주기 회수 실패: ','period retrieval failed: ','週期擷取失敗: ')+e.message,'warn'); }
+  /* 6) 지진 Cs 재산정 (실주기 T₁ 피드백) */
+  let fb=null;
+  if(modal.T1 && sp.SDS>0){
+    const r=seismicStoryForces(p,{SDS:sp.SDS,SD1:sp.SD1,T0:sp.T0,I:sp.I,R:sp.R,w0:sp.w0,liveRatio:sp.liveRatio,T:modal.T1});
+    const old=S.model.seismic;
+    fb={Tdyn:modal.T1,Ta:(old&&old.T)||null,CsOld:(old&&old.Cs)||null,Cs:r.Cs,Vold:(old&&old.V)||null,V:r.V};
+    S.model.dynamic={T1:modal.T1,modes:modal.modes,Cs:r.Cs,V:r.V,Ta:fb.Ta,rs:!!ds};
+  } else {
+    S.model.dynamic={T1:modal.T1,modes:modal.modes,rs:!!ds};
+  }
+  renderModelState&&renderModelState();
+  /* ── 보고 메시지 ── */
+  let msg=L3('🌀 동적해석 (고유치'+(ds?' + 응답스펙트럼':'')+')',
+             '🌀 Dynamic analysis (eigenvalue'+(ds?' + response spectrum':'')+')',
+             '🌀 動力分析 (特徵值'+(ds?' + 反應譜':'')+')');
+  if(modal.T1){
+    msg+='<br>'+L3('1차 모드 주기','1st mode period','一次模態週期')+` <b>T₁=${modal.T1.toFixed(3)}s</b>`;
+    if(modal.modes.length>1) msg+=` · ${modal.modes.length} ${L3('모드','modes','模態')}`;
+  } else {
+    msg+='<br>'+L3('⚠ 주기 결과 없음 — 질량·지지·강성이 정의된 모델에서 실행하세요.',
+                   '⚠ No period result — run on a model with mass/supports/stiffness.',
+                   '⚠ 無週期結果 — 請於具質量/支承/勁度之模型執行。');
+  }
+  if(fb){
+    msg+='<br>'+L3('지진 Cs 재산정 (경험식 Ta → 해석 T₁)','Seismic Cs update (empirical Ta → modal T₁)','地震 Cs 重算 (經驗式 Ta → 解析 T₁)');
+    if(fb.Ta) msg+=`<br>　Ta=${fb.Ta.toFixed(3)}s → T₁=${fb.Tdyn.toFixed(3)}s`;
+    if(fb.CsOld!=null) msg+=` · Cs ${fb.CsOld.toFixed(3)}→<b>${fb.Cs.toFixed(3)}</b>`;
+    if(fb.Vold!=null) msg+=` · V ${Math.round(fb.Vold)}→<b>${Math.round(fb.V)}</b>kN`;
+  }
+  if(ds) msg+='<br>'+L3('설계스펙트럼','Design spectrum','設計反應譜')+` SDS=${ds.SDS} SD1=${ds.SD1} (T0=${ds.T0}s, Ts=${ds.Ts}s)`;
+  msg+=`<br><span style="color:var(--dim);font-size:.85em">`+
+    L3('질량=자중+(DL+활하중×'+liveF+'). 고유치 Subspace. 응답스펙트럼 CQC·전체모드. 대만 설계스펙트럼은 SDS/SD1 기반 ASCE-7 형상(규범 Cs식과 정합).',
+       'Mass=self-wt+(DL+live×'+liveF+'). Subspace eigen. RS=CQC, all modes. TW design spectrum is ASCE-7 shape from SDS/SD1 (consistent with code Cs).',
+       '質量=自重+(DL+活載×'+liveF+')。特徵值 Subspace。反應譜 CQC·全模態。臺灣設計反應譜採 SDS/SD1 之 ASCE-7 形狀(與規範 Cs 一致)。')+`</span>`;
+  return msg;
+}
 /* M4: 전체 도면 세트 DXF (평면도+梁/柱配筋圖+梁表/柱表+표제란). 배근 없으면 먼저 설계. */
 async function actDrawDXF(){
   if(!S.connected) throw new Error(t('e_notconn'));
@@ -2017,6 +2167,11 @@ function parseCommand(txt){
     return {intent:'draw_dxf'};
   if(/배근|철근|配筋|鋼筋|rebar|reinforc|rc\s*design|구조설계|構材設計|構件設計/i.test(t))
     return {intent:'design_rebar'};
+  /* M2-A4: 동적해석(고유치·응답스펙트럼) — '해석'을 포함하므로 analyze 보다 먼저 판정 */
+  if(/동적\s*해석|고유치|고유\s*주기|모드\s*해석|진동\s*주기|응답\s*스펙트럼|반응\s*스펙트럼|動力分析|特徵值|振態|反應譜|週期|dynamic|eigen|modal|mode\s*shape|response\s*spectrum/i.test(t)){
+    const rs=/응답\s*스펙트럼|반응\s*스펙트럼|反應譜|response\s*spectrum|spectrum/i.test(t);
+    return {intent:'dynamic', rs};
+  }
   if(/해석|분석|돌려|실행|分析|計算|執行|跑一下|跑|solve|analy|run/.test(t) && !/만들|생성|모델링|建立|生成|建模|建造|create|build/.test(t))
     return {intent:'analyze'};
   if(/변위|처짐|變位|位移|撓度|displacement|deflect/.test(t)) return {intent:'result',which:'disp'};
@@ -2318,6 +2473,11 @@ async function handleLocal(txt){
   }
   if(cmd.intent==='draw_dxf'){
     const th=thinking(); try{ const msg=await actDrawDXF(); th.remove();
+      addMsg('bot',msg); tab('logP');
+    }catch(e){ th.remove(); addMsg('bot',t('err',e.message)); } return;
+  }
+  if(cmd.intent==='dynamic'){
+    const th=thinking(); try{ const msg=await actDynamic({rs:cmd.rs}); th.remove();
       addMsg('bot',msg); tab('logP');
     }catch(e){ th.remove(); addMsg('bot',t('err',e.message)); } return;
   }
@@ -2908,14 +3068,27 @@ function setProvider(p){
   S.conv=[];
   syncMode();
 }
+/* Track A: 연결 사전점검은 /mapikey/verify 사용 (status·keyVerified·program 반환).
+   base URL에서 제품경로(/gen|/civil)를 떼어 루트에 붙인다. */
+function mapiRoot(base){ return base.replace(/\/(gen|civil)\/?$/i,''); }
+async function verifyConn(base,key){
+  const res=await fetch(`${mapiRoot(base)}/mapikey/verify`,{headers:{'MAPI-Key':key}});
+  let j={}; try{ j=await res.json(); }catch(e){}
+  return {ok:res.ok, status:res.status, j};
+}
 async function testConn(){
   const {base,key}=cfg(); const out=$('testOut');
   if(!base||!key){ out.className='test-out err'; out.textContent=t('test_need'); return; }
   out.className='test-out'; out.style.display='block'; out.textContent=t('test_ing');
   try{
-    const res=await fetch(`${base}/db/node`,{headers:{'MAPI-Key':key}});
-    if(res.ok){ S.connected=true; setConn(true); out.className='test-out ok'; out.textContent=t('test_ok'); }
-    else { S.connected=false; setConn(false,true); out.className='test-out err'; out.textContent=t('test_http',res.status); }
+    const {ok,status,j}=await verifyConn(base,key);
+    if(!ok){ S.connected=false; setConn(false,true); out.className='test-out err'; out.textContent=t('test_http',status); return; }
+    const connected = j && (j.status==='connected') && j.keyVerified!==false;
+    if(!connected){ S.connected=false; setConn(false,true); out.className='test-out err'; out.textContent=t('test_keyfail'); return; }
+    S.connected=true; S.program=(j.program||'').toLowerCase(); S.apiUser=j.user||'';
+    setConn(true);
+    if(S.program && S.program!=='gen'){ out.className='test-out err'; out.textContent=t('test_wrongprod',j.program); }
+    else { out.className='test-out ok'; out.textContent=t('test_ok',j.program||'gen',j.user||''); }
   }catch(e){ S.connected=false; setConn(false,true); out.className='test-out err';
     out.textContent=t('test_err',e.message); }
 }

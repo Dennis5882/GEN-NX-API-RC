@@ -731,6 +731,62 @@ function drawingSetDXF(data,opts){
   return doc.toString();
 }
 
+/* ════════════════════════════════════════════════════════════
+   M2-A4 — 동적해석 보조 (고유치·응답스펙트럼)
+   db/EIGV·db/SPFC·db/SPLC 라이브 검증된 스키마 사용. (MAPI_FINDINGS.md)
+════════════════════════════════════════════════════════════ */
+/* 설계 수평반응스펙트럼 SaD(T) [g] — SDS/SD1 기반 ASCE-7 형상(대만 규범과 정합: Cs도 동일식 사용).
+   T0=0.2·SD1/SDS, Ts=SD1/SDS. T<T0 선형상승, T0~Ts 평탄(SDS), Ts~TL 감쇠(SD1/T), T>TL (SD1·TL/T²).
+   반환: {func:[{PERIOD,VALUE(g)}], T0, Ts, SDS, SD1, TL} — func는 db/SPFC 의 aFUNC 로 사용. */
+function twDesignSpectrum(params){
+  params=params||{};
+  const SDS=params.SDS||0, SD1=(effSD1?effSD1(params):(params.SD1||0)), TL=(params.TL!=null?params.TL:2.5);
+  const Ts=(SDS>0?SD1/SDS:0), T0=0.2*Ts;
+  const Sa=T=>{
+    if(SDS<=0) return 0;
+    if(T<=0) return 0.4*SDS;
+    if(T<T0) return SDS*(0.4+0.6*T/T0);
+    if(T<=Ts) return SDS;
+    if(T<=TL) return SD1/T;
+    return SD1*TL/(T*T);
+  };
+  const pts=[0,T0,Ts,0.3,0.5,0.75,1.0,1.5,2.0,TL,3.0,4.0,5.0]
+    .filter(t=>t>=0 && isFinite(t));
+  const seen={}, func=[];
+  pts.sort((a,b)=>a-b).forEach(T=>{ const k=T.toFixed(4); if(seen[k])return; seen[k]=1;
+    func.push({PERIOD:+T.toFixed(4), VALUE:+Sa(T).toFixed(5)}); });
+  return {func, T0:+T0.toFixed(4), Ts:+Ts.toFixed(4), SDS, SD1, TL};
+}
+/* db/EIGV 페이로드 (Subspace). modes 기본 = min(stories*3, 30) 권장값을 호출부가 결정. */
+function eigvPayload(modes){
+  return {TYPE:'EIGEN', iFREQ:Math.max(1,modes|0), iITER:20, iDIM:1,
+    TOL:1e-10, bMINMAX:false, FRMIN:0, FRMAX:0, bSTRUM:false};
+}
+/* db/SPLC 응답스펙트럼 하중케이스 (전체 모드 사용 bMODE:false, CQC). funcName=SPFC NAME */
+function splcPayload(name, dir, funcName, scale){
+  return {NAME:name, DIR:dir||'XY', ANGLE:0, SCALE:(scale!=null?scale:1), PMFT:1,
+    bDAMP:false, INTERP:'LOG', DESC:'', COMTYPE:'CQC', bADDSIGN:true, iSIGNTYPE:0,
+    bMODE:false, aFUNCNAME:[funcName]};
+}
+/* PARTICIPATIONVECTORMODE 응답에서 주기 추출 — 다중 서브테이블 중 HEAD에 'Period' 포함 테이블 파싱.
+   반환 {modes:[{mode,period,fcyc}], T1} (T1=최대 주기 = 1차모드). 실패 시 {modes:[],T1:null} */
+function pickModalPeriods(resp){
+  const out=[]; if(!resp||typeof resp!=='object') return {modes:[],T1:null};
+  for(const k in resp){
+    const tb=resp[k]; if(!tb||!tb.HEAD||!tb.DATA) continue;
+    const H=tb.HEAD.map(x=>String(x).toLowerCase());
+    const ip=H.findIndex(h=>h.includes('period'));
+    if(ip<0) continue;
+    const im=H.findIndex(h=>h.includes('mode'));
+    const ifc=H.findIndex(h=>h.includes('cycle'));
+    tb.DATA.forEach(r=>{ const T=parseFloat(r[ip]); if(isFinite(T)&&T>0)
+      out.push({mode:(im>=0?r[im]:out.length+1), period:T, fcyc:(ifc>=0?parseFloat(r[ifc]):null)}); });
+    if(out.length) break;
+  }
+  const T1=out.reduce((m,x)=>Math.max(m,x.period),0)||null;
+  return {modes:out, T1};
+}
+
 /* ── 네임스페이스 노출 (M2 확장·다른 프런트엔드용) ── */
 if(typeof window!=='undefined'){
   window.RCEngine={
@@ -746,6 +802,7 @@ if(typeof window!=='undefined'){
     ES_STEEL, beta1, colPMpoints, colMcapAt, pickColBars, rcColumnDesign,
     DRAW_PROFILE, dxfStr, DxfDoc, beamRebarDXF, rebarSheetDXF,
     zhNum, floorLabelTW, columnRebarDXF, tableDXF, titleBlockDXF, framingPlanDXF, drawingSetDXF,
-    groupDiffNotes, diffNoteDXF
+    groupDiffNotes, diffNoteDXF,
+    twDesignSpectrum, eigvPayload, splcPayload, pickModalPeriods
   };
 }

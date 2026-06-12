@@ -1,5 +1,27 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.10.0 — 2026-06-13 (M2-A4 동적해석) — 고유치·응답스펙트럼 + 연결·결과회수 정교화
+
+API 전수조사(공식 매뉴얼 + 라이브 Gen/Civil 검증, [MAPI_FINDINGS.md](MAPI_FINDINGS.md)) 결과를 제품에 반영.
+"동적해석 API 차단"은 오판이었고(이름 오추측·필수필드 누락), 실제 스키마로 정식 구현.
+
+- **동적해석(M2-A4)** — `actDynamic()` + 엔진 `twDesignSpectrum`/`eigvPayload`/`splcPayload`/`pickModalPeriods`.
+  - **고유치**(`db/EIGV`, Subspace) — 질량(자중 `db/styp` bSELFWEIGHT + 하중→질량 `db/LTOM`) → 모드해석.
+  - **실주기 T₁ 회수**(`post/table` PARTICIPATIONVECTORMODE의 Period 서브테이블 파싱) → 경험식 Ta 대신
+    **해석 주기로 지진 Cs·V 재산정**(`seismicStoryForces({T:T₁})`).
+  - **응답스펙트럼**(옵션) — 대만 설계스펙트럼(SDS/SD1 → ASCE-7 형상, 규범 Cs식과 정합)을 `db/SPFC`(aFUNC),
+    `db/SPLC` RSX·RSY(CQC·전체모드)로 정의. 명령: "동적해석"/"고유치"/"응답스펙트럼".
+  - 라이브 검증: EIGV/SPFC/SPLC/styp 201·200, PARTICIPATIONVECTORMODE 타입 수용 확인.
+- **연결 사전점검**(Track A) — `testConn`이 `/mapikey/verify` 사용(status·keyVerified·program 반환).
+  **제품 가드**: program≠gen이면 경고(이 도구는 Gen NX 전용). 'client does not exist' 사전 차단.
+- **결과회수 정교화**(Track D) — `fetchTable`에 `UNIT:{FORCE:'N',DIST:'MM'}` 명시 →
+  모델 전역 단위 상태와 무관하게 항상 N·mm로 회수(견고성↑). 케이스명 접미사 (CB)/(ST)는 기존 유지.
+- **네이티브 지진/풍(Track C)** — `db/POSL`(지진 파라미터)은 스키마 수용 확인했으나 Taiwan CODE/강제력
+  생성은 실모델 검증 필요, `db/WIND`는 JSON-REST 필드 스키마 미공개(추측 도출 실패)로 **보류**.
+  → 현행 **자체계산 지진(等效靜力)·풍(층별 정적풍) 유지**(MIDAS 공식 플러그인과 동일 패턴, MAPI_FINDINGS C-2).
+- **검증** — rc_engine.js·agent·standalone 파싱 OK(mini-racer), twDesignSpectrum 수치 정합 확인.
+  **안정판 v1.1.9(M1.7)는 불변** — 본 작업은 최신 실험판(`gen_nx_rc_agent.html` v2.10.0)에만 반영.
+
 ## v2.9.0 — 2026-06-12 (M4-D 완료) — 층별 차이 주기 + 도면 폴리시
 
 새 파일 **`gen_nx_rc_agent_v2.9.0.html`** (+ standalone). M4-D — **표준층 기준 층별 차이 주기**.
