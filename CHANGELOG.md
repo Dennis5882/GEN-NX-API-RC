@@ -1,5 +1,21 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## Wizard v2.0.0 — 2026-06-12 — 폼 Wizard 공용엔진 합류
+
+새 파일 **`MIDAS_RC_Modeling_Wizard_v2.0.0.html`** (기존 `MIDAS_RC_Modeling_Wizard.html` v1.0.2 유지).
+폼형 Wizard를 **`shared/rc_engine.js`로 합류**해 Agent와 도메인 단일 진실원천 공유.
+
+- **도메인 데이터 일원화** — 로컬 중복(`PRESETS`·`ROLES`·`taiwanCombos`)을 제거하고 엔진 위임.
+  - 바닥하중 프리셋: `ENG.FLOOR_USE` → `presetItems` 어댑터(`{sdl,live,liveVal}` → `[[D,…],[L/LR,…]]`).
+  - 용도 **4종 → 7종**(住宅/辦公/商場/**學校/醫院/設備**/屋頂)으로 확장 — 기존 Wizard가 표현 못 하던
+    학교·병원·설비 용도 지원. 역할은 `ENG.FG_ROLES`.
+  - 하중조합: `ENG.taiwanCombos(loadCases)` 위임 → 동작 동일(cLCB1~3), 향후 E/W 추가 시 cLCB4~7 자동.
+- **지오메트리 유지** — Wizard 고유 PLATE 슬래브·fbla(바닥하중면)·캔버스 3D 뷰어는 그대로(zero 변경).
+- **i18n** — School/Hospital/Equipment 용도 라벨 3개 언어 추가.
+- **검증** — 엔진+Wizard 인라인 스크립트 독립 파싱 OK(별도 `<script>` 스코프, 충돌 없음).
+  `expand`+`buildOps` 통합(podium+school+typical+roof 9층) → 14 ops·fbld 4정의(엔진값 일치)·
+  cLCB1/2/3 정상 생성(py-mini-racer). 지오메트리 v1.0.2 동일이라 라이브 재검증 생략.
+
 ## v2.1.0 — 2026-06-12 (M2-A2) — 풍하중 (간이 정적풍)
 
 새 파일 **`gen_nx_rc_agent_v2.1.0.html`**. 지진에 이어 **풍 횡하중** 추가 → 횡하중 1차 완성.
