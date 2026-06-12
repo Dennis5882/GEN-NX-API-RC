@@ -1,0 +1,162 @@
+# MIDAS Gen NX Open API — 실측 + 공식문서 대조 결과
+
+> 공식 매뉴얼: <https://support.midasuser.com/hc/ko/articles/33016922742937-MIDAS-API-Online-Manual>
+> (JSON Manual / "Online Help_MIDAS API". 사람 브라우저는 통과, 자동 fetch는 403 → 브라우저 UA로 우회 취득)
+>
+> 환경: `https://moa-engineers.midasit.com:443/gen`, 헤더 `MAPI-Key`, 바디 `{"Assign":{id:{...}}}`
+> 신뢰도: ✅ 실측 검증 / 📖 공식문서 스키마 확인 / ⚠️ 거동 주의 / ❌ API 미지원
+
+---
+
+## ※ 전제: MIDAS API는 Civil NX · Gen NX 공용
+
+"MIDAS API" JSON 매뉴얼은 **Civil NX(교량)와 Gen NX(건물) 공용**이라, 항목 일부는 한 제품에만 속한다.
+- **Civil NX(교량)계열**: Moving Loads/Vehicles, Bridge Specialization Results, FCM/Cable Control, Tendon/Prestress, Composite Girder, 교량용 Wind 플러그인(HK SDM)
+- **Gen NX(건물)계열**: Story Data, Floor Load, Diaphragm, RC Design, **Wind Loads(User Type, 층별)**
+
+**함의**: 매뉴얼에 있어도 **연결된 제품(여기선 Gen NX)에서만 유효**할 수 있음.
+`{}` → "Wrong Field"의 원인은 세 갈래로 본다 — ① 필드/구조 오류, ② 엔드포인트 이름 오추측(seis→POSL),
+③ **해당 기능이 Civil NX 전용이라 Gen NX 세션에서 비활성**. 검증 시 항상 "Gen NX에서 유효한가"를 먼저 확인.
+
+---
+
+## ★ 중대 정정 (2026-06-13)
+
+이전 본 문서·[MAPI_ENDPOINT_REQUEST.md](MAPI_ENDPOINT_REQUEST.md)는 동적해석·지진 관련 엔드포인트를
+**"스키마 미노출/차단"**으로 적었으나 **이는 틀렸다.** 공식 매뉴얼을 직접 확인한 결과
+**모든 스키마가 완전히 문서화**되어 있다. `{}`에 "Wrong Field"가 났던 진짜 원인은:
+
+1. **엔드포인트 이름을 잘못 추측** — 특히 지진하중은 `db/seis`가 아니라 **`db/POSL`**.
+2. **필수 필드 누락** — 빈 바디 거부는 정상(스키마상 `TYPE`, `NAME` 등이 Required).
+
+→ **동적해석(M2-A4)은 API 차단이 아니라, 우리가 스키마를 안 보고 추측한 것이 원인.** 구현 가능.
+
+### 추측 vs 실제 (정정표)
+
+| 이전 추측 | 실제 URI | 페이지 | 상태 |
+|---|---|---|---|
+| `db/eigv` | **`db/EIGV`** | Eigenvalue Analysis Control | 📖 문서화 |
+| `db/seis` | **`db/POSL`** | Parameter of Seismic Loads | 📖 문서화 (이름 오추측) |
+| `db/spfc` | **`db/SPFC`** | Response Spectrum Functions (대만 포함) | 📖 문서화 |
+| `db/splc` | **`db/SPLC`** | Response Spectrum Load Cases | 📖 문서화 |
+| `db/wind` | `WIND` (json 명령) | Wind Loads (User Type) — **GrassHopper 매뉴얼엔 존재**, JSON REST 매뉴얼만 누락 | 기능 실재(문서 gap) |
+
+---
+
+## A. 동적해석 — 실제 스키마 (📖 공식문서)
+
+### A-1. 고유치 해석 — `db/EIGV`  (POST/GET/PUT/DELETE)
+```json
+{ "Assign": { "1": {
+  "TYPE": "EIGEN",      // "EIGEN"(Subspace) | "LANCZOS" | "RITZ"  ← 필수
+  "iFREQ": 100,         // 모드(주파수) 수  ← 필수
+  "iITER": 20,          // 반복 횟수
+  "iDIM": 1,            // Subspace 차원
+  "TOL": 1e-10,         // 수렴 허용오차
+  "bMINMAX": false,     // 관심 주파수 범위 사용
+  "FRMIN": 0, "FRMAX": 1600,
+  "bSTRUM": false
+}}}
+```
+- RITZ는 `bINCNL`, `iGNUM`, `vRITZ:[{KIND:"GROUND",GROUND:"ACCX|ACCY|ACCZ",iNOG:30}]` 구조.
+
+### A-2. 지진하중(정적) — `db/POSL`  (Parameter Of Seismic Loads)
+```json
+{ "Assign": { "1": {
+  "NAME": "TW-Seismic",
+  "CODE": "<지진 규준>",
+  "METHOD": "EQV_STATIC",  // 등가정적 | "RES_DISP"(응답변위법)
+  "SZ": "1",               // Seismic Zone  ← 필수
+  "EPA": 0.22,             // 유효지반가속도 ← 필수
+  "SC": "S1",              // Site Class ← 필수
+  "FA": 1.12, "FV": 0.84,  // site 계수 ← 필수
+  "SDS": 0.41, "SD1": 0.123,
+  "IF": 1.2,               // 중요도계수 ← 필수
+  "RMF": 3,                // 반응수정계수 ← 필수
+  "CALC_OPT": true
+}}}
+```
+> 대만은 `CODE`에 耐震規範, `SC`/`EPA`/`FA`/`FV`를 工址에 맞춰 넣으면 됨. 우리 엔진의 等效靜力 계산값과 대조 가능.
+
+### A-3. 응답스펙트럼 함수 — `db/SPFC`
+국가별 페이지 존재: User/Korea/US/Eurocode/China/Japan/India/**Taiwan**/Other. (대만 함수 직접 지정 가능)
+
+### A-4. 응답스펙트럼 하중경우 — `db/SPLC`
+```json
+{ "Assign": { "1": {
+  "NAME": "RSX", "DIR": "<방향>", "ANGLE": 0,
+  "SCALE": 1.0, "PMFT": 0.0, "bDAMP": false, ...
+}}}
+```
+> 순서: SPFC(함수) 정의 → SPLC(하중경우) → EIGV(고유치) → Perform Analysis.
+
+---
+
+## B. 모델 생성 — 실측 검증 (✅) + 문서 대조
+
+### B-1. PLATE 요소 — `db/elem`
+```json
+{ "Assign": { "<id>": {
+  "TYPE":"PLATE", "MATL":<id>, "SECT":<thik id>, "NODE":[n1,n2,n3,n4], "STYPE":1, "ANGLE":0
+}}}
+```
+- ✅ 실측: 패널 15개 생성 확인. `SECT`는 단면(sect)이 아니라 **두께 `db/thik` id** 참조.
+
+### B-2. 두께 — `db/THIK` (Thickness - Value)  📖
+PLATE보다 먼저 생성. (매뉴얼: Properties → Thickness - Value/Stiffened)
+
+### B-3. 자중→질량 — `db/styp` `bSELFWEIGHT:true`  ✅
+- 매뉴얼 Static Loads에 **Self-Weight / Loads to Masses** 별도 항목 존재 → 필드명 교차확인 권장.
+
+### B-4. 결과 회수 — `post/table`, `TABLE_TYPE="BEAMFORCE"`  ✅
+HEAD: `Index|Elem|Load|Part|Axial|Shear-y|Shear-z|Torsion|Moment-y|Moment-z`,
+`Part`=`I,1/4,2/4,3/4,J`, 단위 **N·mm**.
+
+---
+
+## C. 거동 주의 (⚠️) / 미지원 (❌)
+
+### C-1. WALL 요소 — wall-ID 미설정 (⚠️)
+- `TYPE:"WALL"` 존재하나 wall-ID(1–9999) 지정 필드를 못 찾음 → 본 프로젝트는 **PLATE로 전단벽 모델링**.
+- 매뉴얼 Node/Element의 `Element` 페이지(`db/ELEM`)에서 WALL 정의 가능 여부 재확인 권장.
+
+### C-2. 풍하중 — 전용 기능 실재 (JSON 명령 `WIND`), JSON REST 매뉴얼만 누락 (📖 GrassHopper 매뉴얼 확인)
+**정정**: 풍하중은 Gen NX에 **완전한 전용 기능**으로 존재한다. JSON REST 매뉴얼(432개 글)에만
+페이지가 없을 뿐, **GrassHopper API 매뉴얼에는 명확히 문서화**되어 있고 출력 명령이 `WIND`(Json)다.
+
+- 메뉴 위치: **[Load] > [Static Loads] > [Lateral] > [Wind Loads]** (User Type)
+- GrassHopper 컴포넌트 3종, 모두 `WIND` json 출력:
+
+| 컴포넌트 | 입력 | 의미 |
+|---|---|---|
+| **Wind Loads**(메인) | Load Case ID, Description, Scale X, Scale Y, Wind Pressure(User), Wind Additions | 풍하중 케이스 생성 |
+| **Wind Pressure(User)** | Ground Level, Story Data, Wind Pressure X-Dir `[real,real]`, Y-Dir `[real,real]` | **층별 풍압** |
+| **Wind Additions** | Story Name, Along X/Y, Across X/Y, **Torsional RZ-X/Y** (각 `[real,real]`) | 풍방향·풍직각·**비틀림** 추가하중 |
+
+- → **층(story) 기반 풍압 입력** 구조라 건물(주거/사무)에 매우 적합 (교량용 beam-load 플러그인보다 우리 용도에 맞음).
+- 이전 `db/wind` "Wrong Field"의 원인: **위 story 기반 중첩 구조(ground level·story data·X/Y 풍압 배열)를 안 넣고 추측**한 것.
+- 정확한 JSON REST URI는 미확인(매뉴얼 누락) → 라이브로 `db/WIND` 등 확인 필요. **GrassHopper로는 즉시 사용 가능.**
+
+> **문서 gap (보고 대상)**: JSON REST 매뉴얼에 Wind Loads 페이지 부재. GrassHopper엔 존재.
+> (대응 항목: Seismic도 동일 구조 — Seismic Pressure(User)/Seismic Additions 컴포넌트 존재.)
+
+### 참고: 교량용 풍 플러그인 (다른 방식)
+[Wind Load Calculator for bridges (HK)](https://support.midasuser.com/hc/ko/articles/40645303004697-Wind-Load-Calculator-for-bridges-HK)는
+풍압을 자체계산 후 **Beam Load(`db/BMLD`)로 주입**. 교량(보 요소)용. 건물은 위 Wind Loads(User Type)가 적합.
+
+### 참고: 하중 주입 엔드포인트 (✅ 검증)
+- Beam Loads = **`db/BMLD`** / Nodal Loads = **`db/CNLD`** (POST/GET/PUT/DELETE)
+
+---
+
+## D. 후속 액션
+
+| # | 항목 | 액션 |
+|---|---|---|
+| 1 | 동적해석 M2-A4 | **재개 가능** — EIGV/POSL/SPFC/SPLC 실제 스키마로 라이브 검증 후 엔진 연동 |
+| 2 | MAPI_ENDPOINT_REQUEST.md | "차단" 주장 **철회/갱신** — 실제로는 이름 오추측이 원인 |
+| 3 | 풍하중 | **기능 실재** — GrassHopper Wind Loads(User Type, 층별 풍압)로 즉시 사용 가능. JSON REST URI는 라이브 확인(매뉴얼 누락) |
+| 4 | WALL | `db/ELEM` 페이지로 wall 정의 가능성 최종 확인 |
+
+> 교훈: **엔드포인트는 추측하지 말고 매뉴얼의 정확한 URI(대문자 코드: EIGV/POSL/SPFC/SPLC)를 쓸 것.**
+> 빈 바디 "Wrong Field"는 차단이 아니라 필수필드 누락 신호로 해석.
