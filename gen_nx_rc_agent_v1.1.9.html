@@ -1216,13 +1216,14 @@ function previewEditorEl(el){
 /* specToGroupRows → shared/rc_engine.js */
 /* 표준층 표 HTML(편집 카드용) */
 function fgTableHTML(p){
-  const rows=specToGroupRows(p).map(fgRow).join('');
+  /* 표는 건물 입면처럼 위(지붕)→아래(지하) 순서로 표시 → reverse */
+  const rows=specToGroupRows(p).slice().reverse().map(fgRow).join('');
   return `<div style="margin-top:14px">
-    <div style="font-size:.7rem;color:var(--amber);font-family:'IBM Plex Mono','Noto Sans TC';letter-spacing:.5px;margin-bottom:6px">${L3('표준층 / 특수층 구성 (1:N 매핑)','Typical / special floors (1:N)','標準層 / 特殊層 (1:N)')}</div>
+    <div style="font-size:.7rem;color:var(--amber);font-family:'IBM Plex Mono','Noto Sans TC';letter-spacing:.5px;margin-bottom:6px">${L3('표준층 / 특수층 구성 (위=지붕 → 아래=지하)','Floor stack (top = roof → bottom = basement)','樓層堆疊（上=屋頂 → 下=地下）')}</div>
     <table class="fgtable" style="width:100%"><thead><tr>
-      <th>${L3('역할','Role','類型')}</th><th>${L3('시작','From','起')}</th><th>${L3('끝','To','迄')}</th><th>${L3('층고','Ht','層高')}</th><th>${L3('용도','Use','用途')}</th><th>${L3('다이어프램','Diaph.','剛性樓板')}</th><th></th>
+      <th>${L3('역할','Role','類型')}</th><th>${L3('시작','From','起')}</th><th>${L3('끝','To','迄')}</th><th>${L3('층고','Ht','層高')}</th><th>${L3('용도','Use','用途')}</th><th>${L3('다이어프램','Diaph.','剛性樓板')}</th><th>${L3('추가/삭제','Add/Del','增/刪')}</th>
     </tr></thead><tbody>${rows}</tbody></table>
-    <button class="btn btn-ghost" style="margin-top:8px;padding:5px 12px" onclick="fgAddRow(this)">+ ${L3('층그룹','Floor group','樓層群')}</button>
+    <div class="pe-tip">${L3('각 행의 ↑(위층) / ↓(아래층)로 그 위·아래에 층을 끼워 넣고, ×로 삭제. 번호는 자동 정렬됩니다.','Use ↑ (above) / ↓ (below) on a row to insert a floor there, × to delete. Numbers auto-renumber.','以各列的 ↑（上層）／↓（下層）於其上下插入樓層，× 刪除。編號自動重排。')}</div>
   </div>`;
 }
 
@@ -1963,30 +1964,40 @@ function fgRow(g){
     <td><input class="fg-h" type="number" value="${g.h}" style="width:58px" onchange="fgChanged(this)"></td>
     <td><select class="fg-use" onchange="fgChanged(this)">${us}</select></td>
     <td style="text-align:center"><input class="fg-dia" type="checkbox" ${g.dia===false?'':'checked'} onchange="fgChanged(this)"></td>
-    <td><button class="btn btn-ghost" style="padding:2px 8px" onclick="fgDel(this)">×</button></td></tr>`;
+    <td style="white-space:nowrap"><button class="btn btn-ghost" style="padding:2px 6px" title="${L3('위층(높은 층) 추가','Insert above (higher)','上方插入（較高層）')}" onclick="fgInsert(this,'above')">↑</button><button class="btn btn-ghost" style="padding:2px 6px" title="${L3('아래층(낮은 층) 추가','Insert below (lower)','下方插入（較低層）')}" onclick="fgInsert(this,'below')">↓</button><button class="btn btn-ghost" style="padding:2px 6px" title="${L3('삭제','Delete','刪除')}" onclick="fgDel(this)">×</button></td></tr>`;
 }
-/* 표준층 표 핸들러 — 대화형 편집 카드(.plan-editor) 전용 */
+/* 표준층 표 핸들러 — 대화형 편집 카드(.plan-editor) 전용.
+   표는 위(지붕)→아래(지하) 순서. 시작/끝 번호는 아래(=1)부터 위로 자동 정렬. */
 function fgChanged(el){ const ed=el.closest('.plan-editor'); if(ed) previewEditorEl(ed); }
-function fgDel(btn){ const ed=btn.closest('.plan-editor'); const tr=btn.closest('tr'); if(tr) tr.remove(); if(ed) previewEditorEl(ed); }
-/* 표준층 추가: 새 표준층을 '지붕 행 바로 위'(표준층과 지붕 사이)에 끼워 넣고
-   지붕은 한 층 위로 올림 → 건물이 한 층 높아지며 순서가 유지됨. 지붕이 없으면 맨 끝에 추가. */
-function fgAddRow(btn){
-  const c = btn ? btn.closest('.plan-editor') : null;
-  const tb = c ? c.querySelector('.fgtable tbody') : null; if(!tb) return;
-  const baseH=(pendingBuild?pendingBuild.hTyp:3200)||3200;
-  const baseUse=useOf(pendingBuild||{});
+function fgRenumber(tb){
+  const rows=[...tb.querySelectorAll('.fg-row')]; let base=1;
+  for(let i=rows.length-1;i>=0;i--){ const r=rows[i];   // 맨 아래 행 = 최하층 = 1
+    const f=r.querySelector('.fg-from'), t=r.querySelector('.fg-to');
+    const cnt=Math.max(1,(+t.value)-(+f.value)+1);
+    f.value=base; t.value=base+cnt-1; base+=cnt; }
+}
+/* 행별 삽입: dir 'above'(↑ 더 높은 층) → 그 행 위(앞), 'below'(↓ 더 낮은 층) → 그 행 아래(뒤).
+   삽입 위치가 최상단이면 ROOF, 최하단이면 BASEMENT, 그 외 TYPICAL 로 역할 자동 추천. */
+function fgInsert(btn, dir){
+  const ed=btn.closest('.plan-editor'); const row=btn.closest('tr'); const tb=row&&row.parentNode; if(!tb) return;
   const rows=[...tb.querySelectorAll('.fg-row')];
-  const roof=rows.find(r=>r.querySelector('.fg-role').value==='ROOF');
-  if(roof){
-    const rf=roof.querySelector('.fg-from'), rt=roof.querySelector('.fg-to');
-    const nf=+rf.value;                               // 새 표준층 = 지붕의 기존 층
-    rf.value=nf+1; rt.value=(+rt.value)+1;            // 지붕은 한 층 위로
-    roof.insertAdjacentHTML('beforebegin', fgRow({role:'TYPICAL',from:nf,to:nf,h:baseH,use:baseUse}));
-  } else {
-    const maxTo=rows.length?Math.max(...rows.map(r=>+r.querySelector('.fg-to').value)):0;
-    tb.insertAdjacentHTML('beforeend', fgRow({role:'TYPICAL',from:maxTo+1,to:maxTo+1,h:baseH,use:baseUse}));
-  }
-  previewEditorEl(c);
+  const isTop=row===rows[0], isBottom=row===rows[rows.length-1];
+  let role='TYPICAL';
+  if(dir==='above'&&isTop) role='ROOF';
+  else if(dir==='below'&&isBottom) role='BASEMENT';
+  const h=(+row.querySelector('.fg-h').value)||((pendingBuild?pendingBuild.hTyp:3200)||3200);
+  const use=row.querySelector('.fg-use').value||useOf(pendingBuild||{});
+  const html=fgRow({role,from:1,to:1,h,use});
+  if(dir==='above') row.insertAdjacentHTML('beforebegin',html);
+  else row.insertAdjacentHTML('afterend',html);
+  fgRenumber(tb);
+  if(ed) previewEditorEl(ed);
+}
+function fgDel(btn){
+  const ed=btn.closest('.plan-editor'); const tr=btn.closest('tr'); const tb=tr&&tr.parentNode; if(!tb) return;
+  if(tb.querySelectorAll('.fg-row').length<=1) return;   // 최소 1행 유지
+  tr.remove(); fgRenumber(tb);
+  if(ed) previewEditorEl(ed);
 }
 
 function clearChat(){
