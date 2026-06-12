@@ -40,6 +40,8 @@ header .mark{
   font-family:'IBM Plex Sans','Noto Sans KR','Noto Sans TC';font-weight:700;color:#fff;font-size:.72rem;letter-spacing:.3px;
 }
 header h1{font-size:.98rem;font-weight:600;letter-spacing:.3px}
+header h1 .byline{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.6rem;font-weight:400;color:var(--dim);letter-spacing:.5px;margin-left:9px;white-space:nowrap}
+header h1 .byline b{color:var(--muted);font-weight:600}
 header h1 small{display:block;font-size:.64rem;color:var(--muted);font-weight:400;letter-spacing:1.5px;margin-top:2px;text-transform:uppercase}
 header .spacer{flex:1}
 .pill{
@@ -52,11 +54,7 @@ header .spacer{flex:1}
 .pill.err .dot{background:var(--red);box-shadow:0 0 8px var(--red)}
 .gear{cursor:pointer;color:var(--muted);font-size:1.2rem;padding:4px 8px;border-radius:6px;transition:.2s}
 .gear:hover{color:var(--cyan);background:rgba(56,225,214,.08)}
-.devinfo{display:flex;flex-direction:column;align-items:flex-end;gap:1px;margin-right:4px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';line-height:1.2}
-.devinfo .dev{font-size:.66rem;color:var(--muted)}
-.devinfo .dev b{color:var(--txt);font-weight:600}
-.devinfo .ver{font-size:.6rem;color:var(--dim);letter-spacing:1px}
-@media(max-width:640px){.devinfo{display:none}}
+@media(max-width:640px){header h1 .byline{display:none}}
 .langsel{display:flex;gap:3px;margin-right:4px}
 .langsel button{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.66rem;padding:4px 8px;border-radius:6px;
   border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;white-space:nowrap}
@@ -337,14 +335,13 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<small data-i18n="subtitle">對話式結構建模</small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v1.1.9</span><small data-i18n="subtitle">對話式結構建模</small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <button data-l="ko" onclick="setLang('ko')">한국어</button>
     <button data-l="en" onclick="setLang('en')">English</button>
     <button data-l="zh" onclick="setLang('zh')">繁體中文</button>
   </div>
-  <div class="devinfo"><span class="dev"><span data-i18n="dev">開發者</span> <b>Dennis</b></span><span class="ver">v1.1.9 · M1.7</span></div>
   <div class="pill" id="connPill" onclick="openSettings()"><span class="dot"></span><span id="connTxt">未連線</span></div>
   <div class="gear" onclick="openSettings()">⚙</div>
 </header>
