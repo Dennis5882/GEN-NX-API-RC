@@ -1,0 +1,2308 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gen NX 대화형 모델링 에이전트 v2.5.0 (M3 보·기둥)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+:root{
+  --bg:#000000; --panel:#0a0a0c; --panel2:#050506; --border:#23262e;
+  --txt:#c9d4e8; --muted:#6b7a99; --dim:#445069;
+  --cyan:#38e1d6; --blue:#4cc2ff; --amber:#ffb454; --red:#ff6b6b; --green:#5ee6a8; --violet:#9b8cff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'IBM Plex Sans','Noto Sans KR','Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt);
+  background-image:
+    linear-gradient(rgba(56,225,214,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(56,225,214,.025) 1px,transparent 1px);
+  background-size:32px 32px;
+  display:flex;flex-direction:column;height:100vh;overflow:hidden;
+}
+.mono{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC',monospace}
+
+/* header */
+header{
+  display:flex;align-items:center;gap:14px;padding:12px 20px;
+  background:linear-gradient(180deg,rgba(17,23,38,.95),rgba(13,19,32,.85));
+  border-bottom:1px solid var(--border);backdrop-filter:blur(6px);flex-shrink:0;z-index:10;
+}
+header .mark{
+  width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#ec1c2e 0%,#c80f25 100%);
+  clip-path:polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+  box-shadow:0 2px 9px rgba(200,15,37,.4);
+  font-family:'IBM Plex Sans','Noto Sans KR','Noto Sans TC';font-weight:700;color:#fff;font-size:.72rem;letter-spacing:.3px;
+}
+header h1{font-size:.98rem;font-weight:600;letter-spacing:.3px}
+header h1 .byline{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.6rem;font-weight:400;color:var(--dim);letter-spacing:.5px;margin-left:9px;white-space:nowrap}
+header h1 .byline b{color:var(--muted);font-weight:600}
+header h1 small{display:block;font-size:.64rem;color:var(--muted);font-weight:400;letter-spacing:1.5px;margin-top:2px;text-transform:uppercase}
+header .spacer{flex:1}
+.pill{
+  font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.7rem;padding:5px 11px;border-radius:20px;border:1px solid var(--border);
+  display:flex;align-items:center;gap:7px;color:var(--muted);cursor:pointer;transition:.2s;white-space:nowrap;
+}
+.pill:hover{border-color:var(--dim)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--dim);transition:.3s}
+.pill.on .dot{background:var(--green);box-shadow:0 0 8px var(--green)}
+.pill.err .dot{background:var(--red);box-shadow:0 0 8px var(--red)}
+.gear{cursor:pointer;color:var(--muted);font-size:1.2rem;padding:4px 8px;border-radius:6px;transition:.2s}
+.gear:hover{color:var(--cyan);background:rgba(56,225,214,.08)}
+@media(max-width:640px){header h1 .byline{display:none}}
+.langsel{display:flex;gap:3px;margin-right:4px}
+.langsel button{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.66rem;padding:4px 8px;border-radius:6px;
+  border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;white-space:nowrap}
+.langsel button:hover{border-color:var(--dim);color:var(--txt)}
+.langsel button.on{border-color:var(--cyan);color:var(--cyan);background:rgba(56,225,214,.08)}
+
+/* main split */
+main{flex:1;display:grid;grid-template-columns:1fr 1.05fr;gap:1px;background:var(--border);overflow:hidden}
+@media(max-width:880px){main{grid-template-columns:1fr;grid-template-rows:1fr 1fr}}
+
+/* chat */
+.chat{background:var(--bg);display:flex;flex-direction:row;overflow:hidden}
+.chat-inner{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;position:relative}
+.msgs{flex:1;overflow-y:auto;padding:22px 20px;display:flex;flex-direction:column;gap:20px}
+.msg{max-width:88%;font-size:1.05rem;line-height:1.6;animation:rise .3s ease}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.msg.user{align-self:flex-end}
+.msg.user .bubble{background:linear-gradient(135deg,#16324a,#143a52);border:1px solid #1f4a66;color:#dff3ff;border-radius:14px 14px 4px 14px}
+.msg.bot .bubble{background:var(--panel);border:1px solid var(--border);border-radius:14px 14px 14px 4px}
+.bubble{padding:13px 17px}
+.msg .who{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.74rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.msg.user .who{text-align:right;color:var(--blue)}
+.msg.bot .who{color:var(--cyan)}
+.bubble b{color:var(--cyan);font-weight:600}
+.bubble code{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';background:rgba(56,225,214,.1);color:var(--cyan);padding:2px 7px;border-radius:4px;font-size:.9em}
+.bubble .plan{margin-top:9px;border-left:2px solid var(--cyan);padding:8px 0 8px 14px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.88rem;color:var(--muted);line-height:1.8}
+.bubble .plan .k{color:var(--amber)}
+
+/* ── editable spec card (v4) ── */
+.plan-editor{margin-top:10px;border-left:2px solid var(--cyan);padding:11px 0 6px 13px}
+.plan-editor .pe-head{display:flex;align-items:center;gap:8px;margin-bottom:11px;padding-bottom:9px;border-bottom:1px dashed rgba(255,255,255,.07)}
+.pe-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+.pe-f{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pe-f label{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.66rem;color:var(--amber);letter-spacing:.5px}
+.pe-in{display:flex;align-items:center;gap:5px}
+.pe-in input,.pe-in select{width:100%;min-width:0;background:var(--bg);border:1px solid var(--border);color:var(--txt);
+  border-radius:6px;padding:6px 8px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.82rem;transition:.15s}
+.pe-in input:focus,.pe-in select:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 2px rgba(56,225,214,.12)}
+.pe-in input:hover,.pe-in select:hover{border-color:var(--dim)}
+.pe-u{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.62rem;color:var(--dim);flex-shrink:0}
+.pe-tip{margin-top:10px;font-size:.72rem;color:#ffffff;background:#05080f;border-left:2px solid var(--cyan);border-radius:6px;padding:7px 10px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';line-height:1.55;display:flex;align-items:center;gap:5px}
+.pe-tip::before{content:"✎";color:var(--cyan)}
+.pe-full{grid-column:1 / -1}
+.confirm-row{display:flex;gap:8px;margin-top:12px}
+.typing{display:inline-flex;gap:4px;padding:4px 0}
+.typing span{width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:blink 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,60%,100%{opacity:.25}30%{opacity:1}}
+
+.composer{border-top:1px solid var(--border);padding:14px 16px;background:var(--panel2)}
+.composer .row{display:flex;gap:10px;align-items:flex-end}
+.composer textarea{
+  flex:1;resize:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;
+  color:var(--txt);font-family:'IBM Plex Sans','Noto Sans KR','Noto Sans TC';font-size:1.05rem;padding:11px 13px;line-height:1.4;max-height:120px;
+}
+.composer textarea:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(56,225,214,.1)}
+.send{
+  background:linear-gradient(135deg,var(--cyan),#2bb5ab);color:#06121a;border:none;border-radius:10px;
+  width:44px;height:44px;font-size:1.1rem;cursor:pointer;flex-shrink:0;transition:.2s;font-weight:700;
+}
+.send:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(56,225,214,.35)}
+.send:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px}
+.chip{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.82rem;padding:6px 13px;border:1px solid var(--border);border-radius:18px;
+  color:var(--muted);cursor:pointer;background:transparent;transition:.2s}
+.chip:hover{border-color:var(--cyan);color:var(--cyan)}
+.modebar{display:flex;align-items:center;gap:8px;margin-bottom:11px;font-size:.82rem;color:var(--muted);font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC'}
+.modebar .tag{padding:3px 9px;border-radius:6px;border:1px solid var(--border)}
+.modebar .tag.llm{color:var(--violet);border-color:#33305c}
+.modebar .tag.local{color:var(--amber);border-color:#4a3d22}
+.clearchat{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.72rem;color:var(--muted);
+  background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 9px;
+  cursor:pointer;transition:.15s;white-space:nowrap;flex-shrink:0}
+.clearchat:hover{border-color:var(--red);color:var(--red);background:rgba(255,107,107,.06)}
+
+/* ═══════════════════════════════════════════
+   GUIDE SIDEBAR — v3
+═══════════════════════════════════════════ */
+.guide{
+  width:200px;flex-shrink:0;border-right:1px solid var(--border);
+  background:var(--panel2);display:flex;flex-direction:column;
+  overflow:hidden;transition:width .22s cubic-bezier(.2,.8,.2,1);
+}
+.guide.collapsed{width:0;border-right:none}
+@media(max-width:960px){.guide{display:none}}
+.guide-hd{
+  display:flex;align-items:center;padding:11px 12px;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+  font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.68rem;letter-spacing:1.5px;
+  color:var(--cyan);text-transform:uppercase;gap:7px;white-space:nowrap;
+}
+.guide-hd span{flex:1}
+.guide-tog{
+  background:transparent;border:1px solid var(--border);color:var(--muted);
+  border-radius:5px;cursor:pointer;font-size:.8rem;width:23px;height:23px;
+  display:flex;align-items:center;justify-content:center;transition:.15s;flex-shrink:0;line-height:1;
+}
+.guide-tog:hover{border-color:var(--cyan);color:var(--cyan)}
+.guide-body{flex:1;overflow-y:auto;padding:6px 0 14px}
+.gsec{margin-bottom:2px}
+.gsec-hd{
+  display:flex;align-items:center;gap:6px;padding:7px 11px 5px;
+  font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.64rem;letter-spacing:1.3px;
+  color:#aab6cc;text-transform:uppercase;cursor:pointer;user-select:none;transition:.15s;
+}
+.gsec-hd:hover{color:#ffffff}
+.gsec-hd .garrow{font-size:.55rem;transition:transform .18s;opacity:.6}
+.gsec.closed .garrow{transform:rotate(-90deg)}
+.gsec-items{overflow:hidden;transition:max-height .2s ease}
+.gsec.closed .gsec-items{max-height:0!important}
+.gcmd{
+  display:flex;align-items:center;gap:7px;width:100%;text-align:left;
+  padding:6px 11px 6px 18px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.76rem;
+  color:#dde5f2;background:transparent;border:none;cursor:pointer;
+  transition:.12s;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.gcmd:hover{color:var(--cyan);background:rgba(56,225,214,.06);padding-left:22px}
+.gcmd .gicon{flex-shrink:0;font-style:normal;font-size:.9rem;width:17px;text-align:center}
+.gcmd .glabel{flex:1;overflow:hidden;text-overflow:ellipsis}
+.gcmd .gsend{
+  flex-shrink:0;font-size:.6rem;color:var(--dim);border:1px solid var(--border);
+  border-radius:3px;padding:1px 4px;letter-spacing:.5px;
+}
+.gcmd:hover .gsend{border-color:var(--cyan);color:var(--cyan)}
+.gsec-div{height:1px;background:var(--border);margin:6px 11px 4px;opacity:.5}
+.gsec-note{
+  margin:4px 11px 7px 14px;padding:6px 10px;border-radius:6px;
+  background:#05080f;color:#ffffff;border-left:2px solid var(--cyan);
+  font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.66rem;
+  line-height:1.55;white-space:normal;
+}
+.guide-open{
+  position:absolute;top:14px;left:0;
+  background:var(--panel);border:1px solid var(--border);border-left:none;
+  border-radius:0 6px 6px 0;color:var(--muted);cursor:pointer;
+  font-size:.66rem;padding:7px 4px;writing-mode:vertical-rl;
+  font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';letter-spacing:1.5px;transition:.15s;z-index:5;display:none;
+}
+.guide-open:hover{color:var(--cyan);border-color:var(--cyan)}
+
+/* right column */
+.right{background:var(--panel2);display:flex;flex-direction:column;overflow:hidden}
+.tabbar{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--panel)}
+.tab{flex:1;padding:11px;text-align:center;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.74rem;letter-spacing:.5px;
+  color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:.2s;text-transform:uppercase}
+.tab:hover{color:var(--txt)}
+.tab.on{color:var(--cyan);border-color:var(--cyan);background:rgba(56,225,214,.04)}
+.panel{flex:1;overflow:auto;padding:16px;display:none}
+.panel.on{display:block}
+
+/* log */
+#log{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.78rem;line-height:1.75}
+#log .ln{display:flex;gap:9px;padding:2px 0;animation:rise .2s ease}
+#log .ts{color:var(--dim);flex-shrink:0}
+#log .ln.ok .m{color:var(--green)} #log .ln.err .m{color:var(--red)}
+#log .ln.info .m{color:var(--blue)} #log .ln.api .m{color:var(--muted)}
+#log .ln.warn .m{color:var(--amber)}
+#log .ln .m b{color:var(--cyan)}
+#log .empty{color:var(--dim);font-style:italic}
+
+/* state cards */
+.scard{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+.scard h3{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.7rem;letter-spacing:1.5px;color:var(--cyan);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.kv{display:flex;justify-content:space-between;padding:4px 0;font-size:.84rem;border-bottom:1px dashed rgba(255,255,255,.04)}
+.kv:last-child{border:none}
+.kv .k{color:var(--muted)} .kv .v{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';color:var(--txt)}
+.kv .v.hi{color:var(--cyan)}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.stat{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.stat .n{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:1.5rem;font-weight:700;color:var(--cyan)}
+.stat .l{font-size:.66rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:3px}
+
+/* table */
+table{width:100%;border-collapse:collapse;font-size:.78rem;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC'}
+th{background:var(--panel);color:var(--cyan);text-align:left;padding:7px 9px;border-bottom:1px solid var(--border);font-weight:600;position:sticky;top:0}
+td{padding:6px 9px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--txt)}
+td.pos{color:var(--green)} td.neg{color:var(--red)}
+.res-empty{color:var(--dim);font-style:italic;text-align:center;padding:30px}
+.res-sel{margin-bottom:12px;display:flex;gap:9px;align-items:center}
+.res-sel select{background:var(--bg);border:1px solid var(--border);color:var(--txt);border-radius:7px;padding:6px 10px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.8rem}
+
+/* settings drawer */
+.scrim{position:fixed;inset:0;background:rgba(4,7,14,.6);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.25s;z-index:40}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100%;width:380px;max-width:90vw;background:var(--panel);
+  border-left:1px solid var(--border);transform:translateX(100%);transition:.3s cubic-bezier(.2,.8,.2,1);z-index:50;
+  display:flex;flex-direction:column;box-shadow:-20px 0 40px rgba(0,0,0,.4)}
+.drawer.on{transform:none}
+.drawer header{background:transparent;border-bottom:1px solid var(--border)}
+.drawer .body{padding:20px;overflow-y:auto;flex:1}
+.field{margin-bottom:18px}
+.field label{display:block;font-size:.74rem;color:var(--muted);margin-bottom:6px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';letter-spacing:.5px}
+.field input,.field select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--txt);
+  border-radius:8px;padding:9px 11px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.82rem}
+.field input:focus,.field select:focus{outline:none;border-color:var(--cyan)}
+.field .hint{font-size:.7rem;color:var(--dim);margin-top:5px;line-height:1.5}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border)}
+.switch{position:relative;width:42px;height:23px;cursor:pointer}
+.switch input{display:none}
+.switch .track{position:absolute;inset:0;background:var(--border);border-radius:20px;transition:.2s}
+.switch .knob{position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:var(--muted);transition:.2s}
+.switch input:checked + .track{background:rgba(155,140,255,.3)}
+.switch input:checked + .track + .knob,.switch input:checked ~ .knob{transform:translateX(19px);background:var(--violet)}
+.sec-divider{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.68rem;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin:8px 0 16px;display:flex;align-items:center;gap:10px}
+.sec-divider::after{content:"";flex:1;height:1px;background:var(--border)}
+.btn{padding:9px 16px;border-radius:8px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.2s}
+.btn-c{background:var(--cyan);color:#06121a} .btn-c:hover{filter:brightness(1.1)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)} .btn-ghost:hover{border-color:var(--dim);color:var(--txt)}
+.test-out{margin-top:10px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.76rem;padding:9px 11px;border-radius:7px;display:none}
+.prov-seg{display:flex;gap:6px}
+.prov-seg button{flex:1;padding:8px 0;border-radius:8px;border:1px solid var(--border);background:var(--bg);
+  color:var(--muted);font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.78rem;cursor:pointer;transition:.2s}
+.prov-seg button:hover{border-color:var(--dim);color:var(--txt)}
+.prov-seg button.on{border-color:var(--violet);color:var(--violet);background:rgba(155,140,255,.08);box-shadow:0 0 0 1px var(--violet) inset}
+.test-out.ok{display:block;background:rgba(94,230,168,.08);color:var(--green);border:1px solid rgba(94,230,168,.2)}
+.test-out.err{display:block;background:rgba(255,107,107,.08);color:var(--red);border:1px solid rgba(255,107,107,.2)}
+::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--dim)}
+
+/* ═══════════════════════════════════════════
+   3D VIEW — v2 enhancements
+═══════════════════════════════════════════ */
+#viewP{padding:0}
+#viewP.on{display:flex;flex-direction:column}
+
+.view-tb{
+  display:flex;align-items:center;gap:5px;padding:7px 10px;
+  border-bottom:1px solid var(--border);flex-shrink:0;background:var(--panel);
+  flex-wrap:wrap;row-gap:5px;
+}
+.view-tb .vlbl{
+  font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.63rem;color:var(--dim);letter-spacing:1.2px;
+  text-transform:uppercase;margin-right:1px;flex-shrink:0;
+}
+.view-tb .vsep{width:1px;height:16px;background:var(--border);margin:0 5px;flex-shrink:0}
+
+/* camera preset buttons */
+.vcam{
+  font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.68rem;padding:4px 9px;border-radius:5px;
+  border:1px solid var(--border);background:transparent;color:var(--muted);
+  cursor:pointer;transition:.15s;white-space:nowrap;
+}
+.vcam:hover{border-color:var(--cyan);color:var(--cyan)}
+.vcam.on{border-color:var(--cyan);color:var(--cyan);background:rgba(56,225,214,.08);
+  box-shadow:0 0 6px rgba(56,225,214,.15)}
+
+/* visibility toggle buttons */
+.vtog{
+  font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.68rem;padding:4px 9px;border-radius:5px;
+  background:transparent;cursor:pointer;transition:.15s;white-space:nowrap;
+  border:1px solid transparent;
+}
+.vtog.on{color:var(--txt);border-color:var(--border)}
+.vtog.off{color:var(--dim);text-decoration:line-through;opacity:.45}
+.vtog.on:hover{border-color:var(--dim)}
+
+/* col swatch dot inside toggle */
+.vtog .swatch{
+  display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;
+  vertical-align:middle;margin-top:-1px;
+}
+
+/* stats bar */
+.view-stats{
+  font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.69rem;color:var(--dim);
+  padding:5px 12px;border-top:1px solid var(--border);flex-shrink:0;
+  letter-spacing:.4px;display:flex;gap:16px;align-items:center;
+}
+.view-stats .vs-item{display:flex;align-items:center;gap:5px}
+.view-stats .vs-val{color:var(--muted)}
+.view-stats .vs-hi{color:var(--cyan)}
+
+/* plot fill */
+#plot{width:100%;flex:1;min-height:280px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mark">GEN</div>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.5.0</span><small data-i18n="subtitle">對話式結構建模</small></h1>
+  <div class="spacer"></div>
+  <div class="langsel" id="langSel">
+    <button data-l="ko" onclick="setLang('ko')">한국어</button>
+    <button data-l="en" onclick="setLang('en')">English</button>
+    <button data-l="zh" onclick="setLang('zh')">繁體中文</button>
+  </div>
+  <div class="pill" id="connPill" onclick="openSettings()"><span class="dot"></span><span id="connTxt">未連線</span></div>
+  <div class="gear" onclick="openSettings()">⚙</div>
+</header>
+
+<main>
+  <!-- LEFT: CHAT + GUIDE -->
+  <section class="chat">
+    <!-- Guide sidebar -->
+    <aside class="guide" id="guide">
+      <div class="guide-hd">
+        <span data-i18n="guide_title">⌘ 指令導引</span>
+        <button class="guide-tog" id="guideTog" onclick="toggleGuide()" title="收合導引">⟨</button>
+      </div>
+      <div class="guide-body" id="guideBody"></div>
+    </aside>
+
+    <!-- Chat inner -->
+    <div class="chat-inner">
+      <button class="guide-open" id="guideOpen" onclick="toggleGuide()" title="展開導引" data-i18n="guide_open_txt">導引</button>
+      <div class="msgs" id="msgs"></div>
+      <div class="composer" id="composer">
+        <div class="modebar">
+          <span data-i18n="mode">MODE</span>
+          <span class="tag local" id="modeTag">本地 · 規則式</span>
+          <span style="flex:1"></span>
+          <span id="modelNote" style="opacity:.6"></span>
+          <button class="clearchat" onclick="clearChat()" data-i18n="clearchat" data-i18n-title="clearchat_tip">🧹 清除對話</button>
+        </div>
+        <div class="row">
+          <textarea id="input" rows="1" data-i18n-ph="input_ph" placeholder="以自然語言下達指令…  例）建立 15 層住宅"></textarea>
+          <button class="send" id="sendBtn" onclick="onSend()">➤</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: PANELS -->
+  <section class="right">
+    <div class="tabbar">
+      <div class="tab on" data-p="logP" onclick="tab('logP')" data-i18n="tab_log">⬡ 活動記錄</div>
+      <div class="tab" data-p="modelP" onclick="tab('modelP')" data-i18n="tab_model">▣ 模型</div>
+      <div class="tab" data-p="viewP" onclick="tab('viewP');draw3D()" data-i18n="tab_3d">◈ 3D</div>
+      <div class="tab" data-p="resP" onclick="tab('resP')" data-i18n="tab_res">∑ 結果</div>
+    </div>
+    <div class="panel on" id="logP"><div id="log"><div class="empty" data-i18n="log_empty">// API 通訊記錄將顯示於此</div></div></div>
+    <div class="panel" id="modelP"><div id="modelState"></div></div>
+
+    <!-- 3D panel — v2 -->
+    <div class="panel" id="viewP">
+      <div class="view-tb">
+        <!-- camera presets -->
+        <span class="vlbl" data-i18n="cam">視角</span>
+        <button class="vcam on" id="cam-iso"   onclick="setCam('iso')"   data-i18n="cam_iso">等角</button>
+        <button class="vcam"    id="cam-front" onclick="setCam('front')" data-i18n="cam_front">正視</button>
+        <button class="vcam"    id="cam-side"  onclick="setCam('side')"  data-i18n="cam_side">側視</button>
+        <button class="vcam"    id="cam-top"   onclick="setCam('top')"   data-i18n="cam_top">俯視</button>
+        <span class="vsep"></span>
+        <!-- visibility toggles -->
+        <span class="vlbl" data-i18n="show">顯示</span>
+        <button class="vtog on" id="tog-col"   onclick="toggleVis('col')"><span class="swatch" style="background:#2faadc"></span><span data-i18n="show_col">柱</span></button>
+        <button class="vtog on" id="tog-beam"  onclick="toggleVis('beam')"><span class="swatch" style="background:#38e1d6"></span><span data-i18n="show_beam">梁</span></button>
+        <button class="vtog on" id="tog-node"  onclick="toggleVis('node')"><span class="swatch" style="background:#6b7a99"></span><span data-i18n="show_node">節點</span></button>
+        <button class="vtog on" id="tog-floor" onclick="toggleVis('floor')"><span class="swatch" style="background:#2a3a55"></span><span data-i18n="show_floor">樓層線</span></button>
+      </div>
+      <div id="plot"></div>
+      <div class="view-stats" id="viewStats">
+        <span style="color:var(--dim);font-style:italic" data-i18n="view_empty">// 建立模型後將以 3D 顯示</span>
+      </div>
+    </div>
+
+    <div class="panel" id="resP"><div id="results"><div class="res-empty" data-i18n="res_empty">// 分析後將顯示結果</div></div></div>
+  </section>
+</main>
+
+<!-- SETTINGS -->
+<div class="scrim" id="scrim" onclick="closeSettings()"></div>
+<div class="drawer" id="drawer">
+  <header><h1 style="font-size:.9rem"><span data-i18n="set_title">⚙ 連線設定</span><small>Connection &amp; Agent</small></h1><div class="spacer"></div><div class="gear" onclick="closeSettings()">✕</div></header>
+  <div class="body">
+    <div class="sec-divider">MIDAS Gen NX (MAPI)</div>
+    <div class="field">
+      <label>BASE URL</label>
+      <input id="baseUrl" value="https://moa-engineers.midasit.com:443/gen">
+    </div>
+    <div class="field">
+      <label>MAPI-KEY</label>
+      <input id="mapiKey" type="password" data-i18n-ph="mapi_key_ph" placeholder="於 Gen NX → API Settings 複製">
+      <div class="hint" data-i18n-html="mapi_hint_html">Gen NX 須正在執行，且 API 狀態為 <b style="color:var(--cyan)">Connect</b>。</div>
+    </div>
+    <button class="btn btn-c" onclick="testConn()" data-i18n="conn_test">連線測試</button>
+    <div class="test-out" id="testOut"></div>
+
+    <div class="sec-divider" style="margin-top:26px" data-i18n="ai_section">AI 大腦（選用）</div>
+    <div class="toggle-row" style="border:none;padding-top:0">
+      <div><div style="font-size:.85rem" data-i18n="llm_mode">LLM 模式</div><div style="font-size:.7rem;color:var(--muted)" data-i18n="llm_mode_desc">以所選 AI 自由對話（需 API 金鑰）</div></div>
+      <label class="switch"><input type="checkbox" id="llmToggle" onchange="syncMode()"><span class="track"></span><span class="knob"></span></label>
+    </div>
+    <div class="field">
+      <label>PROVIDER</label>
+      <div class="prov-seg" id="provSeg">
+        <button data-p="claude" class="on" onclick="setProvider('claude')">Claude</button>
+        <button data-p="gemini" onclick="setProvider('gemini')">Gemini</button>
+        <button data-p="gpt" onclick="setProvider('gpt')">GPT</button>
+      </div>
+    </div>
+    <div class="field">
+      <label id="keyLabel">ANTHROPIC API KEY</label>
+      <input id="provKey" type="password" placeholder="sk-ant-…">
+      <div class="hint" id="keyHint">與 claude.ai 登入<b>無關</b>。請至 console.anthropic.com 申請。</div>
+    </div>
+    <div class="field">
+      <label>MODEL</label>
+      <input id="provModel" list="modelList" value="claude-sonnet-4-6">
+      <datalist id="modelList"></datalist>
+      <div class="hint" data-i18n="model_hint">模型名稱可自行修改（供應商常更新最新模型）。</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-c" onclick="saveSettings()" data-i18n="save">儲存</button>
+      <button class="btn btn-ghost" onclick="closeSettings()" data-i18n="close">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- 공용 도메인 엔진 (폼 Wizard 와 공유) -->
+<script src="shared/rc_engine.js"></script>
+<script>
+/* ════════════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════════════ */
+const S = {
+  connected:false, llm:false, provider:'claude', lang:'ko',
+  model:{ matl:null, colSect:null, beamSect:null, nodes:[], cols:[], beams:[], links:[],
+          baseNodes:[], elev:[], loadCases:[], spec:null },
+  conv:[],
+  results:{ react:null, disp:null, force:null }
+};
+
+/* ════════════════════════════════════════════════════════════
+   I18N — 한국어 / English / 繁體中文
+   값이 함수면 인자를 받아 문자열을 만든다. t(key,...args) 로 호출.
+════════════════════════════════════════════════════════════ */
+const I18N = {
+  ko:{
+    subtitle:'대화형 구조 모델링', dev:'개발자',
+    conn_unlinked:'미연결', conn_linked:'Gen NX 연결됨', conn_failed:'연결 실패',
+    guide_title:'⌘ 명령 가이드', guide_close:'가이드 닫기', guide_open:'가이드 열기', guide_open_txt:'가이드',
+    mode:'MODE', mode_local:'LOCAL · 규칙기반', mode_nokey:'키 없음→LOCAL', brain:' 두뇌',
+    input_ph:'자연어로 명령하세요…  예) 주거 15층 만들어',
+    tab_log:'⬡ 활동', tab_model:'▣ 모델 개요', tab_3d:'◈ 3D 미리보기', tab_res:'∑ 결과',
+    log_empty:'',
+    model_empty:'', view_empty:'', res_empty:'',
+    clearchat:'🧹 대화 비우기', clearchat_tip:'대화창 비우기 (모델·결과는 유지)',
+    form_intro:'아래 표에 값을 입력하고 <b>실행</b>을 누르세요. 정확한 CNS560 · 하중조합 · 다이어프램이 적용됩니다.',
+    clear_done:'🧹 대화를 비웠습니다. 모델과 해석 결과는 유지됩니다.',
+    cam:'시점', cam_iso:'ISO', cam_front:'정면', cam_side:'측면', cam_top:'평면',
+    show:'표시', show_col:'기둥', show_beam:'보', show_node:'절점', show_floor:'층선',
+    set_title:'연결 설정', mapi_hint_html:'Gen NX가 실행 중이고 API 상태가 <b style="color:var(--cyan)">Connect</b> 여야 합니다.',
+    mapi_key_ph:'Gen NX → API Settings 에서 복사', conn_test:'연결 테스트', ai_section:'AI 두뇌 (선택)',
+    llm_mode:'LLM 모드', llm_mode_desc:'선택한 AI로 자유 대화 (API 키 필요)',
+    model_hint:'모델명은 직접 수정 가능 (공급자가 최신 모델을 자주 갱신함).', save:'저장', close:'닫기',
+    exec:'실행 ▶', cancel:'취소', edit_btn:'✎ 수정',
+    test_need:'Base URL과 MAPI Key를 모두 입력하세요.', test_ing:'연결 테스트 중…',
+    test_ok:'✅ Gen NX 연결 성공', test_http:c=>`❌ 연결 실패 (HTTP ${c})`, test_err:m=>`❌ ${m} — Gen NX 실행/Connect 상태 및 CORS를 확인하세요.`,
+    sec_geom:'▣ 형상', sec_prop:'◫ 속성', sec_edits:'✏ 편집 이력',
+    kv_type:'건물 유형', kv_bs:'동수 / 층수', kv_bay:'평면 bay', kv_span:'스팬 (mm)', kv_h:'층고 1F / 기준',
+    kv_cb:'기둥 / 보', kv_link:f=>`연결보 (${f}F)`, kv_mat:'재료', kv_csect:'기둥 단면', kv_bsect:'보 단면',
+    kv_bound:n=>`고정 ${n}점`, kv_lc:'하중케이스', st_node:'Nodes', st_elem:'Elements', st_h:'Height m',
+    r_react:'반력', r_disp:'변위', r_force:'부재력', r_none:'// 해당 결과 없음',
+    r_more:(tot)=>`… ${tot} rows 중 200개 표시`,
+    vs_node:'절점', vs_col:'기둥', vs_beam:'보', vs_link:'연결보', vs_brace:'가새', vs_story:s=>`${s}층`,
+    plan_intro_tpl:'아래 사양으로 모델을 생성할게요. 맞으면 <b>실행</b>을 눌러주세요.',
+    plan_intro_custom:'아래 사양으로 <b>커스텀 골조</b>를 생성합니다. 필드를 <b>직접 수정</b>한 뒤 <b>실행</b>을 누르세요.',
+    pe_tip:'값을 직접 수정하면 3D 미리보기가 즉시 갱신됩니다. * 다동일 때만 적용.',
+    pe:{buildings:'동수',stories:'층수',bayX:'X bay',bayY:'Y bay',spanX:'X 스팬',spanY:'Y 스팬',h1:'1F 층고',hTyp:'기준 층고',colH:'기둥 H',colB:'기둥 B',beamH:'보 H',beamB:'보 B',connectFloor:'연결층 *',gap:'동간격 *',mat:'재료'},
+    ps_bs:(b,s)=>`<span class="k">동수</span> ${b} · <span class="k">층수</span> ${s}<br>`,
+    ps_plane:(bx,by,sx,sy)=>`<span class="k">평면</span> ${bx}×${by} bay · 스팬 ${sx}×${sy} mm<br>`,
+    ps_h:(h1,ht)=>`<span class="k">층고</span> 1F ${h1} / 기준 ${ht} mm<br>`,
+    ps_cb:(c,b)=>`<span class="k">기둥</span> ${c} · <span class="k">보</span> ${b}<br>`,
+    ps_link:(cf,g)=>`<span class="k">연결</span> ${cf}층 · 간격 ${g} mm<br>`,
+    ps_mat:m=>`<span class="k">재료</span> ${m}`,
+    build_ok:(b,s,n,e)=>`✅ <b>${b}동 ${s}층</b> 모델 생성 완료.<br>절점 <b>${n}</b> · 요소 <b>${e}</b> · 자중(DL) 적용됨.<br><br>다음: <code>해석 돌려</code> 또는 <code>최대 변위 알려줘</code>`,
+    build_fail:m=>`⚠ 생성 실패: ${m}`,
+    need_analyze:'아직 해석 결과가 없습니다. <code>해석 돌려</code> 라고 먼저 말해주세요.',
+    edit_done:m=>`✏️ ${m}<br><span style="color:var(--muted);font-size:.82rem">변경 후 다시 <code>해석 돌려</code> 로 영향을 확인하세요.</span>`,
+    err:m=>`⚠ ${m}`,
+    unknown:'이해하지 못했어요. 예시:<br><code>주거 15층 만들어</code> · <code>해석 돌려</code> · <code>최대 변위 알려줘</code><br><span style="color:var(--cyan)">증분 편집:</span> <code>3층 기둥 700x700으로 키워</code> · <code>1동 가새 추가</code><br><span style="color:var(--muted);font-size:.82rem">자유 대화를 원하면 ⚙에서 LLM 모드를 켜세요.</span>',
+    clear_chat_model:'모델을 초기화했습니다. 새로 만들 준비 완료.',
+    rb_disp:(v,n)=>`최대 수직변위 <b>${v} mm</b> (Node ${n})<br>`,
+    rb_react:(v,n)=>`최대 수직반력 <b>${v} kN</b> (Node ${n})<br>`,
+    rb_force:n=>`부재력 테이블 <b>${n}</b>행 추출됨<br>`,
+    rb_none:'결과 없음', rb_see:'<br><span style="color:var(--muted);font-size:.82rem">우측 결과 탭에서 전체 테이블 확인</span>',
+    st_nomodel:'아직 생성된 모델이 없습니다.',
+    st_cur:(b,s)=>`현재 모델: <b>${b}동 ${s}층</b><br>`,
+    st_counts:(n,c,bm,l)=>`절점 ${n} · 기둥 ${c} · 보 ${bm} · 연결보 ${l}<br>`,
+    st_props:(m,c,b)=>`재료 ${m} · 기둥단면 ${c} · 보단면 ${b}<br>`,
+    st_height:h=>`높이 ${h} m`,
+    welcome:'안녕하세요 — <b>Gen NX 대화형 에이전트</b>입니다. 🏗️<br><br>왼쪽 <b>명령 가이드</b>에서 클릭하거나 자연어로 입력하세요.<br>건물 유형: <code>🏠 주거</code> · <code>🏢 사무</code> · <code>🏬 상가</code> · <code>🏥 병원</code> · <code>🏫 학교</code><br><br>예) <code>주거 15층 만들어</code> → <code>해석 돌려</code> → <code>최대 변위 알려줘</code><br><br><span style="color:var(--muted);font-size:.82rem">⚙에서 MAPI 연결 후 사용하세요. 상단에서 언어를 바꿀 수 있습니다.</span>',
+    tgt_col:'기둥', tgt_beam:'보',
+    act_modsect:(t,n,c)=>`${t} 단면을 ${n} 로 변경 (해당 부재 ${c}개 적용).`,
+    act_resize:(fl,t,c,H,B,n)=>`${fl}${t} ${c}개를 ${H}×${B}(${n})로 변경.`,
+    act_addload:(name,type,fl,n,fz)=>`하중케이스 ${name}(${type}) 추가 — ${fl}층 ${n}개 절점에 Fz=${fz}N.`,
+    act_brace:(b,fl,c)=>`건물${b} ${fl}층에 가새 ${c}개 추가.`,
+    e_nomodel_edit:'수정할 모델이 없습니다.', e_nomodel:'모델이 없습니다.', e_notarget:'대상 부재를 찾지 못했습니다 (층 범위 확인).',
+    e_nofloor:'해당 층 절점을 찾지 못했습니다.', e_nobrace:'가새를 놓을 위치를 찾지 못했습니다.',
+    e_noanalyze:'해석할 모델이 없습니다. 먼저 모델을 생성하세요.', e_notconn:'먼저 Gen NX 연결을 설정하세요 (⚙).',
+    llm_err:(p,m)=>`⚠ LLM 오류 (${p}): ${m}<br><span style="color:var(--muted);font-size:.8rem">키/모델명/CORS 문제일 수 있어요. F12 콘솔을 확인하거나 ⚙에서 LOCAL 모드로 전환하세요.</span>`
+  },
+  en:{
+    subtitle:'Conversational Structural Modeling', dev:'Developer',
+    conn_unlinked:'Not connected', conn_linked:'Gen NX connected', conn_failed:'Connection failed',
+    guide_title:'⌘ Command Guide', guide_close:'Collapse guide', guide_open:'Expand guide', guide_open_txt:'Guide',
+    mode:'MODE', mode_local:'LOCAL · rule-based', mode_nokey:'no key→LOCAL', brain:' brain',
+    input_ph:'Type a command…  e.g. build a 15-story residential',
+    tab_log:'⬡ Activity', tab_model:'▣ Model Summary', tab_3d:'◈ 3D Preview', tab_res:'∑ Results',
+    log_empty:'',
+    model_empty:'', view_empty:'', res_empty:'',
+    clearchat:'🧹 Clear chat', clearchat_tip:'Clear the chat (model & results kept)',
+    form_intro:'Fill the table below and press <b>Run</b>. Accurate CNS560 · load combos · diaphragm are applied.',
+    clear_done:'🧹 Chat cleared. The model and analysis results are kept.',
+    cam:'View', cam_iso:'ISO', cam_front:'Front', cam_side:'Side', cam_top:'Top',
+    show:'Show', show_col:'Columns', show_beam:'Beams', show_node:'Nodes', show_floor:'Floor lines',
+    set_title:'Connection Settings', mapi_hint_html:'Gen NX must be running and its API status must be <b style="color:var(--cyan)">Connect</b>.',
+    mapi_key_ph:'Copy from Gen NX → API Settings', conn_test:'Test connection', ai_section:'AI Brain (optional)',
+    llm_mode:'LLM mode', llm_mode_desc:'Free chat with the selected AI (API key required)',
+    model_hint:'Model name is editable (providers update models often).', save:'Save', close:'Close',
+    exec:'Run ▶', cancel:'Cancel', edit_btn:'✎ Edit',
+    test_need:'Enter both Base URL and MAPI Key.', test_ing:'Testing connection…',
+    test_ok:'✅ Gen NX connected', test_http:c=>`❌ Connection failed (HTTP ${c})`, test_err:m=>`❌ ${m} — Check Gen NX is running/Connect and CORS.`,
+    sec_geom:'▣ Geometry', sec_prop:'◫ Properties', sec_edits:'✏ Edit history',
+    kv_type:'Building type', kv_bs:'Buildings / Stories', kv_bay:'Plan bays', kv_span:'Span (mm)', kv_h:'Height 1F / typ',
+    kv_cb:'Columns / Beams', kv_link:f=>`Link beams (${f}F)`, kv_mat:'Material', kv_csect:'Column section', kv_bsect:'Beam section',
+    kv_bound:n=>`Fixed ${n} pts`, kv_lc:'Load cases', st_node:'Nodes', st_elem:'Elements', st_h:'Height m',
+    r_react:'Reaction', r_disp:'Displacement', r_force:'Member force', r_none:'// No such result',
+    r_more:(tot)=>`… showing 200 of ${tot} rows`,
+    vs_node:'Nodes', vs_col:'Cols', vs_beam:'Beams', vs_link:'Links', vs_brace:'Braces', vs_story:s=>`${s} stories`,
+    plan_intro_tpl:'I will build a model with the spec below. Press <b>Run</b> to confirm.',
+    plan_intro_custom:'I will build a <b>custom frame</b> below. <b>Edit the fields</b> directly, then press <b>Run</b>.',
+    pe_tip:'Editing a value updates the 3D preview instantly. * applies only for multiple buildings.',
+    pe:{buildings:'Buildings',stories:'Stories',bayX:'X bays',bayY:'Y bays',spanX:'X span',spanY:'Y span',h1:'1F height',hTyp:'Typ height',colH:'Col H',colB:'Col B',beamH:'Beam H',beamB:'Beam B',connectFloor:'Link floor *',gap:'Bldg gap *',mat:'Material'},
+    ps_bs:(b,s)=>`<span class="k">Buildings</span> ${b} · <span class="k">Stories</span> ${s}<br>`,
+    ps_plane:(bx,by,sx,sy)=>`<span class="k">Plan</span> ${bx}×${by} bays · span ${sx}×${sy} mm<br>`,
+    ps_h:(h1,ht)=>`<span class="k">Height</span> 1F ${h1} / typ ${ht} mm<br>`,
+    ps_cb:(c,b)=>`<span class="k">Column</span> ${c} · <span class="k">Beam</span> ${b}<br>`,
+    ps_link:(cf,g)=>`<span class="k">Link</span> floor ${cf} · gap ${g} mm<br>`,
+    ps_mat:m=>`<span class="k">Material</span> ${m}`,
+    build_ok:(b,s,n,e)=>`✅ <b>${b} buildings, ${s} stories</b> model built.<br>Nodes <b>${n}</b> · elements <b>${e}</b> · self-weight (DL) applied.<br><br>Next: <code>run analysis</code> or <code>show max displacement</code>`,
+    build_fail:m=>`⚠ Build failed: ${m}`,
+    need_analyze:'No analysis results yet. Say <code>run analysis</code> first.',
+    edit_done:m=>`✏️ ${m}<br><span style="color:var(--muted);font-size:.82rem">Run analysis again to see the effect.</span>`,
+    err:m=>`⚠ ${m}`,
+    unknown:'Sorry, I didn\'t understand. Examples:<br><code>build a 15 story residential</code> · <code>run analysis</code> · <code>show max displacement</code><br><span style="color:var(--cyan)">Incremental edits:</span> <code>enlarge floor 3 columns to 700x700</code> · <code>add bracing to building 1</code><br><span style="color:var(--muted);font-size:.82rem">For free chat, enable LLM mode in ⚙.</span>',
+    clear_chat_model:'Model cleared. Ready to build a new one.',
+    rb_disp:(v,n)=>`Max vertical displacement <b>${v} mm</b> (Node ${n})<br>`,
+    rb_react:(v,n)=>`Max vertical reaction <b>${v} kN</b> (Node ${n})<br>`,
+    rb_force:n=>`Member-force table: <b>${n}</b> rows extracted<br>`,
+    rb_none:'No results', rb_see:'<br><span style="color:var(--muted);font-size:.82rem">See the full table in the Results tab</span>',
+    st_nomodel:'No model created yet.',
+    st_cur:(b,s)=>`Current model: <b>${b} buildings, ${s} stories</b><br>`,
+    st_counts:(n,c,bm,l)=>`Nodes ${n} · columns ${c} · beams ${bm} · link beams ${l}<br>`,
+    st_props:(m,c,b)=>`Material ${m} · column ${c} · beam ${b}<br>`,
+    st_height:h=>`Height ${h} m`,
+    welcome:'Hello — this is the <b>Gen NX Conversational Agent</b>. 🏗️<br><br>Click items in the <b>Command Guide</b> on the left, or type in natural language.<br>Building types: <code>🏠 Residential</code> · <code>🏢 Office</code> · <code>🏬 Commercial</code> · <code>🏥 Hospital</code> · <code>🏫 School</code><br><br>e.g. <code>build a 15 story residential</code> → <code>run analysis</code> → <code>show max displacement</code><br><br><span style="color:var(--muted);font-size:.82rem">Set up the MAPI connection in ⚙. You can change the language at the top.</span>',
+    tgt_col:'Column', tgt_beam:'Beam',
+    act_modsect:(t,n,c)=>`Changed ${t} section to ${n} (applied to ${c} members).`,
+    act_resize:(fl,t,c,H,B,n)=>`Changed ${c} ${t}${fl} to ${H}×${B} (${n}).`,
+    act_addload:(name,type,fl,n,fz)=>`Added load case ${name}(${type}) — Fz=${fz}N on ${n} nodes at floor ${fl}.`,
+    act_brace:(b,fl,c)=>`Added ${c} braces to building ${b}, floors ${fl}.`,
+    e_nomodel_edit:'No model to modify.', e_nomodel:'No model.', e_notarget:'No target members found (check floor range).',
+    e_nofloor:'No nodes found at that floor.', e_nobrace:'No place found for bracing.',
+    e_noanalyze:'No model to analyze. Build a model first.', e_notconn:'Set up the Gen NX connection first (⚙).',
+    llm_err:(p,m)=>`⚠ LLM error (${p}): ${m}<br><span style="color:var(--muted);font-size:.8rem">May be a key/model/CORS issue. Check the F12 console or switch to LOCAL mode in ⚙.</span>`
+  },
+  zh:{
+    subtitle:'對話式結構建模', dev:'開發者',
+    conn_unlinked:'未連線', conn_linked:'Gen NX 已連線', conn_failed:'連線失敗',
+    guide_title:'⌘ 指令導引', guide_close:'收合導引', guide_open:'展開導引', guide_open_txt:'導引',
+    mode:'MODE', mode_local:'本地 · 規則式', mode_nokey:'無金鑰→本地', brain:' 大腦',
+    input_ph:'以自然語言下達指令…  例）建立 15 層住宅',
+    tab_log:'⬡ 活動記錄', tab_model:'▣ 模型概要', tab_3d:'◈ 3D 預覽', tab_res:'∑ 結果',
+    log_empty:'',
+    model_empty:'', view_empty:'', res_empty:'',
+    clearchat:'🧹 清除對話', clearchat_tip:'清除對話視窗（保留模型與分析結果）',
+    form_intro:'於下表輸入數值後按 <b>執行</b>。將套用正確的 CNS560 · 載重組合 · 剛性樓板。',
+    clear_done:'🧹 對話已清除。模型與分析結果仍保留，可繼續操作。',
+    cam:'視角', cam_iso:'等角', cam_front:'正視', cam_side:'側視', cam_top:'俯視',
+    show:'顯示', show_col:'柱', show_beam:'梁', show_node:'節點', show_floor:'樓層線',
+    set_title:'連線設定', mapi_hint_html:'Gen NX 須正在執行，且 API 狀態為 <b style="color:var(--cyan)">Connect</b>。',
+    mapi_key_ph:'於 Gen NX → API Settings 複製', conn_test:'連線測試', ai_section:'AI 大腦（選用）',
+    llm_mode:'LLM 模式', llm_mode_desc:'以所選 AI 自由對話（需 API 金鑰）',
+    model_hint:'模型名稱可自行修改（供應商常更新最新模型）。', save:'儲存', close:'關閉',
+    exec:'執行 ▶', cancel:'取消', edit_btn:'✎ 修改',
+    test_need:'請輸入 Base URL 與 MAPI Key。', test_ing:'連線測試中…',
+    test_ok:'✅ Gen NX 連線成功', test_http:c=>`❌ 連線失敗 (HTTP ${c})`, test_err:m=>`❌ ${m} — 請確認 Gen NX 執行／Connect 狀態及 CORS。`,
+    sec_geom:'▣ 幾何', sec_prop:'◫ 性質', sec_edits:'✏ 編輯紀錄',
+    kv_type:'建築類型', kv_bs:'棟數 / 樓層', kv_bay:'平面 跨', kv_span:'跨距 (mm)', kv_h:'樓高 1F / 標準',
+    kv_cb:'柱 / 梁', kv_link:f=>`連接梁 (${f}F)`, kv_mat:'材料', kv_csect:'柱斷面', kv_bsect:'梁斷面',
+    kv_bound:n=>`固定 ${n} 點`, kv_lc:'載重狀況', st_node:'節點', st_elem:'桿件', st_h:'高度 m',
+    r_react:'反力', r_disp:'變位', r_force:'桿件內力', r_none:'// 無此項結果',
+    r_more:(tot)=>`… 共 ${tot} 列，顯示前 200 列`,
+    vs_node:'節點', vs_col:'柱', vs_beam:'梁', vs_link:'連接梁', vs_brace:'斜撐', vs_story:s=>`${s}層`,
+    plan_intro_tpl:'將以下列規格建立模型。確認無誤請按 <b>執行</b>。',
+    plan_intro_custom:'將以下列規格建立<b>自訂構架</b>。可<b>直接修改</b>欄位後再按 <b>執行</b>。',
+    pe_tip:'數值可直接修改，3D 預覽即時更新。* 僅多棟時生效。',
+    pe:{buildings:'棟數',stories:'樓層',bayX:'X 跨數',bayY:'Y 跨數',spanX:'X 跨距',spanY:'Y 跨距',h1:'1F 樓高',hTyp:'標準樓高',colH:'柱 H',colB:'柱 B',beamH:'梁 H',beamB:'梁 B',connectFloor:'連接樓 *',gap:'棟間距 *',mat:'材料'},
+    ps_bs:(b,s)=>`<span class="k">棟數</span> ${b} · <span class="k">樓層</span> ${s}<br>`,
+    ps_plane:(bx,by,sx,sy)=>`<span class="k">平面</span> ${bx}×${by} 跨 · 跨距 ${sx}×${sy} mm<br>`,
+    ps_h:(h1,ht)=>`<span class="k">樓高</span> 1F ${h1} / 標準 ${ht} mm<br>`,
+    ps_cb:(c,b)=>`<span class="k">柱</span> ${c} · <span class="k">梁</span> ${b}<br>`,
+    ps_link:(cf,g)=>`<span class="k">連接</span> ${cf}樓 · 間距 ${g} mm<br>`,
+    ps_mat:m=>`<span class="k">材料</span> ${m}`,
+    build_ok:(b,s,n,e)=>`✅ <b>${b}棟 ${s}層</b> 模型建立完成。<br>節點 <b>${n}</b> · 桿件 <b>${e}</b> · 已套用自重(DL)。<br><br>下一步：<code>執行分析</code> 或 <code>查詢最大變位</code>`,
+    build_fail:m=>`⚠ 建立失敗：${m}`,
+    need_analyze:'尚無分析結果。請先輸入 <code>執行分析</code>。',
+    edit_done:m=>`✏️ ${m}<br><span style="color:var(--muted);font-size:.82rem">變更後請再次 <code>執行分析</code> 確認影響。</span>`,
+    err:m=>`⚠ ${m}`,
+    unknown:'無法理解。範例：<br><code>建立 15 層住宅</code> · <code>執行分析</code> · <code>查詢最大變位</code><br><span style="color:var(--cyan)">增量編輯：</span> <code>第 3 樓柱加大為 700x700</code> · <code>第 1 棟新增斜撐</code><br><span style="color:var(--muted);font-size:.82rem">若需自由對話，請於 ⚙ 開啟 LLM 模式。</span>',
+    clear_chat_model:'模型已清除，可重新建立。',
+    rb_disp:(v,n)=>`最大垂直變位 <b>${v} mm</b>（節點 ${n}）<br>`,
+    rb_react:(v,n)=>`最大垂直反力 <b>${v} kN</b>（節點 ${n}）<br>`,
+    rb_force:n=>`桿件內力表 <b>${n}</b> 列已擷取<br>`,
+    rb_none:'無結果', rb_see:'<br><span style="color:var(--muted);font-size:.82rem">於右側「結果」分頁查看完整表格</span>',
+    st_nomodel:'尚未建立任何模型。',
+    st_cur:(b,s)=>`目前模型：<b>${b}棟 ${s}層</b><br>`,
+    st_counts:(n,c,bm,l)=>`節點 ${n} · 柱 ${c} · 梁 ${bm} · 連接梁 ${l}<br>`,
+    st_props:(m,c,b)=>`材料 ${m} · 柱斷面 ${c} · 梁斷面 ${b}<br>`,
+    st_height:h=>`高度 ${h} m`,
+    welcome:'您好 — 我是 <b>Gen NX 對話式代理</b>。🏗️<br><br>點選左側 <b>指令導引</b> 的項目，或直接以自然語言輸入。<br>建築類型：<code>🏠 住宅</code> · <code>🏢 辦公</code> · <code>🏬 商場</code> · <code>🏥 醫院</code> · <code>🏫 學校</code><br><br>例）<code>建立 15 層住宅</code> → <code>執行分析</code> → <code>查詢最大變位</code><br><br><span style="color:var(--muted);font-size:.82rem">請於 ⚙ 設定 MAPI 連線後使用。可於上方切換語言。</span>',
+    tgt_col:'柱', tgt_beam:'梁',
+    act_modsect:(t,n,c)=>`已將 ${t} 斷面變更為 ${n}（套用桿件 ${c} 個）。`,
+    act_resize:(fl,t,c,H,B,n)=>`已將 ${fl}${t} ${c} 個變更為 ${H}×${B}（${n}）。`,
+    act_addload:(name,type,fl,n,fz)=>`已新增載重狀況 ${name}(${type}) — ${fl}樓 ${n} 個節點施加 Fz=${fz}N。`,
+    act_brace:(b,fl,c)=>`已於第${b}棟 ${fl}樓新增斜撐 ${c} 個。`,
+    e_nomodel_edit:'沒有可修改的模型。', e_nomodel:'沒有模型。', e_notarget:'找不到目標桿件（請確認樓層範圍）。',
+    e_nofloor:'找不到該樓層的節點。', e_nobrace:'找不到可配置斜撐的位置。',
+    e_noanalyze:'沒有可分析的模型。請先建立模型。', e_notconn:'請先設定 Gen NX 連線（⚙）。',
+    llm_err:(p,m)=>`⚠ LLM 錯誤 (${p})：${m}<br><span style="color:var(--muted);font-size:.8rem">可能為金鑰／模型名稱／CORS 問題。請檢查 F12 主控台，或於 ⚙ 切換為本地模式。</span>`
+  }
+};
+function t(key,...args){ const v=I18N[S.lang][key]; return typeof v==='function'?v(...args):v; }
+
+/* 활동 로그 메시지 (3개 언어) */
+const LOGS = {
+  ko:{
+    cleared:'└ <b>기존 모델 초기화 완료</b>', unit:(f,d)=>`└ 단위계 <b>${f}, ${d}</b>`,
+    matl:(n,E)=>`└ 재료 <b>${n}</b> (E=${E})`, sect:(n,H,B)=>`└ 단면 <b>${n}</b> ${H}×${B}`,
+    node:n=>`└ 절점 <b>${n}</b>개`, elem:n=>`└ 요소 <b>${n}</b>개`,
+    bound:(n,c)=>`└ 경계조건 <b>${n}</b>개 (${c})`, lc:(n,ty)=>`└ 하중케이스 <b>${n}</b> (${ty})`,
+    selfw:(f,l)=>`└ 자중 <b>${f}g</b> (Z) → ${l}`, nodal:(n,l)=>`└ 절점하중 <b>${n}</b>개 → ${l}`,
+    analRun:'해석 실행 중…', analDone:'└ <b>해석 완료</b>', fail:m=>`└ <b style="color:var(--red)">실패</b> ${m}`,
+    reassign:(n,nm)=>`└ ${n}개 부재 → 단면 <b>${nm}</b> 재지정`, braceAdd:(c,b,f)=>`└ 가새 <b>${c}</b>개 추가 (B${b}, ${f}층)`,
+  },
+  en:{
+    cleared:'└ <b>Existing model cleared</b>', unit:(f,d)=>`└ Units <b>${f}, ${d}</b>`,
+    matl:(n,E)=>`└ Material <b>${n}</b> (E=${E})`, sect:(n,H,B)=>`└ Section <b>${n}</b> ${H}×${B}`,
+    node:n=>`└ Nodes <b>${n}</b>`, elem:n=>`└ Elements <b>${n}</b>`,
+    bound:(n,c)=>`└ Boundary <b>${n}</b> (${c})`, lc:(n,ty)=>`└ Load case <b>${n}</b> (${ty})`,
+    selfw:(f,l)=>`└ Self-weight <b>${f}g</b> (Z) → ${l}`, nodal:(n,l)=>`└ Nodal loads <b>${n}</b> → ${l}`,
+    analRun:'Running analysis…', analDone:'└ <b>Analysis done</b>', fail:m=>`└ <b style="color:var(--red)">failed</b> ${m}`,
+    reassign:(n,nm)=>`└ ${n} members → section <b>${nm}</b> reassigned`, braceAdd:(c,b,f)=>`└ <b>${c}</b> braces added (B${b}, floors ${f})`,
+  },
+  zh:{
+    cleared:'└ <b>既有模型已清除</b>', unit:(f,d)=>`└ 單位 <b>${f}, ${d}</b>`,
+    matl:(n,E)=>`└ 材料 <b>${n}</b> (E=${E})`, sect:(n,H,B)=>`└ 斷面 <b>${n}</b> ${H}×${B}`,
+    node:n=>`└ 節點 <b>${n}</b> 個`, elem:n=>`└ 桿件 <b>${n}</b> 個`,
+    bound:(n,c)=>`└ 邊界條件 <b>${n}</b> 個 (${c})`, lc:(n,ty)=>`└ 載重狀況 <b>${n}</b> (${ty})`,
+    selfw:(f,l)=>`└ 自重 <b>${f}g</b> (Z) → ${l}`, nodal:(n,l)=>`└ 節點載重 <b>${n}</b> 個 → ${l}`,
+    analRun:'分析執行中…', analDone:'└ <b>分析完成</b>', fail:m=>`└ <b style="color:var(--red)">失敗</b> ${m}`,
+    reassign:(n,nm)=>`└ ${n} 個桿件 → 斷面 <b>${nm}</b> 重新指定`, braceAdd:(c,b,f)=>`└ 斜撐 <b>${c}</b> 個新增 (B${b}, ${f}樓)`,
+  }
+};
+function tl(key,...args){ const v=LOGS[S.lang][key]; return typeof v==='function'?v(...args):v; }
+
+/* ════════════════════════════════════════════════════════════
+   UI HELPERS
+════════════════════════════════════════════════════════════ */
+const $=id=>document.getElementById(id);
+function tab(id){ document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  $(id).classList.add('on'); document.querySelector(`.tab[data-p="${id}"]`).classList.add('on'); }
+function openSettings(){ $('scrim').classList.add('on'); $('drawer').classList.add('on'); }
+function closeSettings(){ $('scrim').classList.remove('on'); $('drawer').classList.remove('on'); }
+
+function nowTs(){ const d=new Date(); return d.toTimeString().slice(0,8); }
+function log(msg,type='api'){
+  const box=$('log'); const e=box.querySelector('.empty'); if(e)e.remove();
+  const ln=document.createElement('div'); ln.className='ln '+type;
+  ln.innerHTML=`<span class="ts">${nowTs()}</span><span class="m">${msg}</span>`;
+  box.appendChild(ln); box.parentElement.scrollTop=box.parentElement.scrollHeight;
+}
+function addMsg(role,html){
+  const m=document.createElement('div'); m.className='msg '+role;
+  m.innerHTML=`<div class="who">${role==='user'?'YOU':'AGENT'}</div><div class="bubble">${html}</div>`;
+  $('msgs').appendChild(m); $('msgs').scrollTop=$('msgs').scrollHeight; return m;
+}
+function thinking(){
+  const m=addMsg('bot','<span class="typing"><span></span><span></span><span></span></span>'); return m;
+}
+
+/* ════════════════════════════════════════════════════════════
+   MAPI
+════════════════════════════════════════════════════════════ */
+function cfg(){ return { base:$('baseUrl').value.replace(/\/$/,''), key:$('mapiKey').value }; }
+
+async function mapi(method, path, body){
+  const {base,key}=cfg();
+  const ep = path.startsWith('/')?path:`/db/${path}`;
+  log(`<span style="color:var(--blue)">${method}</span> ${ep}`,'api');
+  const res = await fetch(`${base}${ep}`,{
+    method, headers:{'MAPI-Key':key,'Content-Type':'application/json'},
+    body: body?JSON.stringify(body):undefined
+  });
+  let json={}; try{ json=await res.json(); }catch(e){}
+  if(!res.ok || json?.error){
+    const m=json?.error?.message||`HTTP ${res.status}`;
+    log(tl('fail',m),'err'); throw new Error(m);
+  }
+  return json;
+}
+
+async function clearModel(){
+  for(const ep of ['lcom-gen','rigd','fbla','fbld','cons','CNLD','BODF','stld','elem','node','thik','sect','matl'])
+    try{ await mapi('DELETE',ep); }catch(e){}
+  log(tl('cleared'),'ok');
+}
+async function setUnit(force='N',dist='MM'){
+  await mapi('PUT','unit',{Assign:{1:{FORCE:force,DIST:dist,HEAT:'KJ',TEMPER:'C'}}});
+  log(tl('unit',force,dist),'ok');
+}
+/* _MPA2CNS · _CNS_CONC → shared/rc_engine.js */
+/* M1.7: Taiwan material - concrete CNS560(RC) (live-verified). RC 전용 도구. */
+async function putMaterial(name){
+  const shown=_MPA2CNS[name]||(_CNS_CONC.includes(name)?name:'C280');
+  const std='CNS560(RC)';
+  const body={TYPE:'CONC',NAME:shown,DAMP_RAT:0.05,PARAM:[{P_TYPE:1,STANDARD:'CNS560(RC)',DB:shown}]};
+  await mapi('PUT','matl',{Assign:{1:body}});
+  S.model.matl=shown;
+  log('\u25b8 '+(S.lang==='ko'?'재료':S.lang==='en'?'Material':'材料')+' <b>'+shown+'</b> ('+std+')','ok');
+}
+async function putSection(id,name,H,B){
+  await mapi('PUT','sect',{Assign:{[id]:{SECTTYPE:'DBUSER',SECT_NAME:name,
+    SECT_BEFORE:{SHAPE:'SB',DATATYPE:2,SECT_I:{vSIZE:[H,B,0,0,0,0,0]},
+    USE_SHEAR_DEFORM:true,USE_WARPING_EFFECT:false}}}});
+  log(tl('sect',name,H,B),'ok');
+}
+async function putNodes(nodes){
+  const a={}; nodes.forEach(n=>a[n.id]={X:+n.x.toFixed(4),Y:+n.y.toFixed(4),Z:+n.z.toFixed(4)});
+  await mapi('PUT','node',{Assign:a}); log(tl('node',nodes.length),'ok');
+}
+async function putElements(elems){
+  const a={}; elems.forEach(e=>a[e.id]={TYPE:'BEAM',MATL:1,SECT:e.sect,NODE:[e.n1,e.n2],ANGLE:0,STYPE:0});
+  await mapi('PUT','elem',{Assign:a}); log(tl('elem',elems.length),'ok');
+}
+async function putBoundary(nodeIds,constraint){
+  const a={}; nodeIds.forEach((nid,k)=>a[nid]={ITEMS:[{ID:k+1,CONSTRAINT:constraint,GROUP_NAME:''}]});
+  await mapi('PUT','cons',{Assign:a}); log(tl('bound',nodeIds.length,constraint),'ok');
+}
+async function putLoadCase(no,name,type){
+  await mapi('PUT','stld',{Assign:{[no]:{NO:no,NAME:name,TYPE:type,DESC:''}}});
+  log(tl('lc',name,type),'ok');
+}
+async function putSelfWeight(no,lcName,factor=-1){
+  await mapi('PUT','BODF',{Assign:{[no]:{LCNAME:lcName,GROUP_NAME:'',FV:[0,0,factor]}}});
+  log(tl('selfw',factor,lcName),'ok');
+}
+async function putNodalLoad(no,lcName,nodeIds,f){
+  const a={}; nodeIds.forEach((nid,k)=>a[nid]={ITEMS:[{ID:k+1,LCNAME:lcName,GROUP_NAME:'',
+    FX:f.fx||0,FY:f.fy||0,FZ:f.fz||0,MX:f.mx||0,MY:f.my||0,MZ:f.mz||0}]});
+  await mapi('PUT','CNLD',{Assign:a}); log(tl('nodal',nodeIds.length,lcName),'ok');
+}
+async function runAnalysis(){
+  await setUnit('N','MM');
+  log(tl('analRun'),'info');
+  await mapi('POST','/doc/anal',{});
+  log(tl('analDone'),'ok');
+}
+async function fetchTable(type,lcNames,extra={}){
+  const body={Argument:{TABLE_NAME:'SS',TABLE_TYPE:type,STYLES:{FORMAT:'Fixed',PLACE:4},
+    LOAD_CASE_NAMES:lcNames,...extra}};
+  const j=await mapi('POST','/post/table',body);
+  return (j?.SS?.HEAD&&j?.SS?.DATA)?{head:j.SS.HEAD,data:j.SS.DATA}:null;
+}
+
+/* ════════════════════════════════════════════════════════════
+   FRAME GENERATOR · FLOOR USE · GROUPS  → shared/rc_engine.js
+   (asSpans · cumPos · buildFrame · FLOOR_USE · TYPE_USE · useOf ·
+    deriveFloorGroups · specToGroupRows)
+════════════════════════════════════════════════════════════ */
+
+/* ════════════════════════════════════════════════════════════
+   ACTIONS
+════════════════════════════════════════════════════════════ */
+/* 바닥하중: FBLD(용도 타입) + FBLA(층별 면적). 중력=음수, N/mm^2 = kN/m^2 * 1e-3 */
+async function applyFloorLoads(p,f){
+  const groups=deriveFloorGroups(p);
+  const uses=[...new Set(Object.values(groups).map(g=>g.use))];
+  if(!uses.length||!f.floorCorners) return;
+  S.model.floorGroups=groups;
+  let no=2; const lcTypeMap={LL:'L',LR:'LR'};
+  const liveNeeded=[...new Set(uses.map(u=>FLOOR_USE[u].live))];
+  for(const lc of liveNeeded){
+    await putLoadCase(no,lc,lcTypeMap[lc]||'L'); S.model.loadCases.push({name:lc,type:lcTypeMap[lc]||'L'}); no++;
+  }
+  S.model.nextLC=no;
+  const fbld={}; let fi=1;
+  uses.forEach(u=>{ const pr=FLOOR_USE[u];
+    fbld[fi++]={NAME:u,DESC:'',ITEM:[
+      {LCNAME:'DL',FLOOR_LOAD:-(pr.sdl*1e-3),OPT_SUB_BEAM_WEIGHT:true},
+      {LCNAME:pr.live,FLOOR_LOAD:-(pr.liveVal*1e-3),OPT_SUB_BEAM_WEIGHT:true}
+    ]}; });
+  await mapi('PUT','fbld',{Assign:fbld});
+  const fbla={}; let ai=1;
+  for(let b=0;b<p.buildings;b++) for(let iz=1;iz<=p.stories;iz++){
+    const g=groups[iz]; const corners=f.floorCorners[b+'_'+iz]; if(!g||!corners) continue;
+    fbla[ai++]={FLOOR_LOAD_TYPE_NAME:g.use,FLOOR_DIST_TYPE:2,DIR:'GZ',NODES:corners,GROUP_NAME:''};
+  }
+  await mapi('PUT','fbla',{Assign:fbla});
+  log('▸ '+(S.lang==='ko'?'바닥하중':S.lang==='en'?'Floor loads':'樓板載重')+' <b>'+(ai-1)+'</b> ('+uses.join(', ')+')','ok');
+}
+
+/* taiwanCombos (TWD-USD112) → shared/rc_engine.js */
+async function putCombos(){
+  const combos=taiwanCombos(S.model.loadCases||[]);
+  if(!combos.length) return;
+  const a={}; combos.forEach((cb,i)=>a[i+1]={NAME:cb.name,ACTIVE:'ACTIVE',iTYPE:0,DESC:cb.desc,
+    vCOMB:cb.terms.map(([lc,f])=>({ANAL:'ST',LCNAME:lc,FACTOR:f}))});
+  await mapi('PUT','lcom-gen',{Assign:a});
+  S.model.combos=combos.map(c=>c.name);
+  log('\u25b8 '+(S.lang==='ko'?'하중조합 (TWD-USD112)':S.lang==='en'?'Load combos (TWD-USD112)':'載重組合 (TWD-USD112)')+' <b>'+combos.length+'</b>','ok');
+}
+
+async function actBuildFrame(p, clear=true){
+  if(!S.connected) throw new Error(t('e_notconn'));
+  if(p.core&&p.core.on && !(p.walls&&p.walls.length)) p.walls=[autoCore(p,p.core.thick)];
+  const f=buildFrame(p);
+  if(clear) await clearModel();
+  await putMaterial(p.matName);
+  await putSection(1, p.colName, p.colH, p.colB);
+  await putSection(2, p.beamName, p.beamH, p.beamB);
+  await putNodes(f.nodes);
+  let eid=0; const elems=[]; const recs=[];
+  f.colMeta.forEach(c=>{ const id=++eid; elems.push({id,n1:c.n1,n2:c.n2,sect:1});
+    recs.push({id,type:'col',sect:1,b:c.b,iz:c.iz,n1:c.n1,n2:c.n2}); });
+  f.beamMeta.forEach(c=>{ const id=++eid; elems.push({id,n1:c.n1,n2:c.n2,sect:2});
+    recs.push({id,type:'beam',sect:2,b:c.b,iz:c.iz,n1:c.n1,n2:c.n2}); });
+  f.linkMeta.forEach(c=>{ const id=++eid; elems.push({id,n1:c.n1,n2:c.n2,sect:2});
+    recs.push({id,type:'link',sect:2,b:-1,iz:c.iz,n1:c.n1,n2:c.n2}); });
+  await putElements(elems);
+  /* M2-A3: 전단벽/코어 (PLATE). 두께별 THIK 생성 → SECT 가 thik id 참조. (라이브 검증된 스키마) */
+  if(f.walls && f.walls.length){
+    const thmap={}; const thA={};
+    f.wallThks.forEach((tk,i)=>{ thmap[tk]=i+1; thA[i+1]={NAME:'W'+tk,TYPE:'VALUE',bINOUT:false,T_IN:tk,T_OUT:0,O_VALUE:0}; });
+    await mapi('PUT','thik',{Assign:thA});
+    const wa={};
+    f.walls.forEach(w=>{ const id=++eid; wa[id]={TYPE:'PLATE',MATL:1,SECT:thmap[w.thick],NODE:w.nodes,STYPE:1,ANGLE:0};
+      recs.push({id,type:'wall',sect:thmap[w.thick],b:w.building,iz:w.story,nodes:w.nodes}); });
+    await mapi('PUT','elem',{Assign:wa});
+    log('▸ '+(S.lang==='ko'?'전단벽 코어':S.lang==='en'?'Shear-wall core':'剪力牆核心')+' <b>'+f.walls.length+'</b> ('+f.wallThks.map(t=>t+'mm').join(', ')+')','ok');
+  }
+  await putBoundary(f.baseNodes,'1111110');
+  await putLoadCase(1,'DL','D');
+  await putSelfWeight(1,'DL',-1);
+  /* M1.7: per-floor rigid diaphragm (RIGD, DOF 110001 = Dx Dy Rz). 표준층별 체크 반영 */
+  const _dia={}; let _rid=1; const _dg=deriveFloorGroups(p);
+  for(const k in (f.floorGroups||{})){ const _iz=+k.split('_')[1]; const _g=_dg[_iz];
+    if(_g && _g.dia===false) continue;
+    const ns=f.floorGroups[k];
+    if(ns.length>=3){ _dia[ns[0]]={ITEMS:[{ID:_rid++,GROUP_NAME:'',DOF:110001,S_NODE:ns.slice(1)}]}; } }
+  if(Object.keys(_dia).length){ await mapi('PUT','rigd',{Assign:_dia});
+    log('\u25b8 '+(S.lang==='ko'?'강성 다이어프램':S.lang==='en'?'Rigid diaphragm':'剛性樓板')+' <b>'+Object.keys(_dia).length+'</b>','ok'); }
+  Object.assign(S.model,{spec:p, colSect:p.colName, beamSect:p.beamName,
+    nodes:f.nodes, cols:f.cols, beams:f.beams, links:f.links, walls:f.walls||[],
+    elemRecs:recs, nextEid:eid+1, nextSect:3, nextLC:2,
+    sections:{1:{name:p.colName,H:p.colH,B:p.colB},2:{name:p.beamName,H:p.beamH,B:p.beamB}},
+    baseNodes:f.baseNodes, elev:f.elev, loadCases:[{name:'DL',type:'D'}], edits:[], seismic:null, wind:null});
+  await applyFloorLoads(p, f);
+  await applyLateral(p, f);
+  await putCombos();
+  renderModelState(); draw3D();
+  return f;
+}
+
+/* M2-A: 횡하중(지진 EX/EY + 풍 WX/WY) 통합 적용.
+   층력을 절점 균등분배 — 모든 활성 케이스를 '한 번의 CNLD PUT'에 합쳐 절점 ITEMS로
+   (직렬 ID). 분리 PUT 시 같은 절점이 덮어쓰여 먼저 넣은 케이스가 사라지는 것을 방지.
+   조합은 taiwanCombos 가 E/W 감지 → cLCB4~7 자동. */
+async function applyLateral(p, f){
+  const sp=p.seismic, wp=p.wind;
+  const useS=!!(sp&&sp.on), useW=!!(wp&&wp.on);
+  if(!useS && !useW) return;
+  let no=S.model.nextLC||2;
+  const perNode={};   // nid -> [{LCNAME,FX,FY}, ...]
+  const push=(nid,it)=>{ (perNode[nid]=perNode[nid]||[]).push(it); };
+  if(useS){
+    const r=seismicStoryForces(p,{SDS:sp.SDS,SD1:sp.SD1,T0:sp.T0,I:sp.I,R:sp.R,w0:sp.w0,liveRatio:sp.liveRatio,Cs:sp.Cs,V:sp.V});
+    S.model.seismic={T:r.T,Cs:r.Cs,V:r.V,Wtot:r.Wtot};
+    await putLoadCase(no,'EX','E'); S.model.loadCases.push({name:'EX',type:'E'}); no++;
+    await putLoadCase(no,'EY','E'); S.model.loadCases.push({name:'EY',type:'E'}); no++;
+    for(const k in (f.floorGroups||{})){ const iz=+k.split('_')[1]; const ns=f.floorGroups[k];
+      const F=(r.forces[iz-1]?r.forces[iz-1].F:0)*1000; if(!F||!ns.length) continue; const per=F/ns.length;
+      ns.forEach(nid=>{ push(nid,{LCNAME:'EX',FX:per,FY:0}); push(nid,{LCNAME:'EY',FX:0,FY:per}); }); }
+    log('▸ '+(S.lang==='ko'?'지진 等效靜力':S.lang==='en'?'Seismic (static)':'地震等效靜力')+
+      ` <b>V=${Math.round(r.V)} kN</b> · T=${r.T.toFixed(2)}s · Cs=${r.Cs.toFixed(3)} (EX·EY)`,'ok');
+  }
+  if(useW){
+    const r=windStoryForces(p,{V10:wp.V10,exposure:wp.exposure,G:wp.G,Cf:wp.Cf,I:wp.I});
+    S.model.wind={Vx:r.Vx,Vy:r.Vy,V10:r.V10};
+    await putLoadCase(no,'WX','W'); S.model.loadCases.push({name:'WX',type:'W'}); no++;
+    await putLoadCase(no,'WY','W'); S.model.loadCases.push({name:'WY',type:'W'}); no++;
+    for(const k in (f.floorGroups||{})){ const iz=+k.split('_')[1]; const ns=f.floorGroups[k]; if(!ns.length) continue;
+      const Fx=(r.forcesX[iz-1]?r.forcesX[iz-1].F:0)*1000/ns.length;
+      const Fy=(r.forcesY[iz-1]?r.forcesY[iz-1].F:0)*1000/ns.length;
+      ns.forEach(nid=>{ push(nid,{LCNAME:'WX',FX:Fx,FY:0}); push(nid,{LCNAME:'WY',FX:0,FY:Fy}); }); }
+    log('▸ '+(S.lang==='ko'?'풍하중':S.lang==='en'?'Wind':'風力')+
+      ` <b>Vx=${Math.round(r.Vx)} · Vy=${Math.round(r.Vy)} kN</b> (WX·WY)`,'ok');
+  }
+  S.model.nextLC=no;
+  const a={};
+  for(const nid in perNode){ a[nid]={ITEMS:perNode[nid].map((it,i)=>(
+    {ID:i+1,LCNAME:it.LCNAME,GROUP_NAME:'',FX:it.FX||0,FY:it.FY||0,FZ:0,MX:0,MY:0,MZ:0}))}; }
+  if(Object.keys(a).length) await mapi('PUT','cnld',{Assign:a});
+}
+
+async function actModifySection(target, H, B){
+  if(!S.model.nodes.length) throw new Error(t('e_nomodel_edit'));
+  const sid = target==='col'?1:2;
+  const name = (target==='col'?'C':'B')+H+'x'+B;
+  await putSection(sid, name, H, B);
+  S.model.sections[sid]={name,H,B};
+  if(target==='col') S.model.colSect=name; else S.model.beamSect=name;
+  const tg=t(target==='col'?'tgt_col':'tgt_beam');
+  const cnt=S.model.elemRecs.filter(r=>r.sect===sid).length;
+  S.model.edits.push(`${tg} → ${name}`);
+  renderModelState();
+  return t('act_modsect',tg,name,cnt);
+}
+
+async function actResizeSubset(target, H, B, floors){
+  if(!S.model.nodes.length) throw new Error(t('e_nomodel_edit'));
+  const type = target==='col'?'col':'beam';
+  let recs=S.model.elemRecs.filter(r=>r.type===type);
+  if(floors&&floors.length) recs=recs.filter(r=>floors.includes(r.iz));
+  if(!recs.length) throw new Error(t('e_notarget'));
+  const sid=S.model.nextSect++;
+  const name=(target==='col'?'C':'B')+H+'x'+B+'_'+(floors&&floors.length?('F'+floors.join('-')):'sub');
+  await putSection(sid,name,H,B);
+  S.model.sections[sid]={name,H,B};
+  const a={}; recs.forEach(r=>{ r.sect=sid; a[r.id]={TYPE:'BEAM',MATL:1,SECT:sid,NODE:[r.n1,r.n2],ANGLE:0,STYPE:0}; });
+  await mapi('PUT','elem',{Assign:a});
+  log(tl('reassign',recs.length,name),'ok');
+  const tg=t(target==='col'?'tgt_col':'tgt_beam');
+  const fl=floors&&floors.length?`${floors.join(',')}F `:'';
+  S.model.edits.push(`${fl}${tg} → ${name} (${recs.length})`);
+  renderModelState();
+  return t('act_resize',fl,tg,recs.length,H,B,name);
+}
+
+async function actAddLoad(name, type, floor, fz){
+  if(!S.model.nodes.length) throw new Error(t('e_nomodel'));
+  const no=S.model.nextLC++;
+  await putLoadCase(no,name,type);
+  const z=S.model.elev[floor];
+  const ids=S.model.nodes.filter(n=>Math.abs(n.z-z)<1).map(n=>n.id);
+  if(!ids.length) throw new Error(t('e_nofloor'));
+  await putNodalLoad(no,name,ids,{fz});
+  S.model.loadCases.push({name,type});
+  await putCombos();
+  S.model.edits.push(`${name}: F${floor} ${ids.length}pt Fz=${fz}`);
+  renderModelState();
+  return t('act_addload',name,type,floor,ids.length,fz);
+}
+
+/* M2-B: 기존 Gen NX 모델 읽기 → 표준층 자동판정 (detectTypicalFloors, 라이브 검증된 알고리즘) */
+async function actDetectModel(){
+  if(!S.connected) throw new Error(t('e_notconn'));
+  const jn=await mapi('GET','node'); const je=await mapi('GET','elem');
+  const NODE=(jn&&jn.NODE)||{}; const ELEM=(je&&je.ELEM)||{};
+  if(!Object.keys(NODE).length) throw new Error(L3('모델에 절점이 없습니다. 먼저 Gen NX에서 모델을 여세요.','No nodes found — open a model in Gen NX first.','模型中無節點，請先在 Gen NX 開啟模型。'));
+  const det=detectTypicalFloors(NODE, ELEM);
+  // 3D 표시용으로 읽은 형상을 S.model 에 적재
+  const nodes=Object.keys(NODE).map(id=>({id:+id,x:+NODE[id].X,y:+NODE[id].Y,z:+NODE[id].Z}));
+  const cols=[],beams=[]; const walls=[];
+  Object.values(ELEM).forEach(e=>{ const nd=(e.NODE||[]).filter(x=>x);
+    if(e.TYPE==='BEAM'&&nd.length>=2){ const z1=NODE[nd[0]]&&NODE[nd[0]].Z, z2=NODE[nd[1]]&&NODE[nd[1]].Z;
+      if(z1!==z2) cols.push([nd[0],nd[1]]); else beams.push([nd[0],nd[1]]); }
+    else if((e.TYPE==='PLATE'||e.TYPE==='WALL')&&nd.length>=4) walls.push({nodes:nd.slice(0,4)}); });
+  Object.assign(S.model,{nodes,cols,beams,links:[],walls,elev:det.levels.slice(),
+    baseNodes:nodes.filter(n=>Math.round(n.z*10)/10===det.baseZ).map(n=>n.id),
+    spec:{buildings:'?',stories:det.stories}, detected:det, edits:[]});
+  renderModelState(); draw3D();
+  // 역할 추정: 최빈 층고=표준층, 최상단 단독=지붕, 1F부터 더 높으면 기단부
+  const hs=det.groups.flatMap(g=>Array(g.to-g.from+1).fill(g.h));
+  const modalH=hs.sort((a,b)=>hs.filter(v=>v===a).length-hs.filter(v=>v===b).length).pop();
+  const roleOf=(g,i)=>{ if(g.to===det.stories && g.from===g.to) return L3('지붕','Roof','屋頂');
+    if(g.from===1 && g.h>modalH+1) return L3('기단부','Podium','裙樓');
+    return L3('표준층','Typical','標準層'); };
+  let msg=L3(`📖 기존 모델 분석 — 절점 <b>${nodes.length}</b> · 요소 <b>${Object.keys(ELEM).length}</b> · 층수 <b>${det.stories}</b>`,
+             `📖 Model analysis — <b>${nodes.length}</b> nodes · <b>${Object.keys(ELEM).length}</b> elems · <b>${det.stories}</b> stories`,
+             `📖 模型分析 — 節點 <b>${nodes.length}</b> · 構件 <b>${Object.keys(ELEM).length}</b> · 樓層 <b>${det.stories}</b>`);
+  msg+='<br>'+L3('감지된 표준층 그룹:','Detected typical-floor groups:','偵測到的標準層群組：');
+  det.groups.forEach((g,i)=>{ msg+=`<br>• <b>${g.from}~${g.to}F</b> (${g.to-g.from+1}${L3('개층','','層')}) · ${roleOf(g,i)} · h=${g.h}mm · ${L3('기둥단면','col-sect','柱斷面')}[${g.colSects.join(',')||'-'}]${g.hasSlab?' · slab/wall':''}`; });
+  return msg;
+}
+/* M3: 해석결과(BEAMFORCE) 회수 → TWD-USD112 보 휨·전단 배근(자체계산) → 표준층 그룹별 요약 */
+async function actDesignRebar(){
+  if(!S.connected) throw new Error(t('e_notconn'));
+  if(!S.model.nodes||!S.model.nodes.length) throw new Error(t('e_nomodel'));
+  const beamRecs=(S.model.elemRecs||[]).filter(r=>r.type==='beam');
+  const colRecs =(S.model.elemRecs||[]).filter(r=>r.type==='col');
+  if(!beamRecs.length && !colRecs.length) throw new Error(L3('보·기둥 요소가 없습니다.','No beam/column elements.','無梁柱構件。'));
+  await runAnalysis();   // 조합 결과 필요
+  const combos=(S.model.combos&&S.model.combos.length)?S.model.combos.map(c=>c+'(CB)')
+              :(S.model.loadCases||[]).map(l=>l.name+'(ST)');
+  const ids=beamRecs.concat(colRecs).map(r=>r.id);
+  let tbl=await fetchTable('BEAMFORCE',combos,{NODE_ELEMS:{KEYS:ids}});
+  if((!tbl||!tbl.data||!tbl.data.length) && S.model.loadCases)
+    tbl=await fetchTable('BEAMFORCE',S.model.loadCases.map(l=>l.name+'(ST)'),{NODE_ELEMS:{KEYS:ids}});
+  if(!tbl||!tbl.data||!tbl.data.length) throw new Error(L3('부재력 결과가 없습니다(해석 확인).','No member-force results.','無構件內力結果。'));
+  const H=tbl.head, ci=n=>H.findIndex(h=>String(h).toLowerCase()===n.toLowerCase());
+  const iE=ci('Elem'),iA=ci('Axial'),iMy=ci('Moment-y'),iMz=ci('Moment-z'),iSy=ci('Shear-y'),iSz=ci('Shear-z');
+  const isBeam={}; beamRecs.forEach(r=>isBeam[r.id]=1);
+  const bEnv={}, cEnv={};
+  tbl.data.forEach(r=>{ const id=+r[iE]; const my=+r[iMy]||0, mz=+r[iMz]||0;
+    if(isBeam[id]){ const mS=(Math.abs(my)>=Math.abs(mz))?my:mz; const v=Math.max(Math.abs(+r[iSy]||0),Math.abs(+r[iSz]||0));
+      const e=bEnv[id]||(bEnv[id]={pos:0,neg:0,v:0}); if(mS>e.pos)e.pos=mS; if(-mS>e.neg)e.neg=-mS; if(v>e.v)e.v=v; }
+    else { const e=cEnv[id]||(cEnv[id]={P:0,M:0}); const P=Math.abs(+r[iA]||0), M=Math.max(Math.abs(my),Math.abs(mz));
+      if(P>e.P)e.P=P; if(M>e.M)e.M=M; } });
+  let rows; try{ rows=specToGroupRows(S.model.spec)||[]; }catch(_){ rows=[]; }
+  if(!rows.length){ const mx=Math.max(1,...beamRecs.concat(colRecs).map(r=>r.iz||1)); rows=[{role:'TYPICAL',from:1,to:mx}]; }
+  const fc=fcMPa(S.model.matl||'C280'); const mat={fc,fy:420,fyt:280};
+  const recById={}; beamRecs.concat(colRecs).forEach(r=>recById[r.id]=r);
+  const out=[];
+  rows.forEach(gr=>{
+    const bIds=beamRecs.filter(r=>r.iz>=gr.from&&r.iz<=gr.to).map(r=>r.id).filter(id=>bEnv[id]);
+    const cIds=colRecs.filter(r=>r.iz>=gr.from&&r.iz<=gr.to).map(r=>r.id).filter(id=>cEnv[id]);
+    if(!bIds.length && !cIds.length) return;
+    const o={role:gr.role,from:gr.from,to:gr.to};
+    if(bIds.length){ let MuPos=0,MuNeg=0,Vu=0,sec=null;
+      bIds.forEach(id=>{ const e=bEnv[id]; if(e.pos>MuPos)MuPos=e.pos; if(e.neg>MuNeg)MuNeg=e.neg; if(e.v>Vu)Vu=e.v;
+        if(!sec) sec=S.model.sections[recById[id].sect]; });
+      sec=sec||S.model.sections[2]||{H:600,B:400};
+      o.beam={sec,MuPos,MuNeg,Vu,d:rcBeamDesign({MuPos,MuNeg,Vu},{b:sec.B,h:sec.H},mat)}; }
+    if(cIds.length){ let Pu=0,Mu=0,sec=null;
+      cIds.forEach(id=>{ const e=cEnv[id]; if(e.P>Pu)Pu=e.P; if(e.M>Mu)Mu=e.M;
+        if(!sec) sec=S.model.sections[recById[id].sect]; });
+      sec=sec||S.model.sections[1]||{H:600,B:600};
+      o.col={sec,Pu,Mu,d:rcColumnDesign({Pu,Mux:Mu,Muy:0},{b:sec.B,h:sec.H},mat)}; }
+    out.push(o);
+  });
+  S.model.rebar=out;
+  const RL={TYPICAL:L3('표준층','Typical','標準層'),PODIUM:L3('기단부','Podium','裙樓'),ROOF:L3('지붕','Roof','屋頂'),TRANSFER:L3('전이','Transfer','轉換'),BASEMENT:L3('지하','Basement','地下')};
+  const OV=` <span style="color:#ff6b6b">⚠ ${L3('단면 부족','over','斷面不足')}</span>`;
+  let msg=L3(`🔧 보·기둥 배근 (TWD-USD112 · 자체계산) — ${combos.length}개 조합 포락`,
+             `🔧 Beam & column rebar (TWD-USD112) — envelope of ${combos.length} combos`,
+             `🔧 梁柱配筋 (TWD-USD112) — ${combos.length} 組合包絡`);
+  out.forEach(g=>{
+    msg+=`<br><b>${RL[g.role]||g.role} ${g.from}~${g.to}F</b>`;
+    if(g.beam){ const D=g.beam.d;
+      msg+=`<br>　${L3('보','Beam','梁')} ${g.beam.sec.B}×${g.beam.sec.H} · M⁺${(g.beam.MuPos/1e6).toFixed(0)}/M⁻${(g.beam.MuNeg/1e6).toFixed(0)}·V${(g.beam.Vu/1e3).toFixed(0)} → `+
+        `${L3('하','Bot','下')} <b>${D.barsBot.n}-${D.barsBot.dia}</b> · ${L3('상','Top','上')} <b>${D.barsTop.n}-${D.barsTop.dia}</b> · ${L3('스터럽','Stirr','箍')} ${D.stirrup.leg}-${D.stirrup.dia}@${D.stirrup.s}`+(D.over?OV:''); }
+    if(g.col){ const C=g.col.d;
+      msg+=`<br>　${L3('기둥','Col','柱')} ${g.col.sec.B}×${g.col.sec.H} · P${(g.col.Pu/1e3).toFixed(0)}kN·M${(g.col.Mu/1e6).toFixed(0)} → `+
+        `<b>${C.bars.n}-${C.bars.dia}</b> (ρ${(C.rho*100).toFixed(1)}%) · ${L3('띠철근','Tie','箍')} ${C.tie.dia}@${C.tie.s}`+(C.over?OV:''); }
+  });
+  msg+=`<br><span style="color:var(--dim);font-size:.85em">${L3('보:주축 휨 포락·단철근. 기둥:단축 P-M(지배축)·대칭배근. SD420/SD280. 이축·세장·정착/SMRF 디테일 별도.','Beam: major-axis flexure, singly-reinforced. Column: uniaxial P-M, symmetric. SD420/SD280. Biaxial/slenderness/detailing separate.','梁:主軸彎矩單筋。柱:單軸 P-M 對稱配筋。SD420/SD280。雙軸/細長/錨定另計。')}</span>`;
+  return msg;
+}
+async function actAddBracing(building, floors){
+  if(!S.model.nodes.length) throw new Error(t('e_nomodel'));
+  const p=S.model.spec;
+  const sx=asSpans(p.spanX,p.bayX), sy=asSpans(p.spanY,p.bayY);
+  const nbx=sx.length, nby=sy.length, npx=nbx+1, npy=nby+1;
+  const Xp=cumPos(sx), Yp=cumPos(sy), bW=Xp[nbx];
+  const ox=building*(bW+p.gap);
+  const nodeAt=(ix,iy,iz)=>S.model.nodes.find(n=>
+    Math.abs(n.x-(ox+Xp[ix]))<1 && Math.abs(n.y-Yp[iy])<1 && Math.abs(n.z-S.model.elev[iz])<1);
+  const sid=S.model.nextSect++;
+  await putSection(sid,'BRACE300x300',300,300);
+  S.model.sections[sid]={name:'BRACE300x300',H:300,B:300};
+  const a={}; const newRecs=[]; const newEdges=[]; let cnt=0;
+  floors.forEach(iz=>{ for(let iy=0;iy<npy;iy++){ for(let ix=0;ix<nbx;ix++){
+    const A=nodeAt(ix,iy,iz-1), B=nodeAt(ix+1,iy,iz);
+    if(A&&B){ const id=S.model.nextEid++; a[id]={TYPE:'BEAM',MATL:1,SECT:sid,NODE:[A.id,B.id],ANGLE:0,STYPE:0};
+      newRecs.push({id,type:'brace',sect:sid,b:building,iz,n1:A.id,n2:B.id}); newEdges.push([A.id,B.id]); cnt++; }
+  }}});
+  if(!cnt) throw new Error(t('e_nobrace'));
+  await mapi('PUT','elem',{Assign:a});
+  log(tl('braceAdd',cnt,building+1,floors.join(',')),'ok');
+  S.model.elemRecs.push(...newRecs);
+  S.model.links=S.model.links||[];
+  S.model.braces=(S.model.braces||[]).concat(newEdges);
+  S.model.edits.push(t('act_brace',building+1,floors.join(','),cnt));
+  renderModelState(); draw3D();
+  return t('act_brace',building+1,floors.join(','),cnt);
+}
+
+async function actAnalyze(){
+  if(!S.model.nodes.length) throw new Error(t('e_noanalyze'));
+  await runAnalysis();
+  const lc=S.model.loadCases.map(l=>l.name+'(ST)');
+  S.results.react=await fetchTable('REACTIONG',lc);
+  S.results.disp =await fetchTable('DISPLACEMENTG',lc);
+  S.results.force=await fetchTable('BEAMFORCE',lc,{PARTS:['PartI','PartJ']});
+  renderResults();
+  return S.results;
+}
+
+/* ════════════════════════════════════════════════════════════
+   NL PARSER (LOCAL mode)
+════════════════════════════════════════════════════════════ */
+/* DEFAULT_SPEC · MATERIALS · BUILDING_TYPES · TYPE_KEYWORDS ·
+   detectBuildingType → shared/rc_engine.js */
+/* 건물유형 필드의 현재 언어 값 */
+function bt(typeKey, field){ const o=BUILDING_TYPES[typeKey][field]; return (o&&typeof o==='object')?o[S.lang]:o; }
+
+function num(re,txt){ const m=txt.match(re); return m?parseFloat(m[1].replace(/,/g,'')):null; }
+
+/* 층 인식 — 한국어(층) / 中文(樓·層) / English(floor·story·F) */
+function _range(a,b){ const r=[]; for(let i=Math.min(a,b);i<=Math.max(a,b);i++)r.push(i); return r; }
+function parseFloors(t){
+  let m;
+  // 범위: CJK
+  m=t.match(/(\d+)\s*[~\-]\s*(\d+)\s*(?:층|樓|層)/); if(m) return _range(+m[1],+m[2]);
+  // 범위: English "floor(s) 1-3" / "1-3 floor"
+  m=t.match(/floors?\s*(\d+)\s*(?:[~\-]|to)\s*(\d+)/); if(m) return _range(+m[1],+m[2]);
+  m=t.match(/(\d+)\s*[~\-]\s*(\d+)\s*floors?/); if(m) return _range(+m[1],+m[2]);
+  // 콤마 목록: CJK
+  m=t.match(/((?:\d+\s*,\s*)+\d+)\s*(?:층|樓|層)/); if(m) return m[1].split(/\s*,\s*/).map(Number);
+  // 단일: CJK
+  m=t.match(/(?:第\s*)?(\d+)\s*(?:층|樓|層)/); if(m) return [+m[1]];
+  // 단일: English
+  m=t.match(/floors?\s*(\d+)/); if(m) return [+m[1]];
+  m=t.match(/(\d+)\s*(?:st|nd|rd|th)\s*floor/); if(m) return [+m[1]];
+  return [];
+}
+
+function parseCommand(txt){
+  const t=txt.toLowerCase();
+  const hasModel = S.model && S.model.nodes && S.model.nodes.length>0;
+  if(/초기화|모두\s*삭제|비우|清除|清空|重置|初始化|全部刪除|刪除全部|clear|reset/.test(t)) return {intent:'clear'};
+  if(hasModel){
+    const isEdit=/키워|키우|늘려|줄여|바꿔|변경|수정|추가|보강|加大|放大|增大|加粗|加強|縮小|改成|改為|變更|修改|新增|增加|補強|加上|加裝|change|resize|modify|add|increase|enlarge|bigger|larger|reduce|smaller|set|make/.test(t);
+    const size=t.match(/(\d{3,4})\s*[x×]\s*(\d{3,4})/);
+    const floors=parseFloors(t);
+    if(/가새|브레이싱|斜撐|交叉撐|斜撐構材|brace|bracing/.test(t)){
+      const bld=(num(/(\d+)\s*동|第?\s*(\d+)\s*棟|building\s*(\d+)/,t)||1);
+      return {intent:'add_bracing', building:Math.max(0,bld-1), floors:floors.length?floors:null};
+    }
+    if((/하중|載重|荷載|風力|風載|활하중|活載重|活載|靜載|恆載|풍하중|load/.test(t)) && isEdit){
+      const fz=num(/(\d+)\s*(?:kn|n|뉴턴|牛頓|公斤|kg)?/,t);
+      const fl=floors.length?floors[0]:(S.model.spec?S.model.spec.stories:1);
+      const isWind=/풍|風力|風載|風|wind/.test(t), isLive=/활하중|활하중|活載重|活載|live/.test(t);
+      return {intent:'add_load', name:isWind?'WIND':isLive?'LL':'ADD', type:isWind?'W':isLive?'L':'U',
+        floor:fl, fz:-(fz&&fz>10?fz:5000)};
+    }
+    const isCol=/기둥|컬럼|柱|column/.test(t);
+    const isBeam=/거더|梁|大梁|beam|girder/.test(t) || /(?:^|[\s\d])보(?:[\s\d으로]|$)/.test(t);
+    if(isEdit && (isCol || isBeam)){
+      const target=isCol?'col':'beam';
+      let H,B;
+      if(size){ H=+size[1]; B=+size[2]; }
+      else { const cur=S.model.sections[target==='col'?1:2]; H=(cur?.H||600)+100; B=(cur?.B||600)+100; }
+      if(floors.length) return {intent:'resize_subset', target, H, B, floors};
+      return {intent:'modify_section', target, H, B};
+    }
+  }
+  if(/기존\s*모델|불러오?기|불러와|읽어|읽기|표준층\s*(판정|감지|분석|인식)|讀取|讀入|匯入|偵測|現有模型|現有模行|import|detect|read\s*(existing|model)/.test(t))
+    return {intent:'detect_model'};
+  if(/배근|철근|配筋|鋼筋|rebar|reinforc|rc\s*design|구조설계|構材設計|構件設計/i.test(t))
+    return {intent:'design_rebar'};
+  if(/해석|분석|돌려|실행|分析|計算|執行|跑一下|跑|solve|analy|run/.test(t) && !/만들|생성|모델링|建立|生成|建模|建造|create|build/.test(t))
+    return {intent:'analyze'};
+  if(/변위|처짐|變位|位移|撓度|displacement|deflect/.test(t)) return {intent:'result',which:'disp'};
+  if(/반력|지점|反力|支承反力|支點|reaction/.test(t)) return {intent:'result',which:'react'};
+  if(/부재력|모멘트|전단|桿件內力|構材內力|內力|彎矩|剪力|force|moment|shear/.test(t)) return {intent:'result',which:'force'};
+  if(/상태|요약|현재|狀態|摘要|目前|現況|status|summary/.test(t)) return {intent:'status'};
+  const bldgType = detectBuildingType(t);
+  if(/만들|생성|모델링|세워|짓|建立|生成|建模|建造|蓋|做一個|做個|create|build/.test(t) || bldgType || /건물|골조|프레임|建築|構架|構架系統|剛架|frame|building/.test(t)){
+    const p = bldgType ? {...BUILDING_TYPES[bldgType], bldgType} : {...DEFAULT_SPEC, bldgType:null};
+
+    const stories=num(/(\d+)\s*(?:층|樓|層)/,t)||num(/(\d+)\s*stor/,t); if(stories) p.stories=stories;
+    const bld=num(/(\d+)\s*동|(\d+)\s*棟|(\d+)\s*building/,t); if(bld) p.buildings=bld;
+    const bx=num(/(\d+)\s*(?:베이|跨|開間|bay)/,t); if(bx) p.bayX=bx;
+    let by=num(/(?:x|×)\s*(\d+)\s*(?:베이|跨|開間|bay)/,t);
+    if(!by && bx){ const mm=t.match(/(?:베이|跨|開間|bay)\s*[x×]\s*(\d+)/); if(mm) by=+mm[1]; }
+    if(by) p.bayY=by;
+    const col=t.match(/(?:기둥|柱|column)\s*(\d+)\s*[x×]\s*(\d+)/);
+    if(col){ const h=+col[1],b=+col[2]; p.colH=h;p.colB=b;p.colName=`C${h}x${b}`; }
+    const bm=t.match(/(?:보|梁|beam)\s*(\d+)\s*[x×]\s*(\d+)/);
+    if(bm){ const h=+bm[1],b=+bm[2]; p.beamH=h;p.beamB=b;p.beamName=`B${b}x${h}`; }
+    const span=num(/스팬\s*(\d+)|跨距\s*(\d+)|跨度\s*(\d+)|span\s*(\d+)/,t); if(span){ p.spanX=span;p.spanY=span; }
+    const gap=num(/간격\s*(\d+)|間距\s*(\d+)|gap\s*(\d+)/,t); if(gap) p.gap=gap;
+    const pod=num(/기단부\s*(\d+)|裙樓\s*(\d+)|裙房\s*(\d+)|podium\s*(\d+)/,t); if(pod) p.podium=pod;
+    const cf=num(/(\d+)\s*(?:층|樓|層)\s*(?:에서|處)?\s*(?:연결|連接)|connect\D*(\d+)/,t); if(cf) p.connectFloor=cf;
+
+    if(p.buildings>=2 && !p.gap)  p.gap=14000;
+    if(p.buildings>=2 && !p.connectFloor) p.connectFloor=Math.max(1,Math.round(p.stories*0.8));
+    return {intent:'build', params:p};
+  }
+  return {intent:'unknown'};
+}
+
+/* 표준층 구성 한 줄: "1F 기단부(商業) · 2–14F 표준층(住宅) · 15F 지붕" */
+function floorCompoLine(p){
+  return specToGroupRows(p).map(r=>{
+    const rng=(r.from===r.to)?`${r.from}F`:`${r.from}–${r.to}F`;
+    return `${rng} ${roleLbl(r.role)}(${useLbl(r.use)})`;
+  }).join('  ·  ');
+}
+function planSummary(p){
+  const k = p.bldgType;
+  const header = k
+    ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;padding-bottom:8px;border-bottom:1px dashed rgba(255,255,255,.06)">`+
+      `<span style="font-size:1.4rem;line-height:1">${BUILDING_TYPES[k].icon}</span>`+
+      `<div><span style="color:var(--cyan);font-weight:700">${bt(k,'label')}</span>`+
+      `<span style="color:var(--muted);font-size:.82em;margin-left:7px">${bt(k,'desc')}</span></div></div>`
+    : '';
+  const tip = k ? `<div style="margin-top:8px;font-size:.78em;color:var(--dim)">${bt(k,'tip')}</div>` : '';
+  return `<div class="plan">${header}`+
+    t('ps_bs',p.buildings,p.stories)+
+    t('ps_plane',p.bayX,p.bayY,p.spanX,p.spanY)+
+    t('ps_h',p.h1,p.hTyp)+
+    t('ps_cb',p.colName,p.beamName)+
+    (p.buildings>=2?t('ps_link',p.connectFloor,p.gap):'')+
+    t('ps_mat',p.matName)+
+    `<div style="margin-top:7px;font-size:.8em;color:var(--cyan);line-height:1.5">▤ ${L3('표준층 구성','Floor make-up','標準層構成')}: ${floorCompoLine(p)}</div>`+
+    tip+`</div>`;
+}
+
+/* ── 편집 가능 규격 카드 ── */
+function planEditor(p){
+  const k = p.bldgType;
+  const head = k
+    ? `<div class="pe-head"><span style="font-size:1.4rem;line-height:1">${BUILDING_TYPES[k].icon}</span>`+
+      `<div><span style="color:var(--cyan);font-weight:700">${bt(k,'label')}</span>`+
+      `<span style="color:var(--muted);font-size:.82em;margin-left:7px">${bt(k,'desc')}</span></div></div>`
+    : '';
+  const mkeys = Object.keys(MATERIALS); if(!mkeys.includes(p.matName)) mkeys.unshift(p.matName);
+  const matOpts = mkeys.map(m=>`<option value="${m}"${m===p.matName?' selected':''}>${m}</option>`).join('');
+  const PE=t('pe');
+  const fmt=v=>Array.isArray(v)?v.join(','):v;
+  const F=(k2,val,unit,text)=>`<div class="pe-f"><label>${PE[k2]}</label>`+
+    `<div class="pe-in"><input type="${text?'text':'number'}" data-k="${k2}" value="${text?fmt(val):val}" onchange="previewFromEditor(this)">`+
+    `${unit?`<span class="pe-u">${unit}</span>`:''}</div></div>`;
+  const spanHint = S.lang==='ko'?'스팬에 <b>3000,4000,3000</b> 처럼 콤마로 입력하면 跨마다 다른 간격이 됩니다 (跨數 자동 반영).'
+                 : S.lang==='en'?'Enter spans like <b>3000,4000,3000</b> for variable bays (bay count auto-syncs).'
+                 : '跨距可輸入 <b>3000,4000,3000</b> 等逗號值做不等跨（跨數自動同步）。';
+  return `<div class="plan-editor">${head}`+
+    `<div class="pe-grid">`+
+      F('buildings',p.buildings)+
+      F('bayX',p.bayX)+ F('bayY',p.bayY)+
+      F('spanX',p.spanX,'mm',true)+ F('spanY',p.spanY,'mm',true)+
+      F('colH',p.colH,'mm')+ F('colB',p.colB,'mm')+
+      F('beamH',p.beamH,'mm')+ F('beamB',p.beamB,'mm')+
+      F('connectFloor',p.connectFloor)+ F('gap',p.gap,'mm')+
+      `<div class="pe-f pe-full"><label>${PE.mat}</label><div class="pe-in">`+
+        `<select data-k="matName" onchange="previewFromEditor(this)">${matOpts}</select></div></div>`+
+    `</div>`+
+    fgTableHTML(p)+
+    seismicEditorHTML(p)+
+    windEditorHTML(p)+
+    coreEditorHTML(p)+
+    `<div class="pe-tip">${L3('표준층 표에서 역할·층범위·층고·용도·다이어프램을 직접 편집 → 층수·높이가 표를 따름.','Edit role/range/height/use/diaphragm in the table → stories & heights follow the table.','於標準層表編輯 類型/範圍/層高/用途/剛性樓板 → 樓層數與高度依表為準。')}</div>`+
+    `<div class="pe-tip" style="margin-top:4px">${spanHint}</div>`+
+  `</div>`;
+}
+
+/* 從編輯卡讀取目前數值 → 回傳完整規格物件 */
+function readPlanEditor(el){
+  const p={...pendingBuild};   // 基底保留 E/poisn/den/bldgType 等
+  el.querySelectorAll('[data-k]').forEach(inp=>{
+    const k=inp.dataset.k;
+    if(k==='matName'){
+      p.matName=inp.value;
+      const mt=MATERIALS[inp.value];
+      if(mt){ p.E=mt.E; p.poisn=mt.poisn; p.den=mt.den; }
+    } else if(k==='spanX'||k==='spanY'){
+      // 콤마 → 가변 스팬 배열, 단일 값 → 균일 스팬
+      const parts=String(inp.value).split(',').map(s=>parseFloat(s)).filter(v=>!isNaN(v)&&v>0);
+      if(parts.length>1) p[k]=parts;
+      else if(parts.length===1) p[k]=parts[0];
+    } else {
+      let v=parseFloat(inp.value);
+      if(!isNaN(v)){
+        // connectFloor／gap 允許 0（代表不連接）；其餘維度至少為 1
+        v = (k==='connectFloor'||k==='gap') ? Math.max(0, v) : Math.max(1, v);
+        p[k]=v;
+      }
+    }
+  });
+  // 가변 스팬이면 跨數를 배열 길이에 맞추고, 입력칸도 동기화
+  if(Array.isArray(p.spanX)){ p.bayX=p.spanX.length; const i=el.querySelector('[data-k="bayX"]'); if(i) i.value=p.bayX; }
+  if(Array.isArray(p.spanY)){ p.bayY=p.spanY.length; const i=el.querySelector('[data-k="bayY"]'); if(i) i.value=p.bayY; }
+  // 由 H/B 重新組合斷面名稱
+  p.colName=`C${p.colH}x${p.colB}`;
+  p.beamName=`B${p.beamB}x${p.beamH}`;
+  // 多棟卻無間距 → 避免建築重疊
+  if(p.buildings>=2 && (!p.gap||p.gap<=0)) p.gap=14000;
+  // 표준층 표 → groups(층 구성·높이의 단일 출처). stories·h1·hTyp는 표를 따름.
+  const rows=[...el.querySelectorAll('.fg-row')].map(r=>({
+    role:r.querySelector('.fg-role').value,
+    from:+r.querySelector('.fg-from').value, to:+r.querySelector('.fg-to').value,
+    h:+r.querySelector('.fg-h').value, use:r.querySelector('.fg-use').value,
+    dia:(r.querySelector('.fg-dia')?r.querySelector('.fg-dia').checked:true)
+  })).filter(g=>g.to>=g.from);
+  if(rows.length){
+    p.groups=rows;
+    p.stories=Math.max(1,...rows.map(g=>g.to));
+    p.h1=rows[0].h; p.hTyp=(rows.find(g=>g.role==='TYPICAL')||rows[rows.length-1]).h;
+  }
+  // 내진 입력
+  const seis={}; const onEl=el.querySelector('[data-s="on"]');
+  seis.on=!!(onEl&&onEl.checked);
+  ['SDS','SD1','T0','I','R','w0','liveRatio','Cs','V'].forEach(k=>{
+    const e=el.querySelector('[data-s="'+k+'"]'); if(e&&e.value!=='') seis[k]=parseFloat(e.value);
+  });
+  p.seismic=seis;
+  // 풍하중 입력
+  const wind={}; const wOn=el.querySelector('[data-w="on"]'); wind.on=!!(wOn&&wOn.checked);
+  const expEl=el.querySelector('[data-w="exposure"]'); if(expEl) wind.exposure=expEl.value;
+  ['V10','G','Cf'].forEach(k=>{ const e=el.querySelector('[data-w="'+k+'"]'); if(e&&e.value!=='') wind[k]=parseFloat(e.value); });
+  if(p.seismic && p.seismic.I!=null) wind.I=p.seismic.I;   // 用途係數 공유
+  p.wind=wind;
+  // 전단벽 코어 입력
+  const core={}; const cOn=el.querySelector('[data-c="on"]'); core.on=!!(cOn&&cOn.checked);
+  const cTh=el.querySelector('[data-c="thick"]'); if(cTh&&cTh.value!=='') core.thick=parseFloat(cTh.value);
+  p.core=core; p.walls=core.on?[autoCore(p,core.thick)]:[];
+  return p;
+}
+
+/* 編輯卡任一欄位變更 → 同步 pendingBuild 並即時更新 3D 預覽 */
+function previewFromEditor(inp){
+  const el=inp.closest('.plan-editor'); if(!el) return;
+  previewEditorEl(el);
+}
+function previewEditorEl(el){
+  if(!el) return;
+  const p=readPlanEditor(el);
+  pendingBuild=p;
+  tab('viewP'); previewSpec(p);
+}
+/* 스펙 → 표준층 표 행(역할/범위/층고/용도/다이어프램). 연속 동일 그룹은 묶음. */
+/* specToGroupRows → shared/rc_engine.js */
+/* 표준층 표 HTML(편집 카드용) */
+function fgTableHTML(p){
+  /* 표는 건물 입면처럼 위(지붕)→아래(지하) 순서로 표시 → reverse */
+  const rows=specToGroupRows(p).slice().reverse().map(fgRow).join('');
+  return `<div style="margin-top:14px">
+    <div style="font-size:.7rem;color:var(--amber);font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';letter-spacing:.5px;margin-bottom:6px">${L3('표준층 / 특수층 구성 (위=지붕 → 아래=지하)','Floor stack (top = roof → bottom = basement)','樓層堆疊（上=屋頂 → 下=地下）')}</div>
+    <table class="fgtable" style="width:100%"><thead><tr>
+      <th>${L3('역할','Role','類型')}</th><th>${L3('시작','From','起')}</th><th>${L3('끝','To','迄')}</th><th>${L3('층고','Ht','層高')}</th><th>${L3('용도','Use','用途')}</th><th>${L3('다이어프램','Diaph.','剛性樓板')}</th><th>${L3('추가/삭제','Add/Del','增/刪')}</th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    <div class="pe-tip">${L3('각 행의 ↑(위층) / ↓(아래층)로 그 위·아래에 층을 끼워 넣고, ×로 삭제. 번호는 자동 정렬됩니다.','Use ↑ (above) / ↓ (below) on a row to insert a floor there, × to delete. Numbers auto-renumber.','以各列的 ↑（上層）／↓（下層）於其上下插入樓層，× 刪除。編號自動重排。')}</div>
+  </div>`;
+}
+
+/* M2-A1: 내진 等效靜力 입력(편집 카드). 지역 프리셋 + 직접입력 + override. */
+function seismicEditorHTML(p){
+  const s=p.seismic||{};
+  const I0=(p.bldgType==='hospital'||p.bldgType==='school')?1.25:1.0;
+  const zones=(typeof SEISMIC_ZONES!=='undefined')?SEISMIC_ZONES:[];
+  const opts=`<option value="">${L3('직접입력','Manual','直接輸入')}</option>`+
+    zones.map((z,i)=>`<option value="${i}">${z.city} ${z.dist} · SDS ${z.SDS}</option>`).join('');
+  const sf=(k,lbl,val,unit)=>`<div class="pe-f"><label>${lbl}</label><div class="pe-in"><input data-s="${k}" type="number" step="any" value="${val}">${unit?`<span class="pe-u">${unit}</span>`:''}</div></div>`;
+  return `<div style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;color:var(--cyan);font-weight:600">
+      <input type="checkbox" data-s="on" ${s.on?'checked':''} onchange="previewFromEditor(this)"> 🌐 ${L3('내진 等效靜力 적용 (TWD 耐震)','Apply equivalent-static seismic (TWD)','套用等效靜力地震 (TWD)')}</label>
+    <div class="pe-grid" style="margin-top:10px">
+      <div class="pe-f pe-full"><label>${L3('지역(工址) 프리셋','Site preset','工址預設')}</label><div class="pe-in">
+        <select data-s="region" onchange="fgSeisPreset(this)">${opts}</select></div></div>
+      ${sf('SDS','SDS (Sas)', s.SDS!=null?s.SDS:0.6)}${sf('SD1','SD1 (Sa1)', s.SD1!=null?s.SD1:0.35)}
+      ${sf('T0',L3('T0 (盆地)','T0 (basin)','T0 (盆地)'), s.T0!=null?s.T0:'', 's')}${sf('I','I '+L3('用途','use','用途'), s.I!=null?s.I:I0)}
+      ${sf('R','R '+L3('系統','sys','系統'), s.R!=null?s.R:4.5)}${sf('w0',L3('자중 w0','dead w0','自重 w0'), s.w0!=null?s.w0:12,'kN/㎡')}
+      ${sf('liveRatio',L3('활하중비','live%','活載比'), s.liveRatio!=null?s.liveRatio:0.25)}${sf('Cs','Cs '+L3('(직접)','(ovr)','(直接)'), s.Cs!=null?s.Cs:'')}
+      ${sf('V',L3('V 직접','V direct','V 直接'), s.V!=null?s.V:'','kN')}
+    </div>
+    <div class="pe-tip"><a href="https://seaport.ncree.org/sederes/" target="_blank" rel="noopener" style="color:var(--cyan);font-weight:600">↗ Sederes</a> ${L3('에서 부지 SDS/SD1(또는 T0) 조회 후 입력. 盆地는 T0 입력 시 SD1 자동 환산.','— look up site SDS/SD1 (or T0). Basin: enter T0 → SD1 auto.','查詢工址 SDS/SD1（或 T0）後輸入。盆地輸入 T0 自動換算 SD1。')}</div>
+  </div>`;
+}
+/* M2-A2: 풍하중 입력(편집 카드, 간이 정적풍 + 직접입력) */
+function windEditorHTML(p){
+  const w=p.wind||{};
+  const wf=(k,lbl,val,unit)=>`<div class="pe-f"><label>${lbl}</label><div class="pe-in"><input data-w="${k}" type="number" step="any" value="${val}">${unit?`<span class="pe-u">${unit}</span>`:''}</div></div>`;
+  const exp=['A','B','C'].map(e=>`<option value="${e}"${(w.exposure||'B')===e?' selected':''}>${e} ${L3(e==='A'?'도심':e==='B'?'교외':'개활',e==='A'?'urban':e==='B'?'suburb':'open',e==='A'?'市區':e==='B'?'郊區':'開闊')}</option>`).join('');
+  return `<div style="margin-top:12px;border-top:1px dashed var(--border);padding-top:12px">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;color:var(--cyan);font-weight:600">
+      <input type="checkbox" data-w="on" ${w.on?'checked':''} onchange="previewFromEditor(this)"> 🌬 ${L3('풍하중 적용 (간이 정적풍)','Apply wind (simplified static)','套用風力 (簡化靜風)')}</label>
+    <div class="pe-grid" style="margin-top:10px">
+      ${wf('V10',L3('기본풍속 V10','Wind V10','基本風速 V10'), w.V10!=null?w.V10:42.5,'m/s')}
+      <div class="pe-f"><label>${L3('地況','Exposure','地況')}</label><div class="pe-in"><select data-w="exposure" onchange="previewFromEditor(this)">${exp}</select></div></div>
+      ${wf('G',L3('陣風係數 G','Gust G','陣風 G'), w.G!=null?w.G:1.9)}${wf('Cf',L3('風力係數 Cf','Force Cf','風力 Cf'), w.Cf!=null?w.Cf:1.3)}
+    </div>
+    <div class="pe-tip">${L3('간이 모델(qz=0.613·Vz²). WX·WY 자동 생성 → cLCB4/6. 정밀 風力規範 계수는 조정.','Simplified (qz=0.613·Vz²). WX·WY auto → cLCB4/6. Tune per code.','簡化模型。自動 WX·WY → cLCB4/6。精確係數請調整。')}</div>
+  </div>`;
+}
+/* M2-A3: 전단벽 중앙코어 토글(자동 배치). PLATE 4면, 전층. */
+function coreEditorHTML(p){
+  const c=p.core||{};
+  return `<div style="margin-top:12px;border-top:1px dashed var(--border);padding-top:12px">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;color:var(--cyan);font-weight:600">
+      <input type="checkbox" data-c="on" ${c.on?'checked':''} onchange="previewFromEditor(this)"> 🧱 ${L3('전단벽 중앙코어 (자동)','Central shear-wall core (auto)','中央剪力牆核心 (自動)')}</label>
+    <div class="pe-grid" style="margin-top:10px">
+      <div class="pe-f"><label>${L3('벽 두께','Wall thick','牆厚')}</label><div class="pe-in"><input data-c="thick" type="number" step="any" value="${c.thick!=null?c.thick:250}"><span class="pe-u">mm</span></div></div>
+    </div>
+    <div class="pe-tip">${L3('평면 중앙 1베이에 4면 전단벽(PLATE)을 전층 배치 → 횡강성↑. 그리드 정렬·기존 절점 재사용.','Places 4-sided PLATE shear walls in the central bay over full height. Grid-aligned, reuses frame nodes.','於平面中央跨佈置四面剪力牆(PLATE)，全高 → 提升側向剛度。對齊軸網、共用節點。')}</div>
+  </div>`;
+}
+/* 지역 프리셋 선택 → SDS/SD1/T0 자동 채움 */
+function fgSeisPreset(sel){
+  const z=(typeof SEISMIC_ZONES!=='undefined')?SEISMIC_ZONES[+sel.value]:null;
+  const root=sel.closest('.plan-editor'); if(!root||!z) return;
+  const set=(k,v)=>{const el=root.querySelector('[data-s="'+k+'"]'); if(el) el.value=(v!=null?v:'');};
+  set('SDS',z.SDS); set('SD1',z.SD1); set('T0',z.T0);
+  previewFromEditor(sel);
+}
+
+/* 說明卡 → 切換為可編輯卡（修改按鈕） */
+function editThisSpec(btn){
+  if(!pendingBuild) return;
+  const card=btn.closest('.bubble'); if(!card) return;
+  const plan=card.querySelector('.plan');
+  if(plan) plan.outerHTML=planEditor(pendingBuild);
+  btn.remove();   // 移除「修改」按鈕本身
+  tab('viewP'); previewSpec(pendingBuild);
+}
+
+/* ════════════════════════════════════════════════════════════
+   AGENT DISPATCH (LOCAL)
+════════════════════════════════════════════════════════════ */
+let pendingBuild=null;
+
+async function handleLocal(txt){
+  const cmd=parseCommand(txt);
+  if(cmd.intent==='build'){
+    pendingBuild=cmd.params;
+    const isCustom = !cmd.params.bldgType;   // 건물유형 → 설명카드; 자유골조 → 편집카드
+    if(isCustom){
+      addMsg('bot',`${t('plan_intro_custom')}${planEditor(cmd.params)}`+
+        `<div class="confirm-row"><button class="btn btn-c" onclick="confirmBuild(this)">${t('exec')}</button>`+
+        `<button class="btn btn-ghost" onclick="this.closest('.confirm-row').remove()">${t('cancel')}</button></div>`);
+    } else {
+      addMsg('bot',`${t('plan_intro_tpl')}${planSummary(cmd.params)}`+
+        `<div class="confirm-row"><button class="btn btn-c" onclick="confirmBuild(this)">${t('exec')}</button>`+
+        `<button class="btn btn-ghost" onclick="editThisSpec(this)">${t('edit_btn')}</button>`+
+        `<button class="btn btn-ghost" onclick="this.closest('.confirm-row').remove()">${t('cancel')}</button></div>`);
+    }
+    tab('viewP'); previewSpec(cmd.params);
+    return;
+  }
+  if(cmd.intent==='clear'){
+    const th=thinking(); try{ await clearModel(); S.model={...S.model,nodes:[],cols:[],beams:[],links:[]};
+      renderModelState(); th.remove(); addMsg('bot',t('clear_chat_model'));
+    }catch(e){ th.remove(); addMsg('bot',t('err',e.message)); } return;
+  }
+  if(cmd.intent==='analyze'){
+    const th=thinking(); try{ await actAnalyze(); th.remove();
+      addMsg('bot',resultBrief()); tab('resP');
+    }catch(e){ th.remove(); addMsg('bot',t('err',e.message)); } return;
+  }
+  if(cmd.intent==='detect_model'){
+    const th=thinking(); try{ const msg=await actDetectModel(); th.remove();
+      addMsg('bot',msg); tab('modelP');
+    }catch(e){ th.remove(); addMsg('bot',t('err',e.message)); } return;
+  }
+  if(cmd.intent==='design_rebar'){
+    const th=thinking(); try{ const msg=await actDesignRebar(); th.remove();
+      addMsg('bot',msg); tab('logP');
+    }catch(e){ th.remove(); addMsg('bot',t('err',e.message)); } return;
+  }
+  if(cmd.intent==='result'){
+    if(!S.results[cmd.which]){ addMsg('bot',t('need_analyze')); return; }
+    tab('resP'); showResult(cmd.which);
+    addMsg('bot', resultBrief(cmd.which)); return;
+  }
+  if(cmd.intent==='status'){ addMsg('bot',statusBrief()); tab('modelP'); return; }
+  if(cmd.intent==='modify_section'||cmd.intent==='resize_subset'||cmd.intent==='add_load'||cmd.intent==='add_bracing'){
+    const th=thinking();
+    try{
+      let msg; tab('logP');
+      if(cmd.intent==='modify_section') msg=await actModifySection(cmd.target,cmd.H,cmd.B);
+      else if(cmd.intent==='resize_subset') msg=await actResizeSubset(cmd.target,cmd.H,cmd.B,cmd.floors);
+      else if(cmd.intent==='add_load') msg=await actAddLoad(cmd.name,cmd.type,cmd.floor,cmd.fz);
+      else if(cmd.intent==='add_bracing') msg=await actAddBracing(cmd.building,cmd.floors||[S.model.spec.stories]);
+      th.remove();
+      addMsg('bot',t('edit_done',msg));
+    }catch(e){ th.remove(); addMsg('bot',t('err',e.message)); }
+    return;
+  }
+  addMsg('bot',t('unknown'));
+}
+
+async function confirmBuild(btn){
+  // 執行前先讀取編輯卡的最新數值
+  let p=pendingBuild;
+  if(btn){
+    const card=btn.closest('.bubble');
+    const editor=card&&card.querySelector('.plan-editor');
+    if(editor) p=readPlanEditor(editor);
+  }
+  if(!p) return;
+  pendingBuild=null;
+  // 鎖定該卡的輸入，並移除按鈕
+  if(btn){ const card=btn.closest('.bubble');
+    if(card) card.querySelectorAll('.plan-editor [data-k]').forEach(i=>i.disabled=true); }
+  document.querySelectorAll('.confirm-row').forEach(r=>r.remove());
+  const th=thinking();
+  try{
+    tab('logP'); await actBuildFrame(p);
+    th.remove();
+    const e=S.model.cols.length+S.model.beams.length+S.model.links.length;
+    let msg=t('build_ok',p.buildings,p.stories,S.model.nodes.length,e);
+    const sm=S.model.seismic;
+    if(sm) msg+=`<br><span style="color:var(--cyan)">🌐 ${L3('내진','Seismic','地震')}: V=${Math.round(sm.V)} kN · T=${sm.T.toFixed(2)}s · Cs=${sm.Cs.toFixed(3)} (EX·EY, cLCB5/7)</span>`;
+    const wm=S.model.wind;
+    if(wm) msg+=`<br><span style="color:var(--cyan)">🌬 ${L3('풍하중','Wind','風力')}: Vx=${Math.round(wm.Vx)} · Vy=${Math.round(wm.Vy)} kN (WX·WY, cLCB4/6)</span>`;
+    if(S.model.walls&&S.model.walls.length) msg+=`<br><span style="color:var(--cyan)">🧱 ${L3('전단벽 코어','Shear-wall core','剪力牆核心')}: ${S.model.walls.length} ${L3('패널 (PLATE)','panels (PLATE)','面板 (PLATE)')}</span>`;
+    addMsg('bot',msg);
+  }catch(e){ th.remove(); addMsg('bot',t('build_fail',e.message)); }
+}
+
+function resultBrief(which){
+  let s='';
+  if((!which||which==='disp')&&S.results.disp){
+    const ext=extremum(S.results.disp,'DZ'); if(ext) s+=t('rb_disp',ext.v.toFixed(3),ext.node);
+  }
+  if((!which||which==='react')&&S.results.react){
+    const ext=extremum(S.results.react,'FZ'); if(ext) s+=t('rb_react',(ext.v/1000).toFixed(1),ext.node);
+  }
+  if((!which||which==='force')&&S.results.force){
+    s+=t('rb_force',S.results.force.data.length);
+  }
+  return (s||t('rb_none'))+t('rb_see');
+}
+function extremum(tbl,colName){
+  const ci=tbl.head.findIndex(h=>h.toUpperCase().includes(colName));
+  const ni=tbl.head.findIndex(h=>h.toUpperCase().includes('NODE'));
+  if(ci<0) return null; let best=null;
+  tbl.data.forEach(r=>{ const v=parseFloat(r[ci]); if(isNaN(v))return;
+    if(!best||Math.abs(v)>Math.abs(best.v)) best={v,node:ni>=0?r[ni]:'?'}; });
+  return best;
+}
+function statusBrief(){
+  const m=S.model;
+  if(!m.nodes.length) return t('st_nomodel');
+  return t('st_cur',m.spec?.buildings||'?',m.spec?.stories||'?')+
+    t('st_counts',m.nodes.length,m.cols.length,m.beams.length,m.links.length)+
+    t('st_props',m.matl||'-',m.colSect||'-',m.beamSect||'-')+
+    t('st_height',(m.elev[m.elev.length-1]/1000).toFixed(1));
+}
+
+/* ════════════════════════════════════════════════════════════
+   LLM MODE
+════════════════════════════════════════════════════════════ */
+const TOOLS=[
+  {name:'build_frame',description:'Build a parametric multi-building moment frame (Ramen) in Gen NX. Generates nodes, columns, beams, optional connecting beams, fixed supports, and a self-weight load case. Use this for a brand-new model; it clears any existing model first.',
+   input_schema:{type:'object',properties:{
+     buildings:{type:'integer'},stories:{type:'integer'},bayX:{type:'integer'},bayY:{type:'integer'},
+     spanX:{type:['number','array'],items:{type:'number'},description:'mm; single value = uniform, or array of per-bay distances e.g. [3000,4000,3000]'},
+     spanY:{type:['number','array'],items:{type:'number'},description:'mm; single value = uniform, or array of per-bay distances e.g. [3000,4000,3000]'},
+     h1:{type:'number',description:'first floor height mm'},hTyp:{type:'number',description:'typical floor height mm'},
+     gap:{type:'number',description:'gap between buildings mm'},connectFloor:{type:'integer',description:'floor index where buildings connect, 0=none'},podium:{type:'integer',description:'number of podium (commercial) floors at base, 0=none'},
+     colH:{type:'number'},colB:{type:'number'},beamH:{type:'number'},beamB:{type:'number'},matName:{type:'string'}
+   },required:['stories']}},
+  {name:'modify_section',description:'Resize ALL columns or ALL beams of the existing model by changing their shared section. Incremental edit — does not rebuild.',
+   input_schema:{type:'object',properties:{target:{type:'string',enum:['col','beam']},H:{type:'number',description:'depth mm'},B:{type:'number',description:'width mm'}},required:['target','H','B']}},
+  {name:'resize_subset',description:'Resize only a SUBSET of columns or beams limited to specific floors. Creates a dedicated new section for those members only. Incremental edit.',
+   input_schema:{type:'object',properties:{target:{type:'string',enum:['col','beam']},H:{type:'number'},B:{type:'number'},floors:{type:'array',items:{type:'integer'},description:'floor indices, e.g. [1,2,3]'}},required:['target','H','B','floors']}},
+  {name:'add_load',description:'Add a new load case and apply a vertical nodal load to all nodes on one floor. Incremental edit.',
+   input_schema:{type:'object',properties:{name:{type:'string'},type:{type:'string',description:'D/L/W/E/U'},floor:{type:'integer'},fz:{type:'number',description:'vertical force N, negative = downward'}},required:['name','type','floor','fz']}},
+  {name:'add_bracing',description:'Add diagonal bracing in one building at given floors. Incremental edit — appends new elements.',
+   input_schema:{type:'object',properties:{building:{type:'integer',description:'0-based building index'},floors:{type:'array',items:{type:'integer'}}},required:['building','floors']}},
+  {name:'run_analysis',description:'Run static analysis and fetch reaction / displacement / beam-force result tables.',input_schema:{type:'object',properties:{}}},
+  {name:'get_result',description:'Summarize a previously computed result.',input_schema:{type:'object',properties:{which:{type:'string',enum:['disp','react','force']}},required:['which']}},
+  {name:'clear_model',description:'Delete all model data in Gen NX.',input_schema:{type:'object',properties:{}}},
+  {name:'get_status',description:'Report the current in-memory model summary including section sizes, load cases, and edit history.',input_schema:{type:'object',properties:{}}}
+];
+const SYSTEM=`You are a structural engineering agent that builds, EDITS, and analyzes models in MIDAS Gen NX through tools. Defaults when unspecified: 2 buildings, 10 stories, 4x2 bays, 7000x8000mm spans, first floor 3600mm / typical 2900mm, columns 600x600, beams 400x600, C24 concrete, connect buildings at floor 8 if 2+ buildings.
+spanX and spanY accept either a single number (uniform bays) OR an array of per-bay distances for non-uniform spacing, e.g. spanY=[3000,4000,3000] makes 3 Y-bays of 3000/4000/3000mm; the bay count auto-syncs to the array length.
+IMPORTANT — incremental editing: when a model already exists and the user asks to change part of it, do NOT call build_frame. Instead use modify_section / resize_subset / add_load / add_bracing. Floors are 1-based. After an edit, suggest re-running analysis to see the effect. If unsure of the current state, call get_status first. Always confirm key parameters in your reply. Be concise and reply in the user's language: Korean if they write Korean, English if English, and Traditional Chinese (Taiwan) if Traditional Chinese — using Taiwan structural-engineering terminology (結構, 構架, 柱, 梁, 斷面, 載重, 桿件內力, 變位, 反力, 斜撐, 跨距, 樓層). Use millimetres and Newtons.`;
+
+async function callTool(name,inp){
+  if(name==='build_frame'){
+    const p={...DEFAULT_SPEC,...inp};
+    if(inp.colH||inp.colB){p.colName=`C${p.colH||p.colH}x${p.colB||p.colB}`;p.colH=inp.colH||p.colH;p.colB=inp.colB||p.colB;}
+    if(inp.beamH||inp.beamB){p.beamH=inp.beamH||p.beamH;p.beamB=inp.beamB||p.beamB;p.beamName=`B${p.beamB}x${p.beamH}`;}
+    if(inp.connectFloor===0)p.connectFloor=0;
+    // 가변 스팬(배열)이면 跨數 동기화
+    if(Array.isArray(p.spanX)) p.bayX=p.spanX.length;
+    if(Array.isArray(p.spanY)) p.bayY=p.spanY.length;
+    tab('logP'); await actBuildFrame(p);
+    return `Built ${p.buildings} buildings x ${p.stories} stories. Nodes=${S.model.nodes.length}, elements=${S.model.cols.length+S.model.beams.length+S.model.links.length}. Self-weight load case 'DL' applied.`;
+  }
+  if(name==='modify_section'){ tab('logP'); return await actModifySection(inp.target,inp.H,inp.B); }
+  if(name==='resize_subset'){ tab('logP'); return await actResizeSubset(inp.target,inp.H,inp.B,inp.floors||[]); }
+  if(name==='add_load'){ tab('logP'); return await actAddLoad(inp.name,inp.type,inp.floor,inp.fz); }
+  if(name==='add_bracing'){ tab('logP'); return await actAddBracing(inp.building,inp.floors||[]); }
+  if(name==='run_analysis'){ await actAnalyze(); tab('resP');
+    const d=extremum(S.results.disp,'DZ'), r=extremum(S.results.react,'FZ');
+    return `Analysis done. Max vertical disp ${d?d.v.toFixed(3)+'mm @node '+d.node:'n/a'}; max vertical reaction ${r?(r.v/1000).toFixed(1)+'kN @node '+r.node:'n/a'}.`; }
+  if(name==='get_result'){ const ext=extremum(S.results[inp.which]||{head:[],data:[]},inp.which==='react'?'FZ':inp.which==='disp'?'DZ':'MY');
+    showResult(inp.which); tab('resP'); return ext?`extreme ${ext.v} @node ${ext.node}`:'no result yet'; }
+  if(name==='clear_model'){ await clearModel(); S.model.nodes=[];S.model.cols=[];S.model.beams=[];S.model.links=[]; renderModelState(); return 'Model cleared.'; }
+  if(name==='get_status'){ return statusBrief().replace(/<[^>]+>/g,'') + (S.model.edits&&S.model.edits.length?(' Edits: '+S.model.edits.join('; ')):''); }
+  return 'unknown tool';
+}
+
+function genId(){ return 'tc_'+Math.random().toString(36).slice(2,10); }
+
+function buildLLMRequest(provider, model, key){
+  if(provider==='claude'){
+    const messages=S.conv.map(t=>{
+      if(t.role==='user') return {role:'user',content:t.text};
+      if(t.role==='assistant'){
+        const c=[]; if(t.text) c.push({type:'text',text:t.text});
+        (t.calls||[]).forEach(k=>c.push({type:'tool_use',id:k.id,name:k.name,input:k.args}));
+        return {role:'assistant',content:c.length?c:''};
+      }
+      return {role:'user',content:t.results.map(r=>({type:'tool_result',tool_use_id:r.id,content:r.output}))};
+    });
+    return { url:'https://api.anthropic.com/v1/messages',
+      headers:{'Content-Type':'application/json','x-api-key':key,
+        'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:{model,max_tokens:1024,system:SYSTEM,tools:TOOLS,messages} };
+  }
+  if(provider==='gpt'){
+    const messages=[{role:'system',content:SYSTEM}];
+    S.conv.forEach(t=>{
+      if(t.role==='user') messages.push({role:'user',content:t.text});
+      else if(t.role==='assistant'){
+        const m={role:'assistant',content:t.text||null};
+        if((t.calls||[]).length) m.tool_calls=t.calls.map(k=>({id:k.id,type:'function',
+          function:{name:k.name,arguments:JSON.stringify(k.args||{})}}));
+        messages.push(m);
+      } else t.results.forEach(r=>messages.push({role:'tool',tool_call_id:r.id,content:r.output}));
+    });
+    return { url:'https://api.openai.com/v1/chat/completions',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body:{model,messages,tools:TOOLS.map(t=>({type:'function',
+        function:{name:t.name,description:t.description,parameters:t.input_schema}}))} };
+  }
+  const contents=[];
+  S.conv.forEach(t=>{
+    if(t.role==='user') contents.push({role:'user',parts:[{text:t.text}]});
+    else if(t.role==='assistant'){
+      const parts=[]; if(t.text) parts.push({text:t.text});
+      (t.calls||[]).forEach(k=>parts.push({functionCall:{name:k.name,args:k.args||{}}}));
+      contents.push({role:'model',parts});
+    } else contents.push({role:'user',parts:t.results.map(r=>({functionResponse:{name:r.name,response:{result:r.output}}}))});
+  });
+  return { url:`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
+    headers:{'Content-Type':'application/json'},
+    body:{ systemInstruction:{parts:[{text:SYSTEM}]},
+      tools:[{functionDeclarations:TOOLS.map(t=>({name:t.name,description:t.description,parameters:t.input_schema}))}],
+      contents } };
+}
+
+function parseLLMResponse(provider, data){
+  if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
+  if(provider==='claude'){
+    const text=data.content.filter(c=>c.type==='text').map(c=>c.text).join('\n');
+    const calls=data.content.filter(c=>c.type==='tool_use').map(c=>({id:c.id,name:c.name,args:c.input||{}}));
+    return {text,calls};
+  }
+  if(provider==='gpt'){
+    const m=data.choices?.[0]?.message||{};
+    const calls=(m.tool_calls||[]).map(tc=>({id:tc.id,name:tc.function.name,
+      args:safeJSON(tc.function.arguments)}));
+    return {text:m.content||'',calls};
+  }
+  const parts=data.candidates?.[0]?.content?.parts||[];
+  const text=parts.filter(p=>p.text).map(p=>p.text).join('\n');
+  const calls=parts.filter(p=>p.functionCall).map(p=>({id:genId(),name:p.functionCall.name,args:p.functionCall.args||{}}));
+  return {text,calls};
+}
+function safeJSON(s){ try{ return JSON.parse(s); }catch(e){ return {}; } }
+
+async function handleLLM(txt){
+  const provider=S.provider, model=$('provModel').value.trim(), key=$('provKey').value.trim();
+  S.conv.push({role:'user',text:txt});
+  const th=thinking();
+  try{
+    let loop=0;
+    while(loop++<8){
+      const req=buildLLMRequest(provider,model,key);
+      const res=await fetch(req.url,{method:'POST',headers:req.headers,body:JSON.stringify(req.body)});
+      const data=await res.json();
+      const {text,calls}=parseLLMResponse(provider,data);
+      S.conv.push({role:'assistant',text,calls});
+      if(text){ if(document.body.contains(th)) th.remove(); addMsg('bot',escapeHtml(text).replace(/\n/g,'<br>')); }
+      if(!calls.length) break;
+      const results=[];
+      for(const c of calls){
+        let out; try{ out=await callTool(c.name,c.args||{}); }
+        catch(e){ out='ERROR: '+e.message; }
+        results.push({id:c.id,name:c.name,output:String(out)});
+      }
+      S.conv.push({role:'tool',results});
+    }
+    if(document.body.contains(th)) th.remove();
+  }catch(e){ if(document.body.contains(th)) th.remove();
+    addMsg('bot',t('llm_err',provider,escapeHtml(e.message))); }
+}
+
+/* ════════════════════════════════════════════════════════════
+   SEND
+════════════════════════════════════════════════════════════ */
+async function onSend(){
+  const inp=$('input'); const txt=inp.value.trim(); if(!txt) return;
+  inp.value=''; inp.style.height='auto'; addMsg('user',escapeHtml(txt));
+  $('sendBtn').disabled=true;
+  try{ if(S.llm && $('provKey').value.trim()) await handleLLM(txt); else await handleLocal(txt); }
+  finally{ $('sendBtn').disabled=false; inp.focus(); }
+}
+function escapeHtml(s){ return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+/* ════════════════════════════════════════════════════════════
+   RENDER: model state / results
+════════════════════════════════════════════════════════════ */
+function renderModelState(){
+  const m=S.model;
+  if(!m.nodes.length){ $('modelState').innerHTML=`<div class="res-empty">${t('model_empty')}</div>`; return; }
+  const elems=m.cols.length+m.beams.length+m.links.length;
+  $('modelState').innerHTML=
+   `<div class="statgrid">
+      <div class="stat"><div class="n">${m.nodes.length}</div><div class="l">${t('st_node')}</div></div>
+      <div class="stat"><div class="n">${elems}</div><div class="l">${t('st_elem')}</div></div>
+      <div class="stat"><div class="n">${(m.elev[m.elev.length-1]/1000).toFixed(1)}</div><div class="l">${t('st_h')}</div></div>
+    </div>
+    <div class="scard"><h3>${t('sec_geom')}</h3>
+      ${m.spec.bldgType ? `<div class="kv"><span class="k">${t('kv_type')}</span><span class="v hi">${BUILDING_TYPES[m.spec.bldgType].icon} ${bt(m.spec.bldgType,'label')}</span></div>` : ''}
+      <div class="kv"><span class="k">${t('kv_bs')}</span><span class="v hi">${m.spec.buildings} · ${m.spec.stories}</span></div>
+      <div class="kv"><span class="k">${t('kv_bay')}</span><span class="v">${m.spec.bayX} × ${m.spec.bayY}</span></div>
+      <div class="kv"><span class="k">${t('kv_span')}</span><span class="v">${m.spec.spanX} × ${m.spec.spanY}</span></div>
+      <div class="kv"><span class="k">${t('kv_h')}</span><span class="v">${m.spec.h1} / ${m.spec.hTyp}</span></div>
+      <div class="kv"><span class="k">${t('kv_cb')}</span><span class="v">${m.cols.length} / ${m.beams.length}</span></div>
+      ${m.links.length?`<div class="kv"><span class="k">${t('kv_link',m.spec.connectFloor)}</span><span class="v hi">${m.links.length}</span></div>`:''}
+    </div>
+    <div class="scard"><h3>${t('sec_prop')}</h3>
+      <div class="kv"><span class="k">${t('kv_mat')}</span><span class="v">${m.matl}</span></div>
+      <div class="kv"><span class="k">${t('kv_csect')}</span><span class="v">${m.colSect}</span></div>
+      <div class="kv"><span class="k">${t('kv_bsect')}</span><span class="v">${m.beamSect}</span></div>
+      <div class="kv"><span class="k">${t('kv_bound',m.baseNodes.length)}</span><span class="v"></span></div>
+      <div class="kv"><span class="k">${t('kv_lc')}</span><span class="v">${m.loadCases.map(l=>l.name).join(', ')||'-'}</span></div>
+    </div>`+
+    ((m.edits&&m.edits.length)?`<div class="scard"><h3>${t('sec_edits')}</h3>`+
+      m.edits.map((e,i)=>`<div class="kv"><span class="k">${i+1}</span><span class="v hi" style="text-align:right">${e}</span></div>`).join('')+
+      `</div>`:'');
+}
+
+let resultTab='react';
+function showResult(which){ resultTab=which; renderResults(); }
+function renderResults(){
+  const box=$('results'); const r=S.results;
+  if(!r.react&&!r.disp&&!r.force){ box.innerHTML=`<div class="res-empty">${t('res_empty')}</div>`; return; }
+  const tabs=[['react',t('r_react')],['disp',t('r_disp')],['force',t('r_force')]]
+    .map(([k,l])=>`<button class="chip" style="${resultTab===k?'border-color:var(--cyan);color:var(--cyan)':''}" onclick="showResult('${k}')">${l}</button>`).join('');
+  const tbl=r[resultTab];
+  let html=`<div class="res-sel">${tabs}</div>`;
+  if(!tbl){ html+=`<div class="res-empty">${t('r_none')}</div>`; box.innerHTML=html; return; }
+  const rows=tbl.data.slice(0,200);
+  html+='<div style="overflow:auto"><table><thead><tr>'+tbl.head.map(h=>`<th>${h}</th>`).join('')+'</tr></thead><tbody>';
+  rows.forEach(row=>{ html+='<tr>'+row.map(c=>{ const n=parseFloat(c);
+    const cls=!isNaN(n)?(n>0?'pos':n<0?'neg':''):''; return `<td class="${cls}">${c}</td>`; }).join('')+'</tr>'; });
+  html+='</tbody></table></div>';
+  if(tbl.data.length>200) html+=`<div style="color:var(--dim);font-size:.74rem;margin-top:8px">${t('r_more',tbl.data.length)}</div>`;
+  box.innerHTML=html;
+}
+
+/* ════════════════════════════════════════════════════════════
+   3D VIEW — v2
+════════════════════════════════════════════════════════════ */
+
+/* track which trace indices belong to each toggle key */
+const _traceIdx = { col:[], beam:[], node:[], floor:[] };
+const _vis3D    = { col:true, beam:true, node:true, floor:true };
+
+/* column gradient colorscale: deep navy → bright cyan */
+const COL_CS = [
+  [0,   '#0d1f55'],
+  [0.25,'#1a4fa0'],
+  [0.5, '#2188c9'],
+  [0.75,'#2fbbde'],
+  [1,   '#38e1d6']
+];
+
+function draw3D(){
+  const m=S.model;
+  if(!m.nodes.length){
+    Plotly.purge('plot');
+    $('plot').innerHTML=`<div class="res-empty" style="padding-top:120px">${t('view_empty')}</div>`;
+    $('viewStats').innerHTML=`<span style="color:var(--dim);font-style:italic">${t('view_empty')}</span>`;
+    return;
+  }
+  plot3D({
+    nodes:   m.nodes,
+    cols:    m.cols,
+    beams:   m.beams,
+    links:   m.links,
+    braces:  m.braces,
+    walls:   m.walls,
+    baseNodes: m.baseNodes,
+    elev:    m.elev,
+    spec:    m.spec
+  });
+}
+
+function previewSpec(p){
+  const f=buildFrame(p);
+  plot3D({...f, spec:p});
+}
+
+function plot3D(f){
+  const byId={};
+  (f.nodes||[]).forEach(n=>byId[n.id]=n);
+
+  /* Z extents for gradient normalisation */
+  const zVals=(f.nodes||[]).map(n=>n.z);
+  const zMin = zVals.length ? Math.min(...zVals) : 0;
+  const zMax = zVals.length ? Math.max(...zVals) : 1;
+  const zRange = (zMax-zMin)||1;
+
+  const traces=[];
+  _traceIdx.col=[]; _traceIdx.beam=[]; _traceIdx.node=[]; _traceIdx.floor=[];
+
+  /* ── 1+2. Columns & beams colored by typical-floor group (role) ── */
+  const ROLE_C3={TYPICAL:'#4cc2ff',PODIUM:'#ffb454',ROOF:'#5ee6a8',TRANSFER:'#ff6b6b',BASEMENT:'#9b8cff'};
+  const grp = f.spec ? deriveFloorGroups(f.spec) : {};
+  const _elev = f.elev || [];
+  const storyOf=(z)=>{ let best=1,bd=1e18; for(let i=1;i<_elev.length;i++){const d=Math.abs(_elev[i]-z); if(d<bd){bd=d;best=i;}} return best; };
+  const roleOf=(z)=>{ const g=grp[storyOf(z)]; return (g&&g.role)||'TYPICAL'; };
+  const colByRole={}, beamByRole={};
+  (f.cols||[]).forEach(([a,b])=>{ const A=byId[a]||{x:0,y:0,z:0}, B=byId[b]||{x:0,y:0,z:0};
+    const r=roleOf(Math.max(A.z,B.z)); const o=(colByRole[r]=colByRole[r]||{x:[],y:[],z:[]});
+    o.x.push(A.x,B.x,null);o.y.push(A.y,B.y,null);o.z.push(A.z,B.z,null); });
+  (f.beams||[]).forEach(([a,b])=>{ const A=byId[a]||{x:0,y:0,z:0}, B=byId[b]||{x:0,y:0,z:0};
+    const r=roleOf(A.z); const o=(beamByRole[r]=beamByRole[r]||{x:[],y:[],z:[]});
+    o.x.push(A.x,B.x,null);o.y.push(A.y,B.y,null);o.z.push(A.z,B.z,null); });
+  // 기둥: 역할별 트레이스 (범례에 표준층/기단부/지붕… 표시)
+  ['BASEMENT','PODIUM','TYPICAL','TRANSFER','ROOF'].forEach(r=>{ const o=colByRole[r]; if(!o) return;
+    _traceIdx.col.push(traces.length);
+    traces.push({ type:'scatter3d', mode:'lines',
+      name:(typeof roleLbl==='function'?roleLbl(r):r),
+      x:o.x, y:o.y, z:o.z, visible:_vis3D.col?true:false,
+      line:{ color:ROLE_C3[r]||'#4cc2ff', width:4 }, hoverinfo:'skip' }); });
+  // 보: 같은 역할 색(범례 중복 방지 showlegend:false)
+  Object.keys(beamByRole).forEach(r=>{ const o=beamByRole[r];
+    _traceIdx.beam.push(traces.length);
+    traces.push({ type:'scatter3d', mode:'lines', name:t('show_beam'), showlegend:false,
+      x:o.x, y:o.y, z:o.z, visible:_vis3D.beam?true:false,
+      line:{ color:ROLE_C3[r]||'#38e1d6', width:2 }, hoverinfo:'skip' }); });
+
+  /* ── 3. Connecting beams ── */
+  const lx=[],ly=[],lz=[];
+  (f.links||[]).forEach(([a,b])=>{
+    const A=byId[a]||{x:0,y:0,z:0}, B=byId[b]||{x:0,y:0,z:0};
+    lx.push(A.x,B.x,null); ly.push(A.y,B.y,null); lz.push(A.z,B.z,null);
+  });
+  if(lx.length){
+    traces.push({
+      type:'scatter3d', mode:'lines', name:t('vs_link'),
+      x:lx, y:ly, z:lz,
+      line:{ color:'#ffb454', width:5 },
+      hoverinfo:'skip'
+    });
+  }
+
+  /* ── 4. Braces ── */
+  const brx=[],bry=[],brz=[];
+  (f.braces||[]).forEach(([a,b])=>{
+    const A=byId[a]||{x:0,y:0,z:0}, B=byId[b]||{x:0,y:0,z:0};
+    brx.push(A.x,B.x,null); bry.push(A.y,B.y,null); brz.push(A.z,B.z,null);
+  });
+  if(brx.length){
+    traces.push({
+      type:'scatter3d', mode:'lines', name:t('vs_brace'),
+      x:brx, y:bry, z:brz,
+      line:{ color:'#9b8cff', width:4 },
+      hoverinfo:'skip'
+    });
+  }
+
+  /* ── 4b. Shear-wall / core panels (PLATE) — 반투명 면 ── */
+  const wn=f.walls||[];
+  if(wn.length){
+    const vx=[],vy=[],vz=[],ii=[],jj=[],kk=[]; let base=0;
+    wn.forEach(w=>{ const ns=(w.nodes||[]).map(id=>byId[id]).filter(Boolean);
+      if(ns.length<4) return;
+      ns.slice(0,4).forEach(nd=>{ vx.push(nd.x); vy.push(nd.y); vz.push(nd.z); });
+      ii.push(base,base); jj.push(base+1,base+2); kk.push(base+2,base+3); base+=4; });
+    if(base) traces.push({ type:'mesh3d', name:(S.lang==='ko'?'전단벽':S.lang==='en'?'Shear wall':'剪力牆'),
+      x:vx,y:vy,z:vz,i:ii,j:jj,k:kk, color:'#9b8cff', opacity:0.32, flatshading:true, hoverinfo:'skip' }); }
+
+  /* ── 5. Node markers — regular joints ── */
+  const baseSet=new Set(f.baseNodes||[]);
+  const regNodes=(f.nodes||[]).filter(n=>!baseSet.has(n.id));
+  const supNodes=(f.nodes||[]).filter(n=>baseSet.has(n.id));
+
+  if(regNodes.length){
+    _traceIdx.node.push(traces.length);
+    traces.push({
+      type:'scatter3d', mode:'markers', name:t('show_node'),
+      x:regNodes.map(n=>n.x), y:regNodes.map(n=>n.y), z:regNodes.map(n=>n.z),
+      visible: _vis3D.node ? true : false,
+      text:regNodes.map(n=>`N${n.id}  (${n.x.toFixed(0)}, ${n.y.toFixed(0)}, ${n.z.toFixed(0)})`),
+      hovertemplate:'%{text}<extra></extra>',
+      marker:{ size:2.5, color:'#445069', opacity:0.85 }
+    });
+  }
+
+  /* ── 6. Support markers ── */
+  if(supNodes.length){
+    _traceIdx.node.push(traces.length);
+    traces.push({
+      type:'scatter3d', mode:'markers', name:(S.lang==='ko'?'지점':S.lang==='en'?'Support':'支承'),
+      x:supNodes.map(n=>n.x), y:supNodes.map(n=>n.y), z:supNodes.map(n=>n.z),
+      visible: _vis3D.node ? true : false,
+      text:supNodes.map(n=>`Fixed  N${n.id}  (${n.x.toFixed(0)}, ${n.y.toFixed(0)}, 0)`),
+      hovertemplate:'%{text}<extra></extra>',
+      marker:{ size:5, color:'#ff6b6b', symbol:'diamond', opacity:1,
+        line:{ color:'#ff9999', width:1 } }
+    });
+  }
+
+  /* ── 7. Floor outline rectangles ── */
+  if(f.elev && f.spec){
+    const p=f.spec;
+    const _sx=asSpans(p.spanX,p.bayX), _sy=asSpans(p.spanY,p.bayY);
+    const _Xp=cumPos(_sx), _Yp=cumPos(_sy);
+    const bW=_Xp[_sx.length], totalY=_Yp[_sy.length];
+    const flx=[],fly=[],flz=[];
+    f.elev.forEach(z=>{
+      for(let b=0;b<p.buildings;b++){
+        const ox=b*(bW+p.gap);
+        flx.push(ox,   ox+bW, ox+bW, ox,    ox,    null);
+        fly.push(0,    0,     totalY, totalY, 0,    null);
+        flz.push(z,    z,     z,      z,     z,     null);
+      }
+    });
+    if(flx.length){
+      _traceIdx.floor.push(traces.length);
+      traces.push({
+        type:'scatter3d', mode:'lines', name:t('show_floor'),
+        x:flx, y:fly, z:flz,
+        visible: _vis3D.floor ? true : false,
+        line:{ color:'rgba(68,80,105,0.35)', width:1 },
+        hoverinfo:'skip'
+      });
+    }
+  }
+
+  /* ── Layout ── */
+  Plotly.newPlot('plot', traces, {
+    paper_bgcolor:'rgba(0,0,0,0)',
+    plot_bgcolor:'rgba(0,0,0,0)',
+    showlegend:true,
+    legend:{
+      font:{ color:'#c9d4e8', family:'IBM Plex Mono, Noto Sans KR, Noto Sans TC', size:10 },
+      orientation:'h', x:0, y:1.03,
+      bgcolor:'rgba(0,0,0,0.85)',
+      bordercolor:'rgba(31,42,61,0.5)', borderwidth:1
+    },
+    margin:{ l:0, r:0, t:28, b:0 },
+    scene:{
+      aspectmode:'data',
+      xaxis:gax('X'), yaxis:gax('Y'), zaxis:gax('Z'),
+      camera:{ eye:{x:1.6, y:1.6, z:1.1} },
+      bgcolor:'rgba(0,0,0,0)'
+    }
+  },{
+    responsive:true,
+    displayModeBar:true,
+    modeBarButtonsToRemove:['resetCameraLastSave3d','hoverClosest3d'],
+    displaylogo:false,
+    toImageButtonOptions:{ format:'png', filename:'gen_nx_model', scale:2 }
+  });
+
+  updateViewStats(f);
+}
+
+function gax(t){
+  return {
+    title:{ text:t, font:{color:'#445069',size:10,family:'IBM Plex Mono, Noto Sans KR, Noto Sans TC'} },
+    color:'#445069', gridcolor:'#1a2538', zerolinecolor:'#1a2538',
+    backgroundcolor:'rgba(10,14,26,0.4)', showbackground:true,
+    tickfont:{ color:'#445069', size:9, family:'IBM Plex Mono, Noto Sans KR, Noto Sans TC' }
+  };
+}
+
+/* ── Camera presets ── */
+const CAMS = {
+  iso:   { eye:{x:1.6,  y:1.6,  z:1.1} },
+  front: { eye:{x:0,    y:-2.5, z:0.4} },
+  side:  { eye:{x:-2.5, y:0,    z:0.4} },
+  top:   { eye:{x:0.001,y:0.001,z:2.5} }
+};
+
+function setCam(view){
+  Plotly.relayout('plot',{'scene.camera': CAMS[view]});
+  document.querySelectorAll('.vcam').forEach(b=>b.classList.toggle('on', b.id==='cam-'+view));
+}
+
+/* ── Visibility toggles ── */
+function toggleVis(key){
+  _vis3D[key] = !_vis3D[key];
+  $('tog-'+key).classList.toggle('on',  _vis3D[key]);
+  $('tog-'+key).classList.toggle('off', !_vis3D[key]);
+  const idx = _traceIdx[key];
+  if(!idx||!idx.length) return;
+  Plotly.restyle('plot', { visible: _vis3D[key] ? true : false }, idx);
+}
+
+/* ── Stats bar ── */
+function updateViewStats(f){
+  const n=(f.nodes||[]).length;
+  const cols=(f.cols||[]).length;
+  const beams=(f.beams||[]).length;
+  const links=(f.links||[]).length;
+  const braces=(f.braces||[]).length;
+  const elems=cols+beams+links+braces;
+  const zH=f.nodes&&f.nodes.length ? Math.max(...f.nodes.map(nd=>nd.z)) : 0;
+  const stories=f.elev ? f.elev.length-1 : (f.spec?f.spec.stories:'?');
+  $('viewStats').innerHTML=
+    `<span class="vs-item">${t('vs_node')} <span class="vs-val vs-hi">${n}</span></span>`+
+    `<span class="vs-item">${t('vs_col')} <span class="vs-val">${cols}</span></span>`+
+    `<span class="vs-item">${t('vs_beam')} <span class="vs-val">${beams}</span></span>`+
+    (links?`<span class="vs-item">${t('vs_link')} <span class="vs-val">${links}</span></span>`:'')+
+    (braces?`<span class="vs-item">${t('vs_brace')} <span class="vs-val vs-hi">${braces}</span></span>`:'')+
+    `<span style="flex:1"></span>`+
+    `<span class="vs-item">${t('vs_story',stories)} · <span class="vs-val vs-hi">${(zH/1000).toFixed(1)} m</span></span>`;
+}
+
+/* ════════════════════════════════════════════════════════════
+   CONNECTION / SETTINGS
+════════════════════════════════════════════════════════════ */
+const PROVIDERS={
+  claude:{label:'Claude', keyLabel:'ANTHROPIC API KEY', ph:'sk-ant-…',
+    hint:{ko:'claude.ai 로그인과 <b>별개</b>입니다. console.anthropic.com 에서 발급.',en:'<b>Separate</b> from claude.ai login. Get a key at console.anthropic.com.',zh:'與 claude.ai 登入<b>無關</b>。請至 console.anthropic.com 申請。'},
+    models:['claude-sonnet-4-6','claude-opus-4-8','claude-haiku-4-5-20251001'], def:'claude-sonnet-4-6'},
+  gemini:{label:'Gemini', keyLabel:'GOOGLE AI STUDIO API KEY', ph:'AIza…',
+    hint:{ko:'aistudio.google.com → Get API key 에서 발급 (Gemini API).',en:'Get a key at aistudio.google.com → Get API key (Gemini API).',zh:'於 aistudio.google.com → Get API key 申請（Gemini API）。'},
+    models:['gemini-2.5-pro','gemini-2.5-flash','gemini-2.0-flash'], def:'gemini-2.5-flash'},
+  gpt:{label:'GPT', keyLabel:'OPENAI API KEY', ph:'sk-…',
+    hint:{ko:'platform.openai.com → API keys 에서 발급.',en:'Get a key at platform.openai.com → API keys.',zh:'於 platform.openai.com → API keys 申請。'},
+    models:['gpt-4o-mini','gpt-4o','gpt-4.1','gpt-4.1-mini','o4-mini'], def:'gpt-4o-mini'}
+};
+function setProvider(p){
+  S.provider=p; const cfg=PROVIDERS[p];
+  document.querySelectorAll('#provSeg button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+  $('keyLabel').textContent=cfg.keyLabel; $('provKey').placeholder=cfg.ph;
+  $('keyHint').innerHTML=cfg.hint[S.lang];
+  $('modelList').innerHTML=cfg.models.map(m=>`<option value="${m}">`).join('');
+  $('provModel').value=cfg.def;
+  S.conv=[];
+  syncMode();
+}
+async function testConn(){
+  const {base,key}=cfg(); const out=$('testOut');
+  if(!base||!key){ out.className='test-out err'; out.textContent=t('test_need'); return; }
+  out.className='test-out'; out.style.display='block'; out.textContent=t('test_ing');
+  try{
+    const res=await fetch(`${base}/db/node`,{headers:{'MAPI-Key':key}});
+    if(res.ok){ S.connected=true; setConn(true); out.className='test-out ok'; out.textContent=t('test_ok'); }
+    else { S.connected=false; setConn(false,true); out.className='test-out err'; out.textContent=t('test_http',res.status); }
+  }catch(e){ S.connected=false; setConn(false,true); out.className='test-out err';
+    out.textContent=t('test_err',e.message); }
+}
+function setConn(ok,err){ const p=$('connPill'); p.classList.toggle('on',ok); p.classList.toggle('err',!!err);
+  $('connTxt').textContent=ok?t('conn_linked'):err?t('conn_failed'):t('conn_unlinked'); }
+function syncMode(){ S.llm=$('llmToggle').checked;
+  const hasKey=$('provKey').value.trim();
+  const tag=$('modeTag');
+  if(S.llm&&hasKey){ tag.className='tag llm'; tag.textContent='LLM · '+PROVIDERS[S.provider].label+' · '+$('provModel').value;
+    $('modelNote').textContent=PROVIDERS[S.provider].label+t('brain'); }
+  else { tag.className='tag local'; tag.textContent=t('mode_local'); $('modelNote').textContent=S.llm?t('mode_nokey'):''; }
+}
+function saveSettings(){ syncMode(); closeSettings(); }
+
+/* ════════════════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════════════════ */
+/* ── Guide sidebar data (label/cmd/note 모두 3개 언어) ── */
+const G=(ko,en,zh)=>({ko,en,zh});
+const GUIDE = [
+  { id:'build', icon:'⊞', open:true, label:G('모델 생성','Build','建立模型'), items:[
+    { icon:'🏠', label:G('주거 15층','Residential 15F','住宅 15 層'),    cmd:G('주거 15층 만들어','build 15 story residential','建立 15 層住宅') },
+    { icon:'🏢', label:G('사무 10층','Office 10F','辦公 10 層'),         cmd:G('사무 10층 만들어','build 10 story office','建立 10 層辦公') },
+    { icon:'🏬', label:G('상가 6층','Commercial 6F','商場 6 層'),        cmd:G('상가 6층 만들어','build 6 story mall','建立 6 層商場') },
+    { icon:'🏥', label:G('병원 8층','Hospital 8F','醫院 8 層'),          cmd:G('병원 8층 만들어','build 8 story hospital','建立 8 層醫院') },
+    { icon:'🏫', label:G('학교 5층','School 5F','學校 5 層'),            cmd:G('학교 5층 만들어','build 5 story school','建立 5 層學校') },
+    { div:true },
+    { icon:'🏗', label:G('자유 골조','Custom frame','自訂構架'),         cmd:G('자유골조 10층 만들어','build a 10 story custom frame','建立 10 層自訂構架') },
+    { note:G('클릭하면 입력창에 채워집니다 → Enter → 편집 카드(표준층 표)에서 정밀 수정','Click to fill the input → Enter → fine-tune in the editable card (typical-floor table)','點選後填入輸入框 → Enter → 於可編輯卡（標準層表）精細調整') },
+  ]},
+  { id:'section', icon:'◫', open:true, label:G('단면 수정','Section','斷面修改'), items:[
+    { icon:'↕', label:G('기둥 전체 변경','Resize all columns','全部柱變更'), cmd:G('기둥 700x700으로 변경','change all columns to 700x700','柱改為 700x700') },
+    { icon:'↕', label:G('N층 기둥 변경','Resize floor columns','指定樓層柱'), cmd:G('3층 기둥 700x700으로 키워','enlarge floor 3 columns to 700x700','第 3 樓柱加大為 700x700') },
+    { icon:'↕', label:G('층 범위 기둥','Floor-range columns','樓層範圍柱'),  cmd:G('1~3층 기둥 키워','enlarge floors 1-3 columns','1~3 樓柱加大') },
+    { icon:'↔', label:G('보 전체 변경','Resize all beams','全部梁變更'),     cmd:G('보 400x700으로 변경','change all beams to 400x700','梁改為 400x700') },
+    { note:G('숫자를 원하는 값으로 고친 뒤 전송','Edit the numbers then send','將數字改成所需值後送出') },
+  ]},
+  { id:'load', icon:'⬇', open:true, label:G('하중·보강','Load · Brace','載重·補強'), items:[
+    { icon:'↓', label:G('활하중 추가','Add live load','新增活載重'),     cmd:G('옥상에 활하중 5000N 추가','add 5000N live load on roof','屋頂新增活載重 5000N') },
+    { icon:'↓', label:G('풍하중 추가','Add wind load','新增風力'),        cmd:G('풍하중 추가','add wind load','新增風力') },
+    { icon:'✕', label:G('가새 추가 (1동)','Add bracing (B1)','新增斜撐 (1棟)'), cmd:G('1동 가새 추가','add bracing to building 1','第 1 棟新增斜撐') },
+    { icon:'✕', label:G('특정 층 가새','Bracing on floor','指定樓層斜撐'), cmd:G('1동 3층 가새 추가','add bracing building 1 floor 3','第 1 棟 3 樓新增斜撐') },
+  ]},
+  { id:'analysis', icon:'∑', open:true, label:G('해석·결과','Analysis','分析·結果'), items:[
+    { icon:'▷', label:G('정적 해석 실행','Run analysis','執行靜力分析'), cmd:G('해석 돌려','run analysis','執行分析'),        send:true },
+    { icon:'▷', label:G('최대 변위 조회','Max displacement','查詢最大變位'), cmd:G('최대 변위 알려줘','show max displacement','查詢最大變位'), send:true },
+    { icon:'▷', label:G('지점 반력 조회','Reactions','查詢支承反力'),    cmd:G('반력 알려줘','show reactions','查詢反力'),        send:true },
+    { icon:'▷', label:G('부재력 조회','Member forces','查詢桿件內力'),   cmd:G('부재력 보여줘','show member forces','顯示桿件內力'), send:true },
+    { icon:'🔧', label:G('보·기둥 배근 (TWD-USD112)','Beam & column rebar (TWD)','梁柱配筋 (TWD)'), cmd:G('보 배근','beam rebar','梁柱配筋'), send:true },
+    { icon:'▷', label:G('상태 요약','Status summary','目前狀態摘要'),     cmd:G('상태 요약','status summary','狀態摘要'),        send:true },
+  ]},
+  { id:'misc', icon:'⊟', open:false, label:G('모델 관리','Manage','模型管理'), items:[
+    { icon:'📖', label:G('기존 모델 분석','Analyze existing','分析現有模型'), cmd:G('기존 모델 분석','detect model','讀取現有模型'), send:true },
+    { icon:'↺', label:G('모델 초기화','Clear model','清除模型'),         cmd:G('초기화','clear','清除') },
+  ]},
+];
+
+function renderGuide(){
+  const L=S.lang;
+  const box=$('guideBody');
+  box.innerHTML=GUIDE.map(sec=>{
+    const itemsHtml=sec.items.map(it=>{
+      if(it.div) return `<div class="gsec-div"></div>`;
+      if(it.note) return `<div class="gsec-note">${it.note[L]}</div>`;
+      const label=it.label[L];
+      if(it.act){
+        return `<button class="gcmd" onclick="${it.act}" title="${label}"><i class="gicon">${it.icon}</i><span class="glabel">${label}</span></button>`;
+      }
+      const cmd=it.cmd[L];
+      const sendBadge=it.send?`<span class="gsend">↵</span>`:'';
+      const fn=it.send?`quick('${cmd}')`:`hint('${cmd}')`;
+      return `<button class="gcmd" onclick="${fn}" title="${cmd}"><i class="gicon">${it.icon}</i><span class="glabel">${label}</span>${sendBadge}</button>`;
+    }).join('');
+    const openClass=sec.open?'':'closed';
+    return `<div class="gsec ${openClass}" id="gs-${sec.id}">
+      <div class="gsec-hd" onclick="toggleSec('${sec.id}')">
+        <span>${sec.icon}</span><span style="flex:1">${sec.label[L]}</span><span class="garrow">▾</span>
+      </div><div class="gsec-items" id="gi-${sec.id}">${itemsHtml}</div></div>`;
+  }).join('');
+  // set initial max-heights for open sections (enables smooth animation)
+  document.querySelectorAll('.gsec').forEach(sec=>{
+    const items=sec.querySelector('.gsec-items');
+    items.style.maxHeight = sec.classList.contains('closed') ? '0' : items.scrollHeight+'px';
+  });
+}
+
+function toggleSec(id){
+  const sec=$('gs-'+id), items=$('gi-'+id);
+  sec.classList.toggle('closed');
+  items.style.maxHeight = sec.classList.contains('closed') ? '0' : items.scrollHeight+'px';
+}
+
+function toggleGuide(){
+  const g=$('guide'), btn=$('guideTog'), openBtn=$('guideOpen');
+  g.classList.toggle('collapsed');
+  const collapsed=g.classList.contains('collapsed');
+  btn.textContent=collapsed?'⟩':'⟨';
+  btn.title=collapsed?t('guide_open'):t('guide_close');
+  openBtn.style.display=collapsed?'block':'none';
+}
+
+/* hint = 입력창에 채우기만(값 수정 후 전송), quick = 즉시 전송 */
+function hint(tt){ const i=$('input'); i.value=tt; i.focus(); i.dispatchEvent(new Event('input')); }
+function quick(tt){ $('input').value=tt; onSend(); }
+
+function L3(k,e,z){return S.lang==='ko'?k:S.lang==='en'?e:z;}
+/* FG_ROLES · FG_USES → shared/rc_engine.js */
+const _li=()=>S.lang==='ko'?0:S.lang==='en'?1:2;
+function roleLbl(r){return ({TYPICAL:['표준층','Typical','標準層'],PODIUM:['기단부','Podium','裙樓'],TRANSFER:['전이층','Transfer','轉換層'],ROOF:['지붕','Roof','屋頂'],BASEMENT:['지하','Basement','地下室']}[r]||[r,r,r])[_li()];}
+function useLbl(u){return ({Residential:['주거','Residential','住宅'],Office:['사무','Office','辦公'],Commercial:['상업','Commercial','商業'],School:['학교','School','學校'],Hospital:['병원','Hospital','病房'],Equipment:['설비','Equipment','設備層'],Roof:['지붕','Roof','屋頂']}[u]||[u,u,u])[_li()];}
+function fgRow(g){
+  const rs=FG_ROLES.map(r=>`<option value="${r}"${r===g.role?' selected':''}>${roleLbl(r)}</option>`).join('');
+  const us=FG_USES.map(u=>`<option value="${u}"${u===g.use?' selected':''}>${useLbl(u)}</option>`).join('');
+  return `<tr class="fg-row">
+    <td><select class="fg-role" onchange="fgChanged(this)">${rs}</select></td>
+    <td><input class="fg-from" type="number" value="${g.from}" style="width:44px" onchange="fgChanged(this)"></td>
+    <td><input class="fg-to" type="number" value="${g.to}" style="width:44px" onchange="fgChanged(this)"></td>
+    <td><input class="fg-h" type="number" value="${g.h}" style="width:58px" onchange="fgChanged(this)"></td>
+    <td><select class="fg-use" onchange="fgChanged(this)">${us}</select></td>
+    <td style="text-align:center"><input class="fg-dia" type="checkbox" ${g.dia===false?'':'checked'} onchange="fgChanged(this)"></td>
+    <td style="white-space:nowrap"><button class="btn btn-ghost" style="padding:2px 6px" title="${L3('위층(높은 층) 추가','Insert above (higher)','上方插入（較高層）')}" onclick="fgInsert(this,'above')">↑</button><button class="btn btn-ghost" style="padding:2px 6px" title="${L3('아래층(낮은 층) 추가','Insert below (lower)','下方插入（較低層）')}" onclick="fgInsert(this,'below')">↓</button><button class="btn btn-ghost" style="padding:2px 6px" title="${L3('삭제','Delete','刪除')}" onclick="fgDel(this)">×</button></td></tr>`;
+}
+/* 표준층 표 핸들러 — 대화형 편집 카드(.plan-editor) 전용.
+   표는 위(지붕)→아래(지하) 순서. 시작/끝 번호는 아래(=1)부터 위로 자동 정렬. */
+function fgChanged(el){ const ed=el.closest('.plan-editor'); if(ed) previewEditorEl(ed); }
+function fgRenumber(tb){
+  const rows=[...tb.querySelectorAll('.fg-row')]; let base=1;
+  for(let i=rows.length-1;i>=0;i--){ const r=rows[i];   // 맨 아래 행 = 최하층 = 1
+    const f=r.querySelector('.fg-from'), t=r.querySelector('.fg-to');
+    const cnt=Math.max(1,(+t.value)-(+f.value)+1);
+    f.value=base; t.value=base+cnt-1; base+=cnt; }
+}
+/* 행별 삽입: dir 'above'(↑ 더 높은 층) → 그 행 위(앞), 'below'(↓ 더 낮은 층) → 그 행 아래(뒤).
+   삽입 위치가 최상단이면 ROOF, 최하단이면 BASEMENT, 그 외 TYPICAL 로 역할 자동 추천. */
+function fgInsert(btn, dir){
+  const ed=btn.closest('.plan-editor'); const row=btn.closest('tr'); const tb=row&&row.parentNode; if(!tb) return;
+  const rows=[...tb.querySelectorAll('.fg-row')];
+  const isTop=row===rows[0], isBottom=row===rows[rows.length-1];
+  let role='TYPICAL';
+  if(dir==='above'&&isTop) role='ROOF';
+  else if(dir==='below'&&isBottom) role='BASEMENT';
+  const h=(+row.querySelector('.fg-h').value)||((pendingBuild?pendingBuild.hTyp:3200)||3200);
+  const use=row.querySelector('.fg-use').value||useOf(pendingBuild||{});
+  const html=fgRow({role,from:1,to:1,h,use});
+  if(dir==='above') row.insertAdjacentHTML('beforebegin',html);
+  else row.insertAdjacentHTML('afterend',html);
+  fgRenumber(tb);
+  if(ed) previewEditorEl(ed);
+}
+function fgDel(btn){
+  const ed=btn.closest('.plan-editor'); const tr=btn.closest('tr'); const tb=tr&&tr.parentNode; if(!tb) return;
+  if(tb.querySelectorAll('.fg-row').length<=1) return;   // 최소 1행 유지
+  tr.remove(); fgRenumber(tb);
+  if(ed) previewEditorEl(ed);
+}
+
+function clearChat(){
+  $('msgs').innerHTML='';
+  S.conv=[];
+  pendingBuild=null;
+  addMsg('bot',t('clear_done'));
+}
+
+/* ════════════════════════════════════════════════════════════
+   I18N APPLY — 정적 요소 갱신 + 동적 영역 재렌더
+════════════════════════════════════════════════════════════ */
+function applyStatic(){
+  document.documentElement.lang = S.lang==='zh'?'zh-Hant':S.lang;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent=t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{ el.innerHTML=t(el.dataset.i18nHtml); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{ el.placeholder=t(el.dataset.i18nPh); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el=>{ el.title=t(el.dataset.i18nTitle); });
+}
+function setLang(l){
+  if(!I18N[l]) return;
+  S.lang=l;
+  document.querySelectorAll('#langSel button').forEach(b=>b.classList.toggle('on', b.dataset.l===l));
+  applyStatic();
+  setProvider(S.provider);   // provider 힌트 언어 갱신 + 대화 초기화
+  setConn(S.connected, $('connPill').classList.contains('err'));
+  syncMode();
+  renderGuide();
+  renderModelState();
+  renderResults();
+  draw3D();
+  // 채팅은 언어 혼용을 피하기 위해 초기화 후 환영문 재출력
+  $('msgs').innerHTML=''; S.conv=[]; pendingBuild=null;
+  addMsg('bot', t('welcome'));
+}
+
+$('input').addEventListener('input',e=>{ e.target.style.height='auto'; e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'; });
+$('input').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); onSend(); } });
+$('provKey').addEventListener('input',syncMode); $('provModel').addEventListener('input',syncMode);
+
+setProvider('claude');
+document.querySelectorAll('#langSel button').forEach(b=>b.classList.toggle('on', b.dataset.l===S.lang));
+applyStatic();
+renderGuide(); renderModelState(); draw3D(); syncMode();
+addMsg('bot', t('welcome'));
+</script>
+</body>
+</html>

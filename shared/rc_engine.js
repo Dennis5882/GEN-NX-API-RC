@@ -466,6 +466,47 @@ function rcBeamDesign(demand,geom,mat){
           stirrup:{dia:'D10',leg:2,Av:226,s:Math.max(50,Math.floor(sh.s/10)*10),note:sh.note}, over};
 }
 
+/* ── 기둥 P-M 배근 (TWD-USD112, 변형률적합 + 사각형 응력블록, 대칭 2층배근) ──
+   demand{Pu(N,압축),Mux,Muy(N·mm)} + geom{b,h} + mat → 필요 철근비 ρ(1~6%)·주근·띠철근.
+   ⚠ 주축(지배축) 단축 P-M MVP. 이축(Bresler)·세장효과(P-Δ)·SMRF 디테일은 후속. */
+const ES_STEEL=200000, ECU=0.003;
+function colPMpoints(rho,b,h,fc,fy,cover){
+  const Ag=b*h, As=rho*Ag, dp=(cover||40)+10+13, d=h-dp, b1=beta1(fc);
+  const layers=[{A:As/2,di:dp},{A:As/2,di:d}], pts=[];
+  for(let c=0.04*h;c<=2.2*h;c*=1.05){
+    const a=Math.min(b1*c,h), Cc=0.85*fc*b*a; let Ps=0,Ms=0,etl=0;
+    layers.forEach(L=>{ const es=ECU*(c-L.di)/c; let fs=Math.max(-fy,Math.min(fy,ES_STEEL*es));
+      const f=(L.di<a)?(fs-0.85*fc):fs; Ps+=L.A*f; Ms+=L.A*f*(h/2-L.di); if(L.di===d) etl=-es; });
+    const Pn=Cc+Ps, Mn=Cc*(h/2-a/2)+Ms;
+    let phi=0.65; const ety=fy/ES_STEEL;
+    if(etl>=0.005)phi=0.9; else if(etl>ety)phi=0.65+(etl-ety)*0.25/(0.005-ety);
+    pts.push({P:phi*Pn,M:phi*Math.abs(Mn)});
+  }
+  return pts;
+}
+function colMcapAt(rho,b,h,fc,fy,cover,Pu){
+  const pts=colPMpoints(rho,b,h,fc,fy,cover); let best=0;
+  for(let i=1;i<pts.length;i++){ const A=pts[i-1],Bp=pts[i];
+    if((A.P-Pu)*(Bp.P-Pu)<=0){ const t=(Pu-A.P)/((Bp.P-A.P)||1); best=Math.max(best,A.M+t*(Bp.M-A.M)); } }
+  return best;
+}
+function pickColBars(As){
+  for(const [dia,a] of [['D22',387],['D25',507],['D29',642],['D32',794]]){
+    let n=Math.ceil(As/a); if(n%2)n++; n=Math.max(4,n); if(n<=16) return {dia,n,As:n*a}; }
+  let n=Math.max(4,Math.ceil(As/794)); if(n%2)n++; return {dia:'D32',n,As:n*794};
+}
+function rcColumnDesign(demand,geom,mat){
+  mat=Object.assign({},DEFAULT_REBAR,mat||{});
+  const b=geom.b,h=geom.h,fc=mat.fc,fy=mat.fy,cover=mat.cover;
+  const Pu=Math.abs(demand.Pu||0), Mu=Math.max(Math.abs(demand.Mux||0),Math.abs(demand.Muy||0));
+  let lo=0.01,hi=0.06,ok=false;
+  for(let it=0;it<26;it++){ const mid=(lo+hi)/2; if(colMcapAt(mid,b,h,fc,fy,cover,Pu)>=Mu){hi=mid;ok=true;} else lo=mid; }
+  const rho=ok?hi:0.06, over=!ok;
+  const As=rho*b*h, dlong=22;
+  const tieS=Math.min(16*dlong,48*10,Math.min(b,h));   // 띠철근 간격: min(16db, 48dt, 최소변)
+  return {b,h,rho,As,bars:pickColBars(As),tie:{dia:'D10',s:Math.floor(tieS/10)*10},over,Pu,Mu};
+}
+
 /* ── 네임스페이스 노출 (M2 확장·다른 프런트엔드용) ── */
 if(typeof window!=='undefined'){
   window.RCEngine={
@@ -477,6 +518,7 @@ if(typeof window!=='undefined'){
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,
     WIND_EXPOSURE, windStoryForces, detectTypicalFloors,
     KGFCM2_TO_MPA, fcMPa, REBAR_FY, BAR_AREA, DEFAULT_REBAR, beamEffDepth,
-    flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign
+    flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign,
+    ES_STEEL, beta1, colPMpoints, colMcapAt, pickColBars, rcColumnDesign
   };
 }
