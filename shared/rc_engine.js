@@ -107,7 +107,31 @@ function buildFrame(p){
   const floorCorners={};
   for(let b=0;b<p.buildings;b++) for(let iz=1;iz<=p.stories;iz++)
     floorCorners[b+'_'+iz]=[N(b,0,0,iz),N(b,nbx,0,iz),N(b,nbx,nby,iz),N(b,0,nby,iz)];
-  return {nodes,cols,beams,links,colMeta,beamMeta,linkMeta,baseNodes,elev,floorGroups,floorCorners};
+  /* ── 전단벽/코어 패널 (PLATE) — 그리드 정렬, 기존 절점 재사용, 베이·층 단위 메시 ──
+     spec.walls 항목:
+       {kind:'wall', dir:'X'|'Y', ix, iy, bays, from, to, thick}  // 한 줄 벽
+       {kind:'core', ix0, iy0, ix1, iy1, from, to, thick}          // 사각 코어(4면)
+     ix/iy = 0-based 그리드 교점 인덱스, from/to = 1-based story(미지정 시 전층), thick = mm */
+  const walls=[]; const wallThks=new Set();
+  (p.walls||[]).forEach((w,wi)=>{
+    const from=Math.max(1,w.from||1), to=Math.min(p.stories,w.to||p.stories);
+    const b=Math.min(w.building||0,p.buildings-1), thick=+w.thick||250;
+    const edges=[];
+    const addRun=(dir,ix,iy,bays)=>{ for(let k=0;k<Math.max(1,bays);k++){
+      if(dir==='Y') edges.push([ix,iy+k,ix,iy+k+1]); else edges.push([ix+k,iy,ix+k+1,iy]); } };
+    if(w.kind==='core'){
+      const x0=Math.min(w.ix0,w.ix1), x1=Math.max(w.ix0,w.ix1);
+      const y0=Math.min(w.iy0,w.iy1), y1=Math.max(w.iy0,w.iy1);
+      addRun('X',x0,y0,x1-x0); addRun('X',x0,y1,x1-x0);   // 하·상변
+      addRun('Y',x0,y0,y1-y0); addRun('Y',x1,y0,y1-y0);   // 좌·우변
+    } else addRun(w.dir||'X', w.ix||0, w.iy||0, w.bays||1);
+    for(let s=from;s<=to;s++){ const izb=s-1, izt=s;
+      edges.forEach(e=>{ const n1=N(b,e[0],e[1],izb),n2=N(b,e[2],e[3],izb),
+        n3=N(b,e[2],e[3],izt),n4=N(b,e[0],e[1],izt);
+        if(n1&&n2&&n3&&n4){ walls.push({nodes:[n1,n2,n3,n4],thick,story:s,building:b,w:wi}); wallThks.add(thick); } }); }
+  });
+  return {nodes,cols,beams,links,colMeta,beamMeta,linkMeta,baseNodes,elev,floorGroups,floorCorners,
+          walls,wallThks:[...wallThks].sort((a,b)=>a-b)};
 }
 
 /* ════════════════════════════════════════════════════════════

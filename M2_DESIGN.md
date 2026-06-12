@@ -112,10 +112,22 @@
 5. **(B)** node/elem/sect 등 **조회(GET)** 엔드포인트·응답 형식.
 6. E/W 케이스 TYPE 문자열(예: 'E'/'EQ', 'W'/'WIND') — `taiwanCombos`의 `by.E`/`by.W` 매칭 확인.
 
+## 라이브 검증 결과 — 전단벽 (M2-A3, 2026-06-12, 실제 Gen NX)
+- **PLATE 요소 확정**: `{TYPE:"PLATE", MATL, SECT:<thik id>, NODE:[4], STYPE:1, ANGLE:0}`.
+  - `SECT` 필드가 **/db/thik 테이블의 두께 id를 참조**(요소 TYPE별 id 공간 분리: BEAM→/db/sect, PLATE→/db/thik).
+  - 저장 시 NODE는 8칸 패딩(quad는 뒤 4칸 0).
+- **THIK 재사용**: 벽 두께 = `{NAME, TYPE:"VALUE", bINOUT:false, T_IN:<m>, T_OUT:0, O_VALUE:0}` (슬래브와 동일 스키마).
+- **WALL 전용 요소 불가(확인)**: `TYPE:"WALL"`은 존재하나 **wall ID(1~9999)** 가 필수인데
+  `/db/elem` 의 어떤 top-level 필드명(WALLID/WALL_ID/W_ID/WID/SUB_TYPE/EXVAL…)·중첩·별도 엔드포인트
+  (`db/wall*` 전부 404)로도 설정 불가 → wall ID는 항상 0으로 거부됨. STYPE 누락 시 일반 오류.
+- **라이브 모델 검증**: 엔진 `buildFrame({walls:[core 1×1, wall 1bay]})` → 절점 36·기둥 27·보 36·**벽패널 15**
+  (코어 4변×3층=12 + 벽 1×3=3). 전 항목 POST 수용, **GET 으로 PLATE 15개·좌표 정확 확인**.
+  (해석 `/doc/anal` 은 결과생성 일시현상으로 타임아웃 — 모델 데이터 수용·저장은 완전 정상.)
+
 ## 열린 결정 (Open Decisions)
-- **#1** 횡하중: 내장 API(A1) vs 자체계산(A2) — 라이브 후 확정.
+- **#1** 횡하중: 내장 API(A1) vs 자체계산(A2) — ✅ **A2 확정**.
 - **#2** 우발편심 ±5% 포함 여부(1차).
-- **#3** 전단벽 요소 타입(WALL vs PLATE).
+- **#3** 전단벽 요소 타입(WALL vs PLATE) — ✅ **PLATE 확정**(WALL은 wall-ID 설정 불가).
 - **#4** 지진중량의 활하중 반영 비율(용도별) — 규범 확인.
 - **#5** 지역 프리셋 범위(주요 도시 몇 개부터).
 

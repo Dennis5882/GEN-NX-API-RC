@@ -1,5 +1,18 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## 엔진 — 2026-06-12 (M2-A3 1단계) — 전단벽/코어 PLATE 레이어
+
+`shared/rc_engine.js` `buildFrame` 에 **전단벽·코어 생성** 추가(프런트엔드 UI 배선은 후속).
+
+- **결정 #3 = PLATE 확정** — 라이브 probe로 Gen NX `TYPE:"WALL"` 은 wall-ID(1~9999)를
+  `/db/elem` 어떤 필드·엔드포인트로도 설정 불가 확인 → 전단벽을 **PLATE(STYPE:1)** 로 모델링
+  (RC 전단벽 해석 표준, 면내 전단·휨 포착). 두께는 THIK 테이블(VALUE), `SECT`=thik id 참조.
+- **`spec.walls` 스키마** — `{kind:'wall',dir,ix,iy,bays,from,to,thick}` /
+  `{kind:'core',ix0,iy0,ix1,iy1,from,to,thick}`. 기둥 그리드 정렬 → **기존 절점 재사용**(추가 절점 0),
+  베이·층 단위로 quad 메시. `buildFrame` 반환에 `walls[{nodes[4],thick,story,building}]`·`wallThks[]` 추가.
+- **라이브 검증** — core 1×1 + wall 1bay·3층 → 벽패널 15개(코어 12+벽 3), PLATE 15개 POST·GET 정확 확인.
+  자세한 스키마는 `M2_DESIGN.md` 「라이브 검증 결과 — 전단벽」.
+
 ## Wizard v2.0.0 — 2026-06-12 — 폼 Wizard 공용엔진 합류
 
 새 파일 **`MIDAS_RC_Modeling_Wizard_v2.0.0.html`** (기존 `MIDAS_RC_Modeling_Wizard.html` v1.0.2 유지).
