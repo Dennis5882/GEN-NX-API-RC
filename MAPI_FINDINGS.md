@@ -174,6 +174,43 @@ HEAD: `Index|Elem|Load|Part|Axial|Shear-y|Shear-z|Torsion|Moment-y|Moment-z`,
 
 ---
 
+## C+. API 포털 구성 · 기반지식 (Basic/Examples/Quick Tips 확인, 2026-06-13)
+
+`gate_api_manual` 포털은 **여러 매뉴얼의 묶음**이다. 우리가 긁은 432개 엔드포인트는 그 중 **JSON Manual**(REST 정본).
+- **JSON Manual** = REST 엔드포인트 정의(우리 카탈로그). **Grasshopper / Excel Connector / Plug-in** = 같은 API/모델의 다른 사용 레이어(새 엔드포인트 아님). 단 Grasshopper·Plugin 레이어가 JSON Manual 누락분(예: WIND)을 노출.
+- Plug-in 카탈로그에 건물용 기성앱 존재: `[AS/NZS 1170.2] Building Wind Loads Generator`, `[AS 1170.4] Static Seismic Loads Generator`, `Artificial Earthquake Generator` 등.
+
+### ★ 엔진에 바로 쓸 발견 2가지
+
+**1) 연결 사전점검 — `/mapikey/verify` (GET)**
+`db/UNIT` 등으로 떠보지 말고 이걸로 먼저 확인. base URL에서 **제품경로 제거** 후 `/mapikey/verify`.
+```json
+{ "user":"User_ID", "program":"civil", "connectionID":"...", "keyVerified":true, "status":"connected" }
+```
+→ 우리가 겪은 `"client does not exist"`(404)는 제품 미연결 신호. 요청 배치 전 이 엔드포인트로 status/keyVerified 확인이 정석.
+
+**2) `post/table` 전체 옵션 (147개 결과테이블이 단일 엔드포인트 공유)**
+TABLE_TYPE만 쓰던 것을 넘어 요청 한 번에 단위·컬럼·대상·케이스를 직접 지정 가능:
+```jsonc
+{ "Argument": {
+  "TABLE_NAME": "TABLE",
+  "TABLE_TYPE": "BEAMFORCE",                 // 필수(Enum). 결과테이블 89 + 시간이력 52 + 수화열 6
+  "UNIT": {"FORCE":"KN","DIST":"MM"},        // 결과를 원하는 단위로 직접 받음(모델단위 변환 불필요!)
+  "STYLES": {"FORMAT":"Fixed","PLACE":3},    // 출력형식/소수자리
+  "COMPONENTS": ["Elem","Load","Part","Axial"], // 컬럼 선택(생략/[]=전체)
+  "NODE_ELEMS": {"TO":"101to105"},           // KEYS[] | TO | STRUCTURE_GROUP_NAME
+  "LOAD_CASE_NAMES": ["DC(ST)","X-dir(RS)","MV(MV:max)"] // 케이스명+접미사
+}}
+```
+- **케이스명 접미사 규약**: Static `(ST)`, 조합 `(CB)`, 응답스펙트럼 `(RS)`, 이동하중 `(MV:all/max/min)`, 침하 `(SM:...)`, 시공단계 `(CS)`.
+- **활용**: M3 결과회수에서 `UNIT`로 단위변환 제거, `COMPONENTS`로 필요한 컬럼만, `LOAD_CASE_NAMES`로 조합/RS 결과 직접 추출.
+
+### 아키텍처(공식 확인)
+REST(클라이언트) → AWS 서버(중개) → WebSocket → 로컬 MIDAS 제품. 제품은 앱과 직접 통신 안 함.
+`MAPI-Key`가 **어느 제품인지 식별**(임시키, 변경 가능). 한 클라이언트가 여러 키로 여러 제품 동시 제어 가능 → Gen·Civil 동시 운용 근거.
+
+---
+
 ## D. 후속 액션
 
 | # | 항목 | 액션 |
