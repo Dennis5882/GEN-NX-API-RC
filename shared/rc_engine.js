@@ -512,6 +512,82 @@ function rcColumnDesign(demand,geom,mat){
   return {b,h,rho,As,bars:pickColBars(As),tie:{dia:'D10',s:Math.floor(tieS/10)*10},over,Pu,Mux,Muy,util:+util(rho).toFixed(3)};
 }
 
+/* ════════════════════════════════════════════════════════════
+   M4 — 도면(DXF) 생성: 배근도 配筋圖 (대만 公會 標準圖 규칙 참조)
+   순수: 엔티티 누적 → DXF(R12/AC1009) ASCII 문자열. CJK는 \U+XXXX 이스케이프(AutoCAD 호환).
+   좌표 단위 mm(모델 1:1). 표준 규칙은 DRAW_PROFILE 에 상수화(국가 확장 seam).
+   배근 디테일은 RC04(梁)/RC06(柱) 標準圖 규칙을 적용해 작도(절단 Ln/n·단부 가밀 2h 등).
+════════════════════════════════════════════════════════════ */
+const DRAW_PROFILE={ tw:{
+  name:'TW 公會 標準圖', topExtraDiv:3, botExtraDiv:4, confineH:2,
+  txt:{mark:220,callout:150,dim:120,title:320},
+  ref:{beam:'RC04 梁配筋',col:'RC06 柱配筋',note:'RC01 一般說明'},
+  layers:[['S-OUTLINE',7],['S-REBAR',1],['S-STIRR',3],['S-TEXT',2],['S-DIM',4],['S-TITLE',5]]
+}};
+function _hex4(n){return ('000'+n.toString(16).toUpperCase()).slice(-4);}
+function dxfStr(s){let o='';for(const ch of String(s)){const c=ch.codePointAt(0);o+=(c>127)?('\\U+'+_hex4(c)):ch;}return o;}
+function _barDia(dia){const m=/(\d+)/.exec(String(dia||'D25'));return m?+m[1]:25;}
+function DxfDoc(profile){
+  const e=[]; const lys=(profile&&profile.layers)||[['0',7]];
+  const put=a=>e.push(a);
+  const api={
+    line:(x1,y1,x2,y2,ly)=>{put(['LINE',ly||'0',[10,x1,20,y1,30,0,11,x2,21,y2,31,0]]);return api;},
+    rect:(x,y,w,h,ly)=>{api.line(x,y,x+w,y,ly);api.line(x+w,y,x+w,y+h,ly);api.line(x+w,y+h,x,y+h,ly);api.line(x,y+h,x,y,ly);return api;},
+    circle:(x,y,r,ly)=>{put(['CIRCLE',ly||'0',[10,x,20,y,30,0,40,r]]);return api;},
+    text:(x,y,h,s,ly,o)=>{o=o||{};const al=o.align==='center'?1:(o.align==='right'?2:0);
+      const g=[10,x,20,y,30,0,40,h,1,dxfStr(s),50,o.rot||0]; if(al){g.push(72,al,11,x,21,y,31,0);}
+      put(['TEXT',ly||'0',g]);return api;},
+    toString:()=>{
+      let s='0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n';
+      s+='0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n'+lys.length+'\n';
+      lys.forEach(([n,c])=>{ s+='0\nLAYER\n2\n'+n+'\n70\n0\n62\n'+c+'\n6\nCONTINUOUS\n'; });
+      s+='0\nENDTAB\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n';
+      for(const [t,ly,g] of e){ s+='0\n'+t+'\n8\n'+ly+'\n'; for(let i=0;i<g.length;i+=2)s+=g[i]+'\n'+g[i+1]+'\n'; }
+      return s+'0\nENDSEC\n0\nEOF\n';}
+  };
+  return api;
+}
+/* 보 배근도(입면+단면)를 doc 에 (ox,oy) 기준으로 작도. P:{mark,b,h,Ln,barsTop,barsBot,stirrup,MuPos,MuNeg,Vu} */
+function beamRebarDXF(doc,ox,oy,P,prof){
+  prof=prof||DRAW_PROFILE.tw; const b=P.b,h=P.h,Ln=P.Ln,cov=40,T=prof.txt;
+  const L={o:'S-OUTLINE',r:'S-REBAR',s:'S-STIRR',t:'S-TEXT',d:'S-DIM'};
+  doc.rect(ox,oy,Ln,h,L.o);                                   // 입면 외곽
+  doc.line(ox+30,oy+h-cov,ox+Ln-30,oy+h-cov,L.r);             // 상부 연속근
+  const te=Ln/prof.topExtraDiv;                               // 단부 상부 추가근 Ln/3
+  doc.line(ox+30,oy+h-cov-50,ox+30+te,oy+h-cov-50,L.r);
+  doc.line(ox+Ln-30-te,oy+h-cov-50,ox+Ln-30,oy+h-cov-50,L.r);
+  doc.line(ox+30,oy+cov,ox+Ln-30,oy+cov,L.r);                 // 하부 연속근
+  const be=Ln/prof.botExtraDiv;                               // 중앙 하부 추가근
+  doc.line(ox+Ln/2-be,oy+cov+50,ox+Ln/2+be,oy+cov+50,L.r);
+  const sMid=P.stirrup.s, sEnd=Math.max(50,Math.round(sMid/2/10)*10), cz=Math.min(prof.confineH*h,Ln*0.3);
+  const xs=[]; for(let x=cov;x<cz;x+=sEnd)xs.push(x); for(let x=cz;x<=Ln-cz;x+=sMid)xs.push(x); for(let x=Ln-cz;x<=Ln-cov;x+=sEnd)xs.push(x);
+  xs.forEach(x=>doc.line(ox+x,oy+cov,ox+x,oy+h-cov,L.s));      // 스터럽
+  doc.text(ox+Ln/2,oy+h+T.callout*0.6,T.callout,`上 T:${P.barsTop.n}-${P.barsTop.dia} (端部追加 Ln/${prof.topExtraDiv})`,L.t,{align:'center'});
+  doc.text(ox+Ln/2,oy-T.callout*1.4,T.callout,`下 B:${P.barsBot.n}-${P.barsBot.dia}`,L.t,{align:'center'});
+  doc.text(ox+cz/2,oy+h/2,T.dim,`${P.stirrup.leg}-${P.stirrup.dia}@${sEnd}`,L.t,{align:'center'});
+  doc.text(ox+Ln/2,oy+h/2,T.dim,`@${sMid}`,L.t,{align:'center'});
+  doc.text(ox,oy+h+T.mark*1.3,T.mark,`${P.mark}  ${b}x${h}`,L.t,{});
+  doc.text(ox+Ln/2,oy-T.dim*3,T.dim,`Ln=${Math.round(Ln)}`,L.d,{align:'center'});
+  // 단면도(우측)
+  const sx=ox+Ln+900, r=_barDia(P.barsTop.dia)/2;
+  doc.rect(sx,oy,b,h,L.o); doc.rect(sx+cov,oy+cov,b-2*cov,h-2*cov,L.s);
+  const row=(n,yy,dia)=>{const rr=_barDia(dia)/2,iw=b-2*cov-2*rr;for(let i=0;i<n;i++){const xx=sx+cov+rr+(n>1?i*iw/(n-1):iw/2);doc.circle(xx,yy,rr,L.r);}};
+  row(P.barsTop.n,oy+h-cov,P.barsTop.dia); row(P.barsBot.n,oy+cov,P.barsBot.dia);
+  doc.text(sx+b/2,oy+h+T.dim,T.dim,'斷面',L.t,{align:'center'});
+  return {w:Ln+900+b, h:h};
+}
+/* 그룹들의 보 배근도 시트(DXF 문자열). groups:[{mark,b,h,Ln,barsTop,barsBot,stirrup,...}] */
+function rebarSheetDXF(groups,opts){
+  opts=opts||{}; const prof=opts.profile||DRAW_PROFILE.tw, doc=DxfDoc(prof), T=prof.txt;
+  let y=0; const pitch=h=>h+2200; let maxw=0;
+  doc.text(0, 1200+ (groups.length?0:0), T.title, opts.title||'梁配筋圖 (Beam Rebar)', 'S-TITLE',{});
+  doc.text(0, 1200-T.callout*1.4, T.callout, `配筋詳圖依 ${prof.ref.beam} 標準圖 / ${prof.ref.note}`, 'S-TEXT',{});
+  // 도면들은 타이틀 아래로 쌓는다(아래로 내려가며)
+  y=-200;
+  groups.forEach(g=>{ y-=pitch(g.h); const r=beamRebarDXF(doc,0,y,g,prof); if(r.w>maxw)maxw=r.w; });
+  return doc.toString();
+}
+
 /* ── 네임스페이스 노출 (M2 확장·다른 프런트엔드용) ── */
 if(typeof window!=='undefined'){
   window.RCEngine={
@@ -524,6 +600,7 @@ if(typeof window!=='undefined'){
     WIND_EXPOSURE, windStoryForces, detectTypicalFloors,
     KGFCM2_TO_MPA, fcMPa, REBAR_FY, BAR_AREA, DEFAULT_REBAR, beamEffDepth,
     flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign,
-    ES_STEEL, beta1, colPMpoints, colMcapAt, pickColBars, rcColumnDesign
+    ES_STEEL, beta1, colPMpoints, colMcapAt, pickColBars, rcColumnDesign,
+    DRAW_PROFILE, dxfStr, DxfDoc, beamRebarDXF, rebarSheetDXF
   };
 }

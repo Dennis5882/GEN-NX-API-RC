@@ -1,5 +1,21 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.7.0 — 2026-06-12 (M4 1단계) — 梁配筋圖 DXF 생성
+
+새 파일 **`gen_nx_rc_agent_v2.7.0.html`**. M4 착수 — **배근도(配筋圖)를 DXF로 작도·내보내기**.
+
+- **엔진 DXF 코어** — 순수 DXF(R12/AC1009) 작성기 `DxfDoc`(LINE/RECT/CIRCLE/TEXT, 레이어 테이블,
+  CJK `\U+XXXX` 이스케이프). 출력 = **DXF**(브라우저서 .dwg 직접생성 불가 → CAD에서 .dwg 저장/편집).
+- **표준 프로파일** — `DRAW_PROFILE.tw`(公會 標準圖 규칙: 단부 추가근 Ln/3, 가밀 2h, RC04/RC06 참조,
+  텍스트 높이·레이어). 국가 확장 seam.
+- **梁配筋圖 작도** — `beamRebarDXF`/`rebarSheetDXF`: 보 입면(상/하부 연속+추가근, 스터럽 단부가밀/중앙,
+  부재부호·Ln) + 단면도(주근 원·스터럽) + 표준도 참조주기. 표준층 그룹별 스택.
+- **Agent 배선** — "도면/배근도/配筋圖/dxf" 의도 + 가이드 📐 버튼. `actDrawDXF`: 배근결과(M3) →
+  그룹별 보 배근도 → `beam_rebar_TWD.dxf` 다운로드(배근 없으면 자동 설계 선행).
+- **검증** — **ezdxf(실 CAD 라이브러리) 읽기 통과**(AC1009·layers·CJK 이스케이프), 배근결과→groups→DXF
+  글루 검증, 엔진+에이전트 결합 파싱 OK.
+- (다음) 柱配筋圖 · 일람표(梁表/柱表) DXF · 표제란/도번 · 골조 평면도(보조).
+
 ## v2.6.0 — 2026-06-12 (M3 완료) — 이축 P-M + 배근표 CSV
 
 새 파일 **`gen_nx_rc_agent_v2.6.0.html`**. M3 마무리 — 기둥 **이축(雙軸) P-M** + **배근표 내보내기**.
