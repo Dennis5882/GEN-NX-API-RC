@@ -1304,17 +1304,17 @@ function planEditor(p){
                  : '跨距可輸入 <b>3000,4000,3000</b> 等逗號值做不等跨（跨數自動同步）。';
   return `<div class="plan-editor">${head}`+
     `<div class="pe-grid">`+
-      F('buildings',p.buildings)+ F('stories',p.stories)+
+      F('buildings',p.buildings)+
       F('bayX',p.bayX)+ F('bayY',p.bayY)+
       F('spanX',p.spanX,'mm',true)+ F('spanY',p.spanY,'mm',true)+
-      F('h1',p.h1,'mm')+ F('hTyp',p.hTyp,'mm')+
       F('colH',p.colH,'mm')+ F('colB',p.colB,'mm')+
       F('beamH',p.beamH,'mm')+ F('beamB',p.beamB,'mm')+
       F('connectFloor',p.connectFloor)+ F('gap',p.gap,'mm')+
       `<div class="pe-f pe-full"><label>${PE.mat}</label><div class="pe-in">`+
         `<select data-k="matName" onchange="previewFromEditor(this)">${matOpts}</select></div></div>`+
     `</div>`+
-    `<div class="pe-tip">${t('pe_tip')}</div>`+
+    fgTableHTML(p)+
+    `<div class="pe-tip">${L3('표준층 표에서 역할·층범위·층고·용도·다이어프램을 직접 편집 → 층수·높이가 표를 따름.','Edit role/range/height/use/diaphragm in the table → stories & heights follow the table.','於標準層表編輯 類型/範圍/層高/用途/剛性樓板 → 樓層數與高度依表為準。')}</div>`+
     `<div class="pe-tip" style="margin-top:4px">${spanHint}</div>`+
   `</div>`;
 }
@@ -1350,15 +1350,55 @@ function readPlanEditor(el){
   p.beamName=`B${p.beamB}x${p.beamH}`;
   // 多棟卻無間距 → 避免建築重疊
   if(p.buildings>=2 && (!p.gap||p.gap<=0)) p.gap=14000;
+  // 표준층 표 → groups(층 구성·높이의 단일 출처). stories·h1·hTyp는 표를 따름.
+  const rows=[...el.querySelectorAll('.fg-row')].map(r=>({
+    role:r.querySelector('.fg-role').value,
+    from:+r.querySelector('.fg-from').value, to:+r.querySelector('.fg-to').value,
+    h:+r.querySelector('.fg-h').value, use:r.querySelector('.fg-use').value,
+    dia:(r.querySelector('.fg-dia')?r.querySelector('.fg-dia').checked:true)
+  })).filter(g=>g.to>=g.from);
+  if(rows.length){
+    p.groups=rows;
+    p.stories=Math.max(1,...rows.map(g=>g.to));
+    p.h1=rows[0].h; p.hTyp=(rows.find(g=>g.role==='TYPICAL')||rows[rows.length-1]).h;
+  }
   return p;
 }
 
 /* 編輯卡任一欄位變更 → 同步 pendingBuild 並即時更新 3D 預覽 */
 function previewFromEditor(inp){
   const el=inp.closest('.plan-editor'); if(!el) return;
+  previewEditorEl(el);
+}
+function previewEditorEl(el){
+  if(!el) return;
   const p=readPlanEditor(el);
   pendingBuild=p;
   tab('viewP'); previewSpec(p);
+}
+/* 스펙 → 표준층 표 행(역할/범위/층고/용도/다이어프램). 연속 동일 그룹은 묶음. */
+function specToGroupRows(p){
+  const g=deriveFloorGroups(p);
+  const rows=[]; const keys=Object.keys(g).map(Number).sort((a,b)=>a-b);
+  for(const s of keys){
+    const cur=g[s]; const h=((s===1?p.h1:p.hTyp)||p.hTyp||3000);
+    const dia=(cur.dia!==false);
+    const last=rows[rows.length-1];
+    if(last && last.role===cur.role && last.use===cur.use && last.dia===dia && last.h===h && last.to===s-1){ last.to=s; }
+    else rows.push({role:cur.role,from:s,to:s,h,use:cur.use,dia});
+  }
+  return rows;
+}
+/* 표준층 표 HTML(편집 카드용) */
+function fgTableHTML(p){
+  const rows=specToGroupRows(p).map(fgRow).join('');
+  return `<div style="margin-top:14px">
+    <div style="font-size:.7rem;color:var(--amber);font-family:'IBM Plex Mono','Noto Sans TC';letter-spacing:.5px;margin-bottom:6px">${L3('표준층 / 특수층 구성 (1:N 매핑)','Typical / special floors (1:N)','標準層 / 特殊層 (1:N)')}</div>
+    <table class="fgtable" style="width:100%"><thead><tr>
+      <th>${L3('역할','Role','類型')}</th><th>${L3('시작','From','起')}</th><th>${L3('끝','To','迄')}</th><th>${L3('층고','Ht','層高')}</th><th>${L3('용도','Use','用途')}</th><th>${L3('다이어프램','Diaph.','剛性樓板')}</th><th></th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    <button class="btn btn-ghost" style="margin-top:8px;padding:5px 12px" onclick="fgAddRow(this)">+ ${L3('층그룹','Floor group','樓層群')}</button>
+  </div>`;
 }
 
 /* 說明卡 → 切換為可編輯卡（修改按鈕） */
@@ -2110,16 +2150,25 @@ function fgRow(g){
   const rs=FG_ROLES.map(r=>`<option value="${r}"${r===g.role?' selected':''}>${roleLbl(r)}</option>`).join('');
   const us=FG_USES.map(u=>`<option value="${u}"${u===g.use?' selected':''}>${useLbl(u)}</option>`).join('');
   return `<tr class="fg-row">
-    <td><select class="fg-role" onchange="previewFromForm()">${rs}</select></td>
-    <td><input class="fg-from" type="number" value="${g.from}" style="width:44px" onchange="previewFromForm()"></td>
-    <td><input class="fg-to" type="number" value="${g.to}" style="width:44px" onchange="previewFromForm()"></td>
-    <td><input class="fg-h" type="number" value="${g.h}" style="width:58px" onchange="previewFromForm()"></td>
-    <td><select class="fg-use" onchange="previewFromForm()">${us}</select></td>
-    <td style="text-align:center"><input class="fg-dia" type="checkbox" ${g.dia===false?'':'checked'} onchange="previewFromForm()"></td>
-    <td><button class="btn btn-ghost" style="padding:2px 8px" onclick="this.closest('tr').remove();previewFromForm()">×</button></td></tr>`;
+    <td><select class="fg-role" onchange="fgChanged(this)">${rs}</select></td>
+    <td><input class="fg-from" type="number" value="${g.from}" style="width:44px" onchange="fgChanged(this)"></td>
+    <td><input class="fg-to" type="number" value="${g.to}" style="width:44px" onchange="fgChanged(this)"></td>
+    <td><input class="fg-h" type="number" value="${g.h}" style="width:58px" onchange="fgChanged(this)"></td>
+    <td><select class="fg-use" onchange="fgChanged(this)">${us}</select></td>
+    <td style="text-align:center"><input class="fg-dia" type="checkbox" ${g.dia===false?'':'checked'} onchange="fgChanged(this)"></td>
+    <td><button class="btn btn-ghost" style="padding:2px 8px" onclick="fgDel(this)">×</button></td></tr>`;
 }
-function fgAddRow(){ const tb=document.querySelector('.param-form-root .fgtable tbody'); if(!tb)return;
-  tb.insertAdjacentHTML('beforeend', fgRow({role:'TYPICAL',from:1,to:1,h:3200,use:'Residential'})); previewFromForm(); }
+/* 표준층 표는 파라미터 폼(.param-form-root)과 대화형 편집 카드(.plan-editor) 양쪽에서 공용 */
+function fgChanged(el){ const ed=el.closest('.plan-editor'); if(ed){ previewEditorEl(ed); } else { previewFromForm(); } }
+function fgDel(btn){ const ed=btn.closest('.plan-editor'); const fc=btn.closest('.param-form-root');
+  const tr=btn.closest('tr'); if(tr) tr.remove();
+  if(ed) previewEditorEl(ed); else if(fc) previewFromForm(); }
+function fgAddRow(btn){
+  const c = btn ? btn.closest('.param-form-root, .plan-editor') : document.querySelector('.param-form-root');
+  const tb = c ? c.querySelector('.fgtable tbody') : null; if(!tb) return;
+  const def = c.classList.contains('plan-editor') ? {role:'TYPICAL',from:1,to:1,h:(pendingBuild?pendingBuild.hTyp:3200)||3200,use:useOf(pendingBuild||{})} : {role:'TYPICAL',from:1,to:1,h:3200,use:'Residential'};
+  tb.insertAdjacentHTML('beforeend', fgRow(def));
+  if(c.classList.contains('plan-editor')) previewEditorEl(c); else previewFromForm(); }
 function readForm(){
   const card=document.querySelector('.param-form-root'); if(!card||!card.querySelector('[data-g="colH"]')) return null;
   const gv=k=>card.querySelector(`[data-g="${k}"]`).value;
@@ -2164,7 +2213,7 @@ function paramFormHTML(){
       <table class="fgtable" style="width:100%"><thead><tr>
         <th>${L3('역할','Role','類型')}</th><th>${L3('시작','From','起')}</th><th>${L3('끝','To','迄')}</th><th>${L3('층고','Ht','層高')}</th><th>${L3('용도','Use','用途')}</th><th>${L3('다이어프램','Diaph.','剛性樓板')}</th><th></th>
       </tr></thead><tbody>${rows}</tbody></table>
-      <button class="btn btn-ghost" style="margin-top:8px;padding:5px 12px" onclick="fgAddRow()">+ ${L3('층그룹','Floor group','樓層群')}</button>
+      <button class="btn btn-ghost" style="margin-top:8px;padding:5px 12px" onclick="fgAddRow(this)">+ ${L3('층그룹','Floor group','樓層群')}</button>
     </div>
     <div class="pe-tip">${L3('역할·층범위·층고·용도를 표로 정의 → 표준층 1개가 자연층 N개로 전개. CNS560·다이어프램·하중조합 자동.','Define role/range/height/use as a table → one typical floor expands to N stories. CNS560·diaphragm·combos auto.','以表格定義 類型/範圍/層高/用途 → 一個標準層展開為 N 自然層。自動套用 CNS560·剛性樓板·載重組合。')}</div>
     <div style="display:flex;gap:8px;margin-top:14px">
