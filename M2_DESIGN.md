@@ -81,6 +81,17 @@
 ### A-4. (선택, 후속) 동적해석
 - 質量 정의 → 고유치/응답스펙트럼. 1차 릴리즈는 **等效靜力만**. 모달은 A-4로 분리.
 
+**라이브 검증 (2026-06-12) — API 한계 확인:**
+- `db/styp` (Structure Type) **노출됨**: `bSELFWEIGHT:true` 로 **자중→질량 변환 작동**(PUT·GET 확인).
+  필드: `STYP/MASS/SMASS/GRAV/TEMP/bALIGNBEAM/bALIGNSLAB/bMASSOFFSET/bROTRIGID/bSELFWEIGHT`.
+  `db/nmas`(절점질량)·`db/ltom`(하중→질량) 엔드포인트도 존재(스키마 미확인).
+- `db/eigv`(고유치 제어)·`db/spfc`·`db/splc`(응답스펙트럼) **스키마 미노출**: Assign 구조는 요구하나
+  **빈 객체 `{}` 포함 모든 필드가 "Wrong Field"** → SEIS/WIND(결정 #1)와 동일한 벽.
+- **결론**: 모달/응답스펙트럼 **해석 자체는 API로 구동 불가**. 等效靜力처럼 자체계산도 불가(FE 고유해석 필요).
+  → 가능한 범위: (a) 質量 셋업(자중→질량)으로 **모델을 동적해석 준비 상태로** 만들기,
+  (b) 사용자가 Gen NX GUI에서 모달 실행 후 `post/table`로 **주기 회수 → 等效靜力 T 보정**(읽기 경로).
+  결정 **#6**: M2-A4 범위(준비만 / 읽기연동 / 보류).
+
 ---
 
 ## M2-B — 기존모델 표준층 자동판정
