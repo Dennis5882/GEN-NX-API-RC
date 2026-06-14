@@ -275,6 +275,43 @@ MIDAS 보고 대상 버그.
 
 ---
 
+## C++++. 공식 SDK 대조 (MIDASIT-Co-Ltd, 2026-06-14)
+
+마이다스아이티 공식 조직의 두 Python SDK를 정밀 조사. 둘 다 **v1.6.6**, `MidasAPI(method,command,body)` 단일 전송부 +
+per-object 클래스 래퍼. 키는 **Windows 레지스트리에서 읽음**(하드코딩 X — 우리 "키 비커밋" 철학과 동일).
+- **[midas-gen-python](https://github.com/MIDASIT-Co-Ltd/midas-gen-python)** (우리 제품, GEN NX) · `_mapi.py`에 ~159개 엔드포인트 URI 사전.
+- **[midas-civil-python](https://github.com/MIDASIT-Co-Ltd/midas-civil-python)** (Civil NX, albertp16 참조) · ~190개 URI 사전. (Civil·Gen 동일 MAPI 공유 — 코드 주석으로 확인)
+- 공식 문서 사이트(추가 정본 후보): **`midas-rnd.github.io/midasapi-python`**.
+
+### ✅ 우리 스키마가 공식 SDK와 일치 (추인)
+| 항목 | SDK 위치 | 스키마 |
+|---|---|---|
+| EIGV | `_analysiscontrol.py` `AnalysisControl.EigenValue` | `TYPE` EIGEN(Subspace)/LANCZOS/RITZ · iFREQ/iITER/iDIM/TOL · (Lanczos) bMINMAX/FRMIN/FRMAX/bSTRUM · (Ritz) bINCNL/iGNUM/vRITZ |
+| NMAS | `_load.py` `Load.NodalMass` | `{Assign:{<node_id>:{mX,mY,mZ,rmX,rmY,rmZ}}}` (노드 id로 키) |
+| LTOM | `_load.py` `Load.LoadToMass` | `{DIR,bNODAL,bBEAM,bFLOOR,bPRES,GRAV,vLC:[{LCNAME,FACTOR}]}` |
+| STYP | `_model.py` `Model.type` | `{STYP,MASS(1=lumped/2=consistent),bSELFWEIGHT,SMASS(1=XYZ/2=XY/3=Z),GRAV}` |
+| SPFC | `_responseSpectrum.py` `RS.Function` | `{NAME,iTYPE,iMETHOD,SCALE,GRAV,DRATIO,aFUNC:[{PERIOD,VALUE}]}` |
+| SPLC | `_responseSpectrum.py` `RS.Case` | `{NAME,DIR,ANGLE,SCALE,PMFT,INTERP,aFUNCNAME,bDAMP,COMTYPE…}` |
+→ 우리 구현(EIGV/NMAS/LTOM/STYP/SPFC/SPLC) 전부 정합.
+
+### 🌟 우리 실측 발견은 공식 SDK에도 없음 = 실전 지식
+- **Lanczos 필요(off-diagonal 질량)** — SDK에 경고 없음(방법은 사용자 선택). 우리가 라이브로만 규명 → MIDAS 보고 가치.
+- **NMAS Gen NX 크래시** — SDK에 경고 없음. (gen SDK의 `NodalMass.get()/delete()`엔 `return` 누락 자체 버그 존재)
+
+### 🔑 미해결 항목 — SDK로 규명
+- **Story(STOR)**: 두 SDK 모두 **미포함**(엔드포인트 사전에도 없음). → "Wrong Field"는 필드 누락이 아니라
+  **모델 형상에서 Story auto-generate 선행 필요**(맨바닥 PUT 불가) 가능성. (실제 DB 키가 `STRY`일 가능성도 — 미확정)
+- **주기 회수**: SDK도 모달 TABLE_TYPE 미보유. 단 `_result_table.py`가 `[tableName]["SUB_TABLES"][i]["HEAD"/"DATA"]`
+  패턴을 실제 사용 → 우리 `pickModalPeriods` SUB_TABLES 재귀가 정방향(서버가 반환하면 동작).
+- **WIND·정적지진 생성**: 두 SDK 모두 미포함(POSL은 이름만, 래퍼·생성코드 없음) → **REST 미노출 확정**. 자체계산이 정답.
+- **dcon(설계코드)**: 공식 SDK 없음(load-combination 설계 lcom-* 만 존재) → 자체계산(TWD-USD112) 유지 타당.
+
+### 📌 보강 포인트
+- **STYP**: 현재 `bSELFWEIGHT`만 → `MASS:1`(lumped) + `SMASS`(질량방향) 추가하면 SDK 수준으로 완전.
+- 참고 repo: `concrete-properties`(RC 단면특성 계산 — 향후 단면/배근 참고).
+
+---
+
 ## D. 후속 액션
 
 | # | 항목 | 액션 |
