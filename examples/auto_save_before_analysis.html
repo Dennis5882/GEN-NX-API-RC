@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>MIDAS Gen NX MAPI — Auto Save Before Analysis</title>
+<style>
+  body { font-family: monospace; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #1e1e1e; color: #d4d4d4; }
+  h1 { color: #4ec9b0; font-size: 1.1em; }
+  h2 { color: #9cdcfe; font-size: 0.95em; margin-top: 2em; }
+  pre { background: #252526; border: 1px solid #3e3e3e; border-radius: 4px; padding: 16px; overflow-x: auto; line-height: 1.5; }
+  .kw  { color: #569cd6; }  /* keyword */
+  .fn  { color: #dcdcaa; }  /* function */
+  .str { color: #ce9178; }  /* string */
+  .cmt { color: #6a9955; }  /* comment */
+  .num { color: #b5cea8; }  /* number */
+  label { color: #9cdcfe; display: block; margin-top: 1em; }
+  input { background: #3c3c3c; border: 1px solid #555; color: #d4d4d4; padding: 6px 10px; width: 100%; box-sizing: border-box; border-radius: 3px; font-family: monospace; }
+  button { margin-top: 12px; padding: 8px 20px; background: #0e639c; color: #fff; border: none; border-radius: 3px; cursor: pointer; font-family: monospace; }
+  button:hover { background: #1177bb; }
+  #log { margin-top: 16px; background: #252526; border: 1px solid #3e3e3e; border-radius: 4px; padding: 12px; min-height: 80px; white-space: pre-wrap; font-size: 0.9em; }
+  .ok  { color: #4ec9b0; }
+  .err { color: #f44747; }
+  .info{ color: #9cdcfe; }
+  p { color: #808080; line-height: 1.7; }
+  code { background: #2d2d2d; padding: 1px 5px; border-radius: 2px; color: #ce9178; }
+</style>
+</head>
+<body>
+
+<h1>MIDAS Gen NX MAPI — Auto Save Before Analysis</h1>
+<p>
+  해석 실행(<code>POST /doc/anal</code>) 전에 파일을 자동 저장하는 패턴입니다.<br>
+  <code>GET /mapikey/verify</code>에서 로그인한 사용자 이메일을 가져와
+  저장 경로를 동적으로 생성합니다.
+</p>
+
+<h2>동작 흐름</h2>
+<pre>
+<span class="cmt">// 1. /mapikey/verify → 사용자 이메일 확인
+// 2. 이메일 @ 앞 부분(username) 추출 → Windows 경로 구성
+// 3. 타임스탬프로 파일명 유니크화
+// 4. POST /doc/saveas → 저장 완료 후
+// 5. POST /doc/anal  → 해석 실행</span>
+</pre>
+
+<h2>핵심 코드</h2>
+<pre>
+<span class="cmt">/**
+ * Gen NX MAPI Base URL (예: http://127.0.0.1:8090/gen)
+ * /gen, /civil 경로를 제거해 루트 URL 반환 → /mapikey/verify 호출에 사용
+ */</span>
+<span class="kw">function</span> <span class="fn">mapiRoot</span>(base) {
+  <span class="kw">return</span> base.replace(<span class="str">/\/(gen|civil)\/?$/i</span>, <span class="str">''</span>);
+}
+
+<span class="cmt">/**
+ * 연결 확인 + 로그인 사용자 정보 반환
+ * j.user 에 로그인 이메일이 담겨 있음 (예: "sjj0507@midasit.com")
+ */</span>
+<span class="kw">async function</span> <span class="fn">verifyConn</span>(base, key) {
+  <span class="kw">const</span> res = <span class="kw">await</span> fetch(`${<span class="fn">mapiRoot</span>(base)}/mapikey/verify`, {
+    headers: { <span class="str">'MAPI-Key'</span>: key }
+  });
+  <span class="kw">let</span> j = {};
+  <span class="kw">try</span> { j = <span class="kw">await</span> res.json(); } <span class="kw">catch</span> (e) {}
+  <span class="kw">return</span> { ok: res.ok, j };
+}
+
+<span class="cmt">/**
+ * 저장 경로 자동 결정
+ *
+ *  성공 경로: C:/Users/{username}/Documents/gen_rc_temp_{timestamp}.mgbx
+ *  폴백 경로: C:/Temp/gen_rc_temp_{timestamp}.mgbx
+ *
+ * MAPI 서버는 Gen NX가 실행 중인 PC에서 동작하므로
+ * 경로 역시 그 PC 기준으로 구성해야 합니다.
+ * %USERPROFILE% 등 환경변수는 MAPI가 인식하지 못하므로
+ * /mapikey/verify 의 j.user 이메일로 username 을 직접 추출합니다.
+ */</span>
+<span class="kw">async function</span> <span class="fn">autoSavePath</span>(base, key) {
+  <span class="kw">try</span> {
+    <span class="kw">const</span> { ok, j } = <span class="kw">await</span> <span class="fn">verifyConn</span>(base, key);
+    <span class="kw">if</span> (ok &amp;&amp; j &amp;&amp; j.user) {
+      <span class="kw">const</span> username = j.user.split(<span class="str">'@'</span>)[<span class="num">0</span>];
+      <span class="kw">return</span> `C:/Users/${username}/Documents/gen_rc_temp_${Date.now()}.mgbx`;
+    }
+  } <span class="kw">catch</span> (e) {}
+  <span class="cmt">// verifyConn 실패 시 공용 임시 폴더로 폴백</span>
+  <span class="kw">return</span> `C:/Temp/gen_rc_temp_${Date.now()}.mgbx`;
+}
+
+<span class="cmt">/**
+ * 해석 실행
+ *
+ * ⚠️  순서가 중요합니다.
+ *    /doc/saveas 먼저 → 그 다음 /doc/anal
+ *    순서가 바뀌면 Gen NX가 저장 다이얼로그를 띄울 수 있습니다.
+ */</span>
+<span class="kw">async function</span> <span class="fn">runAnalysis</span>(base, key) {
+  <span class="kw">const</span> savePath = <span class="kw">await</span> <span class="fn">autoSavePath</span>(base, key);
+
+  <span class="cmt">// 1) 저장</span>
+  <span class="kw">await</span> fetch(`${base}/doc/saveas`, {
+    method: <span class="str">'POST'</span>,
+    headers: { <span class="str">'MAPI-Key'</span>: key, <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span> },
+    body: JSON.stringify({ Argument: savePath })
+  });
+
+  <span class="cmt">// 2) 해석</span>
+  <span class="kw">await</span> fetch(`${base}/doc/anal`, {
+    method: <span class="str">'POST'</span>,
+    headers: { <span class="str">'MAPI-Key'</span>: key, <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span> },
+    body: JSON.stringify({})
+  });
+
+  <span class="kw">return</span> savePath;
+}
+</pre>
+
+<h2>직접 실행해보기</h2>
+<label>Base URL <input id="baseUrl" placeholder="http://127.0.0.1:8090/gen"></label>
+<label>MAPI Key  <input id="mapiKey" type="password" placeholder="your-mapi-key"></label>
+<button onclick="runDemo()">저장 경로 확인 (verifyConn only)</button>
+<div id="log">— 결과가 여기에 표시됩니다 —</div>
+
+<script>
+function mapiRoot(base) {
+  return base.replace(/\/(gen|civil)\/?$/i, '');
+}
+
+async function verifyConn(base, key) {
+  const res = await fetch(`${mapiRoot(base)}/mapikey/verify`, {
+    headers: { 'MAPI-Key': key }
+  });
+  let j = {};
+  try { j = await res.json(); } catch (e) {}
+  return { ok: res.ok, j };
+}
+
+async function autoSavePath(base, key) {
+  try {
+    const { ok, j } = await verifyConn(base, key);
+    if (ok && j && j.user) {
+      const username = j.user.split('@')[0];
+      return `C:/Users/${username}/Documents/gen_rc_temp_${Date.now()}.mgbx`;
+    }
+  } catch (e) {}
+  return `C:/Temp/gen_rc_temp_${Date.now()}.mgbx`;
+}
+
+async function runDemo() {
+  const base = document.getElementById('baseUrl').value.trim().replace(/\/$/, '');
+  const key  = document.getElementById('mapiKey').value.trim();
+  const log  = document.getElementById('log');
+
+  if (!base || !key) {
+    log.innerHTML = '<span class="err">Base URL 과 MAPI Key 를 입력하세요.</span>';
+    return;
+  }
+
+  log.innerHTML = '<span class="info">연결 확인 중...</span>';
+  try {
+    const { ok, j } = await verifyConn(base, key);
+    if (!ok) { log.innerHTML = `<span class="err">연결 실패 (HTTP ${j?.status ?? '?'})</span>`; return; }
+
+    const path = await autoSavePath(base, key);
+    log.innerHTML =
+      `<span class="ok">✔ 연결 성공</span>\n` +
+      `  user    : ${j.user ?? '(없음)'}\n` +
+      `  program : ${j.program ?? '(없음)'}\n\n` +
+      `<span class="ok">✔ 자동 저장 경로</span>\n  ${path}`;
+  } catch (e) {
+    log.innerHTML = `<span class="err">오류: ${e.message}</span>`;
+  }
+}
+</script>
+
+</body>
+</html>
