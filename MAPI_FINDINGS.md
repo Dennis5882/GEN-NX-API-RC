@@ -230,6 +230,20 @@ REST(클라이언트) → AWS 서버(중개) → WebSocket → 로컬 MIDAS 제�
 → **절점질량은 `db/NMAS` 대신 `db/styp`(bSELFWEIGHT) + `db/LTOM`(하중→질량) 사용.** (actDynamic도 이 경로)
 MIDAS 보고 대상 버그.
 
+### ✅ 동적해석 실행 = Lanczos 필요 (2026-06-14 actDynamic end-to-end 실검증)
+실모델(자중질량 styp+LTOM, `DIR:"XY"`)에 `db/EIGV` **TYPE:"EIGEN"(Subspace)** 으로 `doc/anal` 시
+**`"Analysis is not allowed"`**(HTTP 200). **원인은 라이선스가 아니라 해석 방법**:
+> MIDAS 제약 — **"off-diagonal 질량이 있으면 Lanczos만 가능"**. `db/LTOM(DIR:"XY")`이 off-diagonal 질량을 만들어
+> Subspace Iteration이 거부됨. (Gen NX Eigenvalue Analysis Control 다이얼로그 에러로 확인 — 제보: Dennis)
+- **해결**: `eigvPayload`를 **`TYPE:"LANCZOS"`** 로 고정 → `doc/anal` **"command complete" 성공**(실검증).
+- 같은 모델에서 정적해석(eigv 없이)은 항상 정상 → "not allowed"는 동적 방법 문제였음.
+- **모드형상**은 `EIGENVALUEMODE`/`PARTICIPATIONVECTORMODE`로 회수됨(Node/Mode/UX…).
+- **주기(Period)**: 매뉴얼상 `PARTICIPATIONVECTORMODE` 응답의 **`SUB_TABLES[].EIGENVALUEANALYSIS`**(HEAD에 Period(sec))에 위치.
+  그러나 **이 서버 버전은 SUB_TABLES를 미반환** → 라이브 주기 회수 불가(`pickModalPeriods`는 SUB_TABLES 재귀 탐색하나 없으면 T1=null).
+  ※ 주기는 전역 모달값이라 Story 정의와 무관(Story 정의해도 미반환 확인).
+- **`db/STOR`(Story Data)**: WIND_*/SEIS_* per-story 필드 보유(정적 풍·지진이 Story에 결합). 단 전체 필수필드로도
+  "Wrong Field" — 추가 전제(모델 선행조건/미문서 필드) 필요. **정적 횡하중 생성의 향후 단서**(미해결).
+
 ### 참고: 검증된 결과회수 타입
 - **반력 = `REACTIONG`** (HEAD: Index/Node/Load/FX/FY/FZ/MX/MY/MZ). `REACTION`/`REACTIONFORCE`는 무효.
 - 구속조건 CONSTRAINT는 **7자리** 문자열(예: 완전고정 `1111110`).

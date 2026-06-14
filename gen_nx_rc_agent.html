@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gen NX 대화형 모델링 에이전트 v2.10.0 (M2-A4 동적해석)</title>
+<title>Gen NX 대화형 모델링 에이전트 v2.10.1 (M2-A4 동적해석)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -335,7 +335,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.10.0</span><small data-i18n="subtitle">對話式結構建模</small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.10.1</span><small data-i18n="subtitle">對話式結構建模</small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <button data-l="ko" onclick="setLang('ko')">한국어</button>
@@ -1175,8 +1175,16 @@ async function actDynamic(opt={}){
       log('▸ '+L3('응답스펙트럼(대만) RSX·RSY','Response spectrum (TW) RSX·RSY','反應譜(臺灣) RSX·RSY')+` · T0=${ds.T0}s Ts=${ds.Ts}s`,'ok');
     }
   }
-  /* 4) 해석 실행 */
-  await runAnalysis();
+  /* 4) 해석 실행 — 동적해석은 라이선스/시트에 따라 막힐 수 있음("Analysis is not allowed").
+     doc/anal은 그 경우 HTTP 200 + message로 회신하므로(에러필드 아님) 직접 메시지를 점검. */
+  await setUnit('KN','M');
+  log(tl('analRun'),'info');
+  const analRes=await mapi('POST','/doc/anal',{});
+  const analMsg=String((analRes&&analRes.message)||'');
+  const notAllowed=/not allowed|not permitted|허용되지|許可/i.test(analMsg);
+  if(notAllowed) log('▸ '+L3('해석 실행 거부: ','analysis refused: ','分析被拒: ')+analMsg+
+    L3(' (고유치는 Lanczos 사용 — off-diagonal 질량 시 Subspace 불가)',' (eigen uses Lanczos — Subspace invalid with off-diagonal mass)',' (特徵值用 Lanczos — off-diagonal 質量時 Subspace 不可)'),'err');
+  else log(tl('analDone'),'ok');
   /* 5) 주기 회수 (PARTICIPATIONVECTORMODE 응답의 Period 서브테이블 파싱) */
   let modal={modes:[],T1:null};
   try{
@@ -1201,10 +1209,14 @@ async function actDynamic(opt={}){
   if(modal.T1){
     msg+='<br>'+L3('1차 모드 주기','1st mode period','一次模態週期')+` <b>T₁=${modal.T1.toFixed(3)}s</b>`;
     if(modal.modes.length>1) msg+=` · ${modal.modes.length} ${L3('모드','modes','模態')}`;
+  } else if(notAllowed){
+    msg+='<br>'+L3('⚠ 해석 실행이 거부됨 — 설정(질량·고유치·응답스펙트럼)은 정상 생성됨. 고유치는 Lanczos를 사용합니다.',
+                   '⚠ Analysis was refused — setup (mass·eigen·RS) created OK. Eigen uses Lanczos.',
+                   '⚠ 分析被拒 — 設定(質量·特徵值·反應譜)已建立。特徵值採 Lanczos。');
   } else {
-    msg+='<br>'+L3('⚠ 주기 결과 없음 — 질량·지지·강성이 정의된 모델에서 실행하세요.',
-                   '⚠ No period result — run on a model with mass/supports/stiffness.',
-                   '⚠ 無週期結果 — 請於具質量/支承/勁度之模型執行。');
+    msg+='<br>'+L3('✓ 해석 실행됨. 단, 주기(SUB_TABLES) 미반환 — 일부 서버 버전은 모달 주기 테이블을 반환하지 않음(모드형상은 회수됨).',
+                   '✓ Analysis ran, but period (SUB_TABLES) not returned — some server versions omit the modal period table (mode shapes are retrieved).',
+                   '✓ 分析已執行，但週期(SUB_TABLES)未回傳 — 部分伺服器版本不回傳模態週期表(模態形狀可擷取)。');
   }
   if(fb){
     msg+='<br>'+L3('지진 Cs 재산정 (경험식 Ta → 해석 T₁)','Seismic Cs update (empirical Ta → modal T₁)','地震 Cs 重算 (經驗式 Ta → 解析 T₁)');

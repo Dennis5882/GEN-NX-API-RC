@@ -757,9 +757,11 @@ function twDesignSpectrum(params){
     func.push({PERIOD:+T.toFixed(4), VALUE:+Sa(T).toFixed(5)}); });
   return {func, T0:+T0.toFixed(4), Ts:+Ts.toFixed(4), SDS, SD1, TL};
 }
-/* db/EIGV 페이로드 (Subspace). modes 기본 = min(stories*3, 30) 권장값을 호출부가 결정. */
+/* db/EIGV 페이로드 — Lanczos 사용.
+   ※ 라이브 검증(2026-06-14): db/LTOM(DIR:"XY")이 off-diagonal 질량을 만들어, Subspace Iteration("EIGEN")이면
+   doc/anal이 "Analysis is not allowed" 반환. MIDAS 제약 "off-diagonal 질량 시 Lanczos만 가능"에 따라 LANCZOS 고정. */
 function eigvPayload(modes){
-  return {TYPE:'EIGEN', iFREQ:Math.max(1,modes|0), iITER:20, iDIM:1,
+  return {TYPE:'LANCZOS', iFREQ:Math.max(1,modes|0), iITER:20, iDIM:1,
     TOL:1e-10, bMINMAX:false, FRMIN:0, FRMAX:0, bSTRUM:false};
 }
 /* db/SPLC 응답스펙트럼 하중케이스 (전체 모드 사용 bMODE:false, CQC). funcName=SPFC NAME */
@@ -768,21 +770,29 @@ function splcPayload(name, dir, funcName, scale){
     bDAMP:false, INTERP:'LOG', DESC:'', COMTYPE:'CQC', bADDSIGN:true, iSIGNTYPE:0,
     bMODE:false, aFUNCNAME:[funcName]};
 }
-/* PARTICIPATIONVECTORMODE 응답에서 주기 추출 — 다중 서브테이블 중 HEAD에 'Period' 포함 테이블 파싱.
-   반환 {modes:[{mode,period,fcyc}], T1} (T1=최대 주기 = 1차모드). 실패 시 {modes:[],T1:null} */
+/* 모달 응답에서 주기 추출 — HEAD에 'Period' 포함된 {HEAD,DATA} 테이블을 응답 전체에서 재귀 탐색.
+   주기는 PARTICIPATIONVECTORMODE 응답의 SUB_TABLES[].EIGENVALUEANALYSIS(HEAD에 Period(sec))에 위치(매뉴얼).
+   ※ 라이브(2026-06-14): 일부 서버 버전은 SUB_TABLES를 미반환 → 그 경우 T1=null(주기 회수 불가, 모드형상만).
+   반환 {modes:[{mode,period,fcyc}], T1}(T1=최대 주기=1차모드). 미발견 시 {modes:[],T1:null}. */
 function pickModalPeriods(resp){
-  const out=[]; if(!resp||typeof resp!=='object') return {modes:[],T1:null};
-  for(const k in resp){
-    const tb=resp[k]; if(!tb||!tb.HEAD||!tb.DATA) continue;
+  const out=[];
+  const tryTable=tb=>{
+    if(!tb||!Array.isArray(tb.HEAD)||!Array.isArray(tb.DATA)) return false;
     const H=tb.HEAD.map(x=>String(x).toLowerCase());
-    const ip=H.findIndex(h=>h.includes('period'));
-    if(ip<0) continue;
-    const im=H.findIndex(h=>h.includes('mode'));
-    const ifc=H.findIndex(h=>h.includes('cycle'));
+    const ip=H.findIndex(h=>h.includes('period')); if(ip<0) return false;
+    const im=H.findIndex(h=>h.includes('mode')), ifc=H.findIndex(h=>h.includes('cycle'));
     tb.DATA.forEach(r=>{ const T=parseFloat(r[ip]); if(isFinite(T)&&T>0)
       out.push({mode:(im>=0?r[im]:out.length+1), period:T, fcyc:(ifc>=0?parseFloat(r[ifc]):null)}); });
-    if(out.length) break;
-  }
+    return out.length>0;
+  };
+  const walk=o=>{
+    if(!o||typeof o!=='object') return false;
+    if(tryTable(o)) return true;
+    if(Array.isArray(o)){ for(const v of o){ if(walk(v)) return true; } return false; }
+    for(const k in o){ const v=o[k]; if(v&&typeof v==='object'&&walk(v)) return true; }
+    return false;
+  };
+  walk(resp);
   const T1=out.reduce((m,x)=>Math.max(m,x.period),0)||null;
   return {modes:out, T1};
 }

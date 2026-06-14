@@ -1,5 +1,19 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.10.1 — 2026-06-14 (M2-A4 실모델 검증 수정) — 고유치 Lanczos
+
+실모델(2층 RC 프레임) end-to-end 라이브 검증에서 나온 수정.
+
+- **고유치 = Lanczos 고정** (`eigvPayload` TYPE `EIGEN`→`LANCZOS`). 질량을 `db/LTOM(DIR:"XY")`로 넣으면
+  **off-diagonal 질량**이 생겨 Subspace Iteration이 `doc/anal`에서 "Analysis is not allowed"로 거부됨.
+  MIDAS 제약("off-diagonal 질량 시 Lanczos만 가능")에 따라 Lanczos로 전환 → **해석 실행 성공(실검증)**.
+  (이전에 "라이선스 제한"으로 본 것은 오진 — Dennis의 다이얼로그 에러 제보로 규명.)
+- **주기 회수 보강** (`pickModalPeriods`) — `PARTICIPATIONVECTORMODE` 응답의 `SUB_TABLES[].EIGENVALUEANALYSIS`
+  (HEAD에 Period(sec))를 **재귀 탐색**. 단 일부 서버 버전은 SUB_TABLES 미반환 → 그 경우 주기 없이 모드형상만(메시지 안내).
+- **actDynamic 메시지 정정** — "라이선스" 문구 제거, 해석 거부/주기 미반환 상황을 정확히 안내.
+- **검증**: doc/anal "command complete"(Lanczos), 모드형상 회수 OK, pickModalPeriods SUB_TABLES 파싱 OK.
+  `db/STOR`(Story Data, WIND_*/SEIS_* 보유)은 정적 횡하중 생성의 향후 단서(미해결). 상세: MAPI_FINDINGS.
+
 ## v2.10.0 — 2026-06-13 (M2-A4 동적해석) — 고유치·응답스펙트럼 + 연결·결과회수 정교화
 
 API 전수조사(공식 매뉴얼 + 라이브 Gen/Civil 검증, [MAPI_FINDINGS.md](MAPI_FINDINGS.md)) 결과를 제품에 반영.
