@@ -250,6 +250,31 @@ MIDAS 보고 대상 버그.
 
 ---
 
+## C+++. 외부 교차검증 · 참고 자료 (2026-06-14)
+
+외부 공개 저장소 **[albertp16/midas-gen-nx-api](https://github.com/albertp16/midas-gen-nx-api)**(Python+HTML, MIDAS Gen NX 후처리 대시보드)와 대조. **우리 결론이 독립적으로 교차검증**되었고, 새 참고처를 확보.
+
+### ★ 새로 참고할 가치 (도입/조사 후보)
+| # | 항목 | 내용 | 용도 |
+|---|---|---|---|
+| 1 | **공식 SDK** | **`github.com/MIDASIT-Co-Ltd/midas-civil-python`** — MIDAS IT 공식 Python SDK. 위 저장소가 FBLD 등 스키마를 이걸로 검증함. | **스키마 정본** — 미해결(STOR PUT, 주기 테이블, EIGV 옵션) 해결 단서 |
+| 2 | **노출되는 Story 테이블** | `/post/TABLE`로 나오는 불규칙성 테이블은 **Story Drift X / Story Drift Y / Story Mass** 뿐. **`STORY_SHEAR`는 미노출**(약층검토는 수동입력). | 드리프트/비틀림·연약층 검토 기능 |
+| 3 | **`db/dcon`** | RC 설계코드 지정 (`{DCON:{"1":{DGNCODE:"NSCP 2015"}}}`). | 네이티브 설계코드(우리는 자체계산 TWD-USD112) |
+| 4 | **`TABLE_TYPE:"BEAMDESIGNFORCES"`** | 설계용 보 부재력. PARTS[PartI,PartJ], COMPONENTS[Memb,Part,LComName,Type,Fz,Mx,My(-),My(+)]. | BEAMFORCE의 설계 변형 |
+| 5 | **`/view/capture`·`/view/resultgraphic`** | 모드형상·반력을 **이미지(JPG) 캡처**(CURRENT_MODE "VibrationModeShapes"/"ReactionForces/Moments", MODE_SHAPE/LEGEND/CONTOUR 필드). | numeric 주기 불가 시 모드형상 시각화 대안 |
+| 6 | **불규칙성 검토** | NSCP2015/ASCE7 비틀림(1a/1b)·연약층·약층 검토 로직. | 향후 기능 확장 참고 |
+
+### 우리 발견의 외부 교차검증 (신뢰도↑)
+- **`REACTIONG`**(TABLE_NAME "Reaction(Global)") — 동일 확인. `REACTION`/`REACTIONFORCE` 무효도 일관.
+- **FBLD 스키마** `{Assign:{id:{NAME,DESC,ITEM:[{LCNAME,FLOOR_LOAD,OPT_SUB_BEAM_WEIGHT}]}}}` — 우리 구현과 **완전 동일**(SDK로 검증됨).
+- **주기 numeric 회수 난점** — 그들도 못 뽑아 `/view/capture` 스크린샷 + "35+ TABLE_TYPE 후보 probe"로 우회. ⇒ 우리 SUB_TABLES 미반환 결론과 동일한 벽.
+- **`STORY_SHEAR` 미노출** — 우리 STORYSHEAR probe 실패와 일치.
+- **정적 지진·Story는 GUI 경로** — 그들은 GUI로 만든 `.mgbx`를 `/doc/open` 후 후처리(정적지진 "Ex +"도 GUI 생성). ⇒ Track C(정적 횡하중 생성 API 미노출) 재확인.
+- ⚠️ 그 저장소는 **소스에 MAPI-Key 하드코딩**(노출) — 본 프로젝트 "키 비커밋" 원칙의 반례.
+- 참고: `/doc/ANAL`(대문자)·`/post/TABLE`(대문자)도 동작 — URI 케이스 무관.
+
+---
+
 ## D. 후속 액션
 
 | # | 항목 | 액션 |
