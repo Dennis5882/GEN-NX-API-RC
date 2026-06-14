@@ -347,6 +347,26 @@ moapy는 **3부분**: ① `moapy/wgsd/`(오픈스택 단면솔버) ② `moapy/dg
 
 ---
 
+## C++++++. MIDAS-RnD (문서 + LinetoPlate, 2026-06-14)
+
+`MIDAS-RnD` 계정 4개 repo: **`midasapi-python`**(래퍼 문서), **`LinetoPlate`**(Line→PLATE, Streamlit),
+`midasAPI-plugin`(빈 껍데기), `midas-docs`.
+
+### midasapi-python = `midas_civil/gen` 래퍼의 MkDocs 문서 — 새 답 없음
+- 문서가 **"전체 TABLE_TYPE/엔드포인트는 support.midasuser.com 매뉴얼 참조"로 명시 위임** → 우리 보유 매뉴얼이 정본임 재확인.
+- Story/주기회수/Wind/정적지진 → 여기에도 없음(래퍼 범위 밖). EIGV는 EIGEN/LANCZOS/RITZ, off-diagonal 경고 없음(SDK 동일).
+- 범용 탈출구 `MidasAPI(method,command,body)` 제공. ⚠️ 문서 예제에 실제 MAPI 키 노출(키 유출 사례 추가).
+
+### LinetoPlate — 전단벽-PLATE에 쓸 기술 (참고 가치)
+보(선)를 PLATE 메쉬로 변환(Streamlit + numpy/scipy, 서버 automesh 미사용·클라이언트 메쉬 후 일괄 PUT).
+- **PLATE 페이로드**: `{"TYPE":"PLATE","MATL","SECT":<thik id>,"NODE":[4 CCW],"STYPE":3,"ANGLE"}` — 우리와 동일하나
+  **STYPE를 `3`(drilling-DOF 쉘)로 사용**. ⚠️ **우리는 `STYPE:1`(thick)** → 전단벽은 면내회전강성 있는 **STYPE:3가 일반적으로 더 적합**(검토 포인트, 해석 거동 영향이라 코드 변경은 보류).
+  - STYPE: 1=thick, 2=thin, 3=drilling DOF. THIK는 `{NAME,TYPE:'VALUE',bINOUT,T_IN,T_OUT,OFFSET,O_VALUE}`(우리와 동일).
+- **재사용 기법**: ① 그리드 기반 **노드 병합**(공간해시 1e-5 허용오차 — 인접 패널 공유변 중복 방지) ② **두께 dedup 캐시**(동일 두께 THIK 재사용) ③ 임의 평면 2D 프로파일 배치 + 링-투-링 quad 스윕.
+- `midasAPI-plugin`은 코드 없음(배너 이미지뿐) — 마켓플레이스 템플릿으로 쓸 수 없음.
+
+---
+
 ## D. 후속 액션
 
 | # | 항목 | 액션 |
