@@ -44,9 +44,28 @@
 
 ### Load 탭 — 하중 (우리 M2)
 - **Static Loads**: Create Load Cases(`db/STLD`), Self-Weight(`db/BODF`), Nodal(`db/CNLD`), Beam(`db/BMLD`), Floor(`db/FBLD/FBLA`).
-- **Masses**: Nodal Masses(`db/NMAS` ⚠️크래시), **Loads to Masses**(`db/LTOM`) — 동적해석 질량원.
-- **Lateral**: **Wind / Static Seismic** — ⚠️ **GUI 전용 생성**(코드기반 자동생성). API 미노출 → 우리는 **자체계산 후 `db/CNLD` 주입**.
+- **Masses**: Nodal Masses(`db/NMAS` ⚠️크래시), Floor Diaphragm Masses, **Loads to Masses**(`db/LTOM`) — 동적해석 질량원.
+- **Lateral**: **Wind Loads / Seismic Loads** (+ Earth Pressure). ⚠️ **GUI 전용 코드기반 자동생성**(아래 §2.1). API 미노출 → 우리는 **자체계산 후 `db/CNLD` 주입**.
 - **Dynamic Loads**: Response Spectrum(`db/SPFC`함수+`db/SPLC`케이스), Time History(`db/THFC/THIS/THSL`).
+
+#### §2.1 정적 횡하중(풍·등가정적지진) GUI 워크플로 — 매뉴얼 정독 결과
+**둘 다 Story Data에 강하게 결합된 GUI 자동생성 기능.** 공통 의존 사슬:
+1. 모델링(중력 = −Z) → **Structure▸Type**: 자중→질량 변환(방향·중력가속도) `db/STYP`
+2. **Structure▸Building▸Control Data**: **지표면(Ground Level)** Z좌표 입력 → 이 위로만 풍/지진 산정, 아래는 지하층 제외, **밑면전단 기준면**
+3. **Structure▸Building▸Story**: 층(레벨·높이·**Floor Diaphragm**·편심). **`Auto Generate Story Data`** 가 Wind/Seismic 탭 데이터 자동생성
+4. **Load▸Lateral▸Wind Loads / Seismic Loads**: **코드 선택** + 파라미터 → Story 데이터와 연계해 **층별 풍/지진력 자동연산** (`Wind/Seismic Load Profile…`로 확인)
+
+**⭐ 내장 코드에 Taiwan 있음(단, GUI 전용):**
+- **풍**: KDS/KBC/ASCE7/Eurocode/GB/Japan/**`Taiwan (2002) 대만 건축 기술 규칙`** 등
+- **지진(등가정적)**: KDS/ASCE7/Eurocode-8/GB/**`Taiwan (2011)·(2006)·(2002) 대만 건축물 내진 설계규범`** 등
+→ **Gen NX는 Taiwan 풍·지진 코드를 GUI엔 내장**하지만 **API로는 미노출**. 즉 진짜 Taiwan-native 정적횡하중은 GUI 경로, **API에선 우리 자체계산이 유일 대안**(우리 等效靜力이 정당).
+
+**`db/POSL`("Parameters of Seismic Loads")의 정체**: 매뉴얼 본문은 **정적토압(Static Earth Pressure)** 맥락
+(Load▸Lateral▸Earth Pressure, 폐영역 선요소→절점하중). 그래서 METHOD에 `RES_DISP`(응답변위법)가 있고, **건물 등가정적지진 생성과는 별개** → 우리 POSL 테스트가 지진력을 못 만든 이유 규명.
+
+**비정형/개방형 구조**: 자동연산 대신 **Wind Pressure**(Area/Beam/Nodal/Function) 수동 재하 — 우리 "자체계산→하중주입"과 같은 철학.
+
+**Story Note(중요)**: Floor Diaphragm + **Wall member type**는 편심해석 시 Singular Warning → **Wall을 Plate type으로** 해결. ⇒ 우리 전단벽-PLATE 모델링이 제품 권고와 일치.
 
 ### Analysis 탭 (우리 M2-A4)
 - **Analysis Control → Eigenvalue**(`db/EIGV`): Subspace/**Lanczos**/Ritz. ⚠️ off-diagonal 질량(LTOM) 시 **Lanczos 필수**(라이브 발견).
