@@ -1,85 +1,80 @@
-# MIDAS Gen NX MAPI — [정정] 동적해석/횡하중 엔드포인트 조사 결과
-# MIDAS Gen NX MAPI — [更正] 動力分析/橫力 端點 調查結果
+# MIDAS Gen NX MAPI — 보고/요청 (버그 · 문서 · 기능)
+# MIDAS Gen NX MAPI — 回報／請求 (Bug · 文件 · 功能)
 
-> 작성: Dennis · 최초 2026-06-12 · **정정 2026-06-13**
-> 撰寫：Dennis · 初版 2026-06-12 · **更正 2026-06-13**
-> 상세 근거: [MAPI_FINDINGS.md](MAPI_FINDINGS.md)
-
----
-
-## ⚠️ 정정 공지 (이 문서의 이전 주장은 철회됨)
-
-이 문서의 **초판은 `db/eigv`, `db/spfc`, `db/splc`, `db/seis`, `db/wind` 가 "스키마 미노출/차단"
-이라고 주장**했으나, **이는 사실이 아님**이 공식 API 매뉴얼 확인으로 밝혀졌다. 따라서 **스키마 개방
-요청은 철회**한다. 실제 원인은 아래 두 가지였다:
-
-1. **엔드포인트 이름 오추측** — 특히 지진하중은 `db/seis`가 아니라 **`db/POSL`**(Parameter of Seismic Loads).
-2. **필수 필드 누락** — 예: `db/EIGV` 테스트 시 `{"iFREQ":6}`만 보냈으나 **`TYPE`("EIGEN" 등)이 필수**.
-   빈 객체/필수필드 누락에 대한 `"Wrong Field"`는 **차단이 아니라 정상적인 유효성 검증 응답**이었다.
-
-### 실제 확인된 엔드포인트 (공식 매뉴얼)
-
-| 초판의 주장 | 실제 URI | 비고 |
-|---|---|---|
-| `db/eigv` 차단 | **`db/EIGV`** | TYPE(EIGEN/LANCZOS/RITZ)·iFREQ·iITER·iDIM·TOL… 전체 스키마 문서화 |
-| `db/seis` 차단 | **`db/POSL`** | 이름 오추측. METHOD=EQV_STATIC/RES_DISP, SZ·EPA·SC·FA·FV·IF·RMF |
-| `db/spfc` 차단 | **`db/SPFC`** | 국가별 응답스펙트럼 함수(대만 포함) |
-| `db/splc` 차단 | **`db/SPLC`** | NAME·DIR·ANGLE·SCALE·PMFT·bDAMP… |
-| `db/wind` 차단 | Wind Loads(User Type) | 아래 "남은 진짜 항목" 참조 |
+> 작성: Dennis · 갱신 2026-06-13 · 대상: MIDAS Gen NX MAPI 개발팀
+> 검증 환경: `https://moa-engineers.midasit.com:443/{gen|civil}` · `MAPI-Key` 인증 · 라이브(Gen·Civil) 교차검증
+> 상세 근거·재현: [MAPI_FINDINGS.md](MAPI_FINDINGS.md)
+> 撰寫：Dennis · 更新 2026-06-13 · 對象：MIDAS Gen NX MAPI 開發團隊
 
 ---
 
-## ✅ 남은 진짜 요청 — 문서 불일치(gap) 1건
+## 한국어
 
-차단/스키마 문제가 아니라 **문서 정합성** 문제다.
+### ① 🐞 버그 — `db/NMAS`(절점질량) PUT 시 Gen NX 하드 크래시
+- **증상**: `PUT db/NMAS` 직후 Gen NX가 **비정상 종료** ("Program will be closed due to an unexpected problem.
+  The recovered file is saved in `…\DgnPlugIn\_restore.mgbx`").
+- **재현율**: **3/3 (100%)**. 동일 모델에서 NMAS 직전 단계(node/elem/cons 등)는 모두 정상(200).
+- **재현 절차**:
+  1. `PUT db/UNIT`, `db/MATL`, `db/SECT`, `db/NODE`, `db/ELEM`, `db/CONS` (정상)
+  2. `PUT db/NMAS` `{"Assign":{"5":{"mX":20,"mY":20,"mZ":20}, …}}` → **응답 없음(연결 끊김) + Gen NX 종료**
+- **임시 회피**: 질량은 `db/STYP`(`bSELFWEIGHT:true`) + `db/LTOM`(하중→질량)으로 대체 가능(정상 동작).
+- **요청**: `db/NMAS` 입력 처리부 점검 — 예외/메모리 접근 오류로 추정.
 
-**풍하중(Wind Loads, User Type)**: Gen NX 정식 기능(`[Load] > [Static Loads] > [Lateral] > [Wind Loads]`)이며
-**GrassHopper API 매뉴얼에는 문서화**(출력 JSON 명령 `WIND`; 컴포넌트 Wind Loads / Wind Pressure(User) /
-Wind Additions — 층별 풍압·Along·Across·Torsional)되어 있으나, **JSON REST(JSON Manual)에는 해당 페이지가 없음.**
+### ② 📄 문서 불일치 — JSON Manual에 일부 기능 페이지 누락
+- **Wind Loads(User Type)** 및 **Seismic Pressure(User)/Additions**는 **GrassHopper API 매뉴얼에는 문서화**되어
+  있으나(출력 JSON 명령 `WIND`), **JSON Manual(REST)에는 해당 페이지가 없습니다.**
+- 실제로 `GET db/WIND`는 200(존재)이나 필드 스키마가 공개되지 않아 `POST`가 모두 "Wrong Field"입니다.
+- **요청**: JSON Manual에 **Wind Loads / Seismic Pressure(User)/Additions의 URI·필드 스키마 추가**.
+  (GrassHopper엔 있고 JSON-REST엔 없는 항목 전반 점검 요청.)
 
-- **요청**: JSON REST 매뉴얼에 Wind Loads(및 대응 Seismic Pressure/Additions) 페이지의 **JSON URI·필드 스키마를 추가**해 주세요.
-  (동일하게 GrassHopper엔 있고 JSON REST엔 없는 항목이 더 있는지도 점검 요청.)
-- 참고: MIDAS API는 Civil NX·Gen NX 공용이므로, 각 엔드포인트의 **제품별 유효성**(Gen NX/Civil NX) 명시도 도움이 됩니다.
+### ③ 💡 기능 요청 — 정적 횡하중 "생성"의 REST 노출
+- `db/POSL`(Parameter of Seismic Loads)은 건물 지진 파라미터(SDS/SD1/IF/RMF…)를 **저장**하나,
+  해석 후 **등가정적 지진력을 생성하지 않습니다**(반력 ΣFX=ΣFY=0, 방향 필드 없음).
+- 즉 **등가정적 지진·정적풍의 강제력 "생성"이 REST로 노출되지 않습니다**(GUI/플러그인 전용으로 보임).
+- **요청**: 코드기반 정적 지진/풍 **자동생성**을 REST 명령으로 제공(방향·편심·층분포 포함).
+  — 현재는 클라이언트가 직접 계산해 `db/CNLD`(절점하중)로 주입해야 합니다.
 
----
-
-## ⚠️ 更正公告（本文件初版主張已撤回）
-
-本文件**初版主張 `db/eigv`、`db/spfc`、`db/splc`、`db/seis`、`db/wind`「schema 未開放／受阻」**，
-經查官方 API 手冊**並非事實**，故**撤回 schema 開放請求**。實際原因有二：
-
-1. **端點名稱誤推測** — 地震載重並非 `db/seis`，而是 **`db/POSL`**（Parameter of Seismic Loads）。
-2. **缺少必填欄位** — 例：測試 `db/EIGV` 時僅送 `{"iFREQ":6}`，但 **`TYPE`（"EIGEN" 等）為必填**。
-   對空物件／缺必填欄位回傳 `"Wrong Field"`，**乃正常的驗證回應，而非封鎖**。
-
-| 初版主張 | 實際 URI | 備註 |
-|---|---|---|
-| `db/eigv` 受阻 | **`db/EIGV`** | TYPE/iFREQ/iITER/iDIM/TOL… 完整 schema |
-| `db/seis` 受阻 | **`db/POSL`** | 名稱誤推測。METHOD=EQV_STATIC/RES_DISP |
-| `db/spfc` 受阻 | **`db/SPFC`** | 各國反應譜函數（含臺灣） |
-| `db/splc` 受阻 | **`db/SPLC`** | NAME/DIR/SCALE/PMFT… |
-| `db/wind` 受阻 | Wind Loads(User Type) | 見下方「真正待處理項」 |
-
-### ✅ 真正待處理項 — 文件不一致 1 件
-**風力（Wind Loads, User Type）** 為 Gen NX 正式功能，**GrassHopper API 手冊有文件**（輸出 JSON 指令 `WIND`），
-但 **JSON REST（JSON Manual）無對應頁面**。請於 JSON REST 手冊**補上 Wind Loads（及 Seismic Pressure/Additions）
-之 JSON URI 與欄位 schema**，並標註各端點之**產品適用性**（Gen NX／Civil NX）。
+### ④ 참고 요청 — 제품(Gen/Civil)별 유효성 표기
+- 공용 "MIDAS API"에서 엔드포인트별 **제품 적용성**(Gen NX / Civil NX)이 문서에 있으면 도움이 됩니다.
+  (예: `db/WIND`은 Civil에서 404, `db/POSL`은 Civil에서 일부 필드만 적용됨 — 라이브 확인.)
 
 ---
 
-## Appendix — 검증 요약 / 驗證摘要 (language-neutral)
+## 繁體中文（臺灣）
 
-**Resolved (exact REST URI + schema found in official manual):**
-`db/EIGV` (eigenvalue), `db/POSL` (seismic, was mis-guessed as `db/seis`),
-`db/SPFC` (response-spectrum function, incl. Taiwan), `db/SPLC` (response-spectrum load case).
+### ① 🐞 Bug — `db/NMAS`（節點質量）PUT 時 Gen NX 當機
+- **症狀**：`PUT db/NMAS` 後 Gen NX **異常結束**（"Program will be closed… `_restore.mgbx`"）。
+- **重現率**：**3/3（100%）**。同模型中 NMAS 之前步驟（node/elem/cons 等）皆正常（200）。
+- **重現**：`UNIT→MATL→SECT→NODE→ELEM→CONS`（正常）後 `PUT db/NMAS {mX,mY,mZ}` → **連線中斷＋當機**。
+- **暫時替代**：質量改用 `db/STYP`（`bSELFWEIGHT:true`）+ `db/LTOM`（載重→質量）（正常）。
+- **請求**：檢查 `db/NMAS` 輸入處理（疑似例外／記憶體存取錯誤）。
 
-**Documentation gap (function exists, JSON-REST manual page missing):**
-Wind Loads (User Type) — documented in GrassHopper API manual (JSON command `WIND`), absent from JSON-REST manual.
+### ② 📄 文件不一致 — JSON Manual 缺少部分功能頁
+- **Wind Loads(User Type)** 與 **Seismic Pressure(User)/Additions** 於 **GrassHopper 手冊有文件**（JSON 指令 `WIND`），
+  但 **JSON Manual(REST) 無對應頁面**。`GET db/WIND` 回 200（存在）但欄位 schema 未公開，`POST` 皆 "Wrong Field"。
+- **請求**：於 JSON Manual **補上 Wind Loads / Seismic Pressure(User)/Additions 之 URI 與欄位 schema**。
 
-**Root cause of original "Wrong Field":** wrong endpoint name (`seis`→`POSL`) and missing required fields
-(e.g. `TYPE` for `db/EIGV`), NOT a blocked/empty field schema.
+### ③ 💡 功能請求 — 靜態橫力「產生」之 REST 開放
+- `db/POSL` 僅**儲存**建築地震參數，解析後**不產生等效靜力地震力**（反力 ΣFX=ΣFY=0，無方向欄位）。
+- 即**等效靜力地震／靜態風力之力「產生」未由 REST 開放**（似為 GUI／外掛專屬）。
+- **請求**：以 REST 指令提供規範式靜態地震／風力**自動產生**（含方向・偏心・樓層分布）。
+  目前須由用戶端自行計算後以 `db/CNLD`（節點載重）注入。
 
-**Confirmed working (unchanged):**
-`doc/new`, `doc/anal`, `db/unit`, `db/matl`, `db/sect`, `db/thik`, `db/node`, `db/elem`, `db/cons`,
-`db/stld`, `db/bodf`, `db/fbld`, `db/fbla`, `db/cnld`(`CNLD`), `db/bmld`(`BMLD`), `db/rigd`,
-`db/lcom-gen`, `db/styp`, `post/table`.
+### ④ 參考請求 — 各產品（Gen/Civil）適用性標註
+- 共用 "MIDAS API" 中，若文件標明各端點之**產品適用性**將有幫助
+  （例：`db/WIND` 於 Civil 回 404；`db/POSL` 於 Civil 僅部分欄位生效 — 實機確認）。
+
+---
+
+## Appendix — 검증 사실 / 驗證事實 (language-neutral)
+
+**Verified working (live, Gen NX):** `doc/NEW`, `doc/ANAL`, `db/UNIT`, `db/MATL`(CNS560(RC)), `db/SECT`,
+`db/THIK`, `db/NODE`, `db/ELEM`(BEAM/PLATE), `db/CONS`(7-digit constraint), `db/STLD`, `db/BODF`, `db/CNLD`,
+`db/BMLD`, `db/RIGD`, `db/STYP`(`bSELFWEIGHT`), `db/LTOM`, `db/EIGV`, `db/SPFC`, `db/SPLC`, `db/LCOM-GEN`,
+`post/table`(`BEAMFORCE`, `REACTIONG`, `PARTICIPATIONVECTORMODE` …), `/mapikey/verify`.
+
+**Issues:** `db/NMAS` crashes Gen NX (3/3); `db/WIND` field schema undocumented in JSON Manual;
+`db/POSL` stores seismic params but does not generate static seismic forces.
+
+**Note:** dynamic results (eigenvalue, response spectrum) are solver-computed and work via REST;
+static lateral-load *generation* (equivalent-static seismic, static wind) appears GUI/plugin-only.
