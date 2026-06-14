@@ -367,6 +367,35 @@ moapy는 **3부분**: ① `moapy/wgsd/`(오픈스택 단면솔버) ② `moapy/dg
 
 ---
 
+## C+++++++. 레거시 Confluence 위키 (midas-support.atlassian.net, space=MAPI, 2026-06-14)
+
+190페이지 레거시 공식 위키(Civil 중심 + Gen/GTS/CIM). 대부분 `[XXXX]` 명령별 페이지(~120)로 우리 기존 스키마와 중복.
+**그러나 하나 결정적 신규: RC 기둥 P-M 상관도가 API로 노출됨** — 우리 "RC 설계 API 미노출" 결론을 일부 정정.
+
+### ★ 신규 — `POST /POST/PM` (RC P-M Interaction Diagram)
+- 페이지: `[PM] P-M Interaction Diagram (DB Section)`(id 36175990), `(General Section)`(46727169).
+- **출력**: `{"PM":{"<elem>":{"vPHI_PN_MN":[{"ELEM":1001,"PHI_PN":..,"PHI_MN":..}, …13점]}}}` — **φPn/φMn 설계 상관곡선**.
+  ⇒ 우리 기둥 **이축 Bresler 근사**의 교차검증/대체 가능(실제 코드 기반 곡선, 더 엄밀).
+- **필요 입력(모델에 함께 POST)**: `DCON`(설계코드)·`MATL(CONC)`·`MATD`·`SECT(DBUSER)`·`RCHK`(배근)·`LCOM(KIND:CONC)`·하중.
+- **부속 엔드포인트(신규)**:
+  - **`[DCON]` RC Design Code**: `{"DCON":{"<n>":{"DGNCODE":"<코드>"}}}`. ⚠️ **Taiwan은 `TWN-BRG-LSD90`(교량 LSD)뿐 — Taiwan 건축 RC 코드 없음** → Taiwan 건물은 **자체계산 TWD-USD112 유지 필수**. (ACI318-02·AASHTO·Eurocode2·IS456 등 존재, Civil/교량 위주)
+  - **`[MATD]` Modify Concrete Materials**: 설계용 콘크리트/철근 등급(`CODENAME,REBAR_CODENAME,MAINREBAR_REBARNAME` 예 SD40).
+  - **`[RCHK]` Rebar Input**: 기둥(`MEMBTYPE:"COLUMN", COLM.vLAYER[].vPOSITION[].{BAR_NUM,BAR_NAME}`) / 보(`BEAM.vMAIN[].POS_TOP/BOT_LAYERS[]`) 배근 레이아웃.
+- **`<MODS> RC Design`**: 엔드포인트 패밀리 아님(`/mods/` 없음). DCON+MATD+RCHK(col/beam)을 묶은 **문서 그룹**. 실행 RC 루트는 `/POST/PM` 하나.
+
+### 그 외 신규 엔드포인트(참고)
+- `[TABLE] Get Result Table from Smart Report Table`(47284225), `[UFIG] Screenshot`(46727186), `{Get-Operators}` 패밀리(46596097).
+
+### 미해결 항목 — 위키에도 없음(기존과 동일 확인)
+Story(STOR/STRY)·Wind(WIND)·정적지진 생성·**모달 주기 numeric 회수** 페이지 부재. → 여전히 미노출.
+
+### 종합
+- **RC 기둥 P-M은 `/POST/PM`로 API 가능**(레거시 문서, Gen 동작 여부는 라이브 확인 필요). 단 **Taiwan 건물 RC 코드 부재**로 TWD-USD112 자체계산은 유지.
+- 나머지(Story/Wind/정적지진/주기)는 위키로도 안 풀림 — 기존 결론 불변.
+- 인용 가치: **RC(`/POST/PM`+DCON/MATD/RCHK)에 한해 유의미**, 그 외는 기존과 중복.
+
+---
+
 ## D. 후속 액션
 
 | # | 항목 | 액션 |
