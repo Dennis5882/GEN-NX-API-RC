@@ -312,6 +312,27 @@ per-object 클래스 래퍼. 키는 **Windows 레지스트리에서 읽음**(하
 
 ---
 
+## C+++++. 공식 플러그인 · moapy (midasit-dev, 2026-06-14)
+
+`midasit-dev` 계정(blog moa.midasit.com): 공개 **`plugins`**(60개, React+`@midasit-dev/moaui`+PyScript 인브라우저 Python),
+**`moaui`**(Open API용 React UI SDK), **`schema-flow`/`schemaforms`**(function-schema→UI 생성기), 외 템플릿.
+
+### 정적 횡하중 생성 미노출 — 3중 교차검증 완료
+공식 플러그인 60개를 전수 확인: **`db/WIND`·`db/STOR`/`STRY`·`db/POSL`(정적지진 생성)을 쓰는 플러그인 없음.** 대신:
+- **풍 → `db/BMLD` 보압력하중**(`CMD:"BEAM", TYPE:"PRESSURE", DIRECTION:"LY|LZ", D:[...], P:[pressure,...]`). 자체계산 후 주입.
+- **지진 → `db/SPFC`(응답스펙트럼 함수)·`db/THFC`(시간이력)만**. `SPLC`는 읽기 전용, **POSL 생성 없음**.
+- **주기 numeric 회수: 어느 플러그인도 안 함** (모드 개수만 `GET db/EIGV` `[1].iFREQ`).
+→ **공식 SDK + albertp16 + 공식 플러그인 = 3중 확정**: 정적 횡하중 생성은 REST 미노출, **자체계산→`db/CNLD`/`db/BMLD` 주입이 정석**.
+
+### 새 단서 / 보강
+- **`db/SPFC` 보강 필드**: 공식 RS-generator는 `{...,STR:{SPEC_CODE:"USER"},aFUNC:[{PERIOD,VALUE}]}` + GRAV를 단위별(9.806/9806/386…)로. → 우리 SPFC에 `STR:{SPEC_CODE:"USER"}` 추가(반영함).
+- **`db/NBOF`** (Nodal Body Force/관성력): `{LCNAME,OPT_NODAL_MASS,OPT_LOAD_TO_MASS,OPT_STRUCT_MASS,X,Y,Z,...}`.
+- **`db/BMLD` 보압력 스키마**(풍 주입용): 위 CMD/TYPE/DIRECTION/D/P 구조.
+- **`moapy`** (WGSD 단면설계·DgnEngine) — 공식 RC 설계 Python 라이브러리(moa.rpm 플랫폼 fetch). 우리 자체계산 배근의 대안/검증 참고.
+- 아키텍처 참고: 공식 플러그인은 **PyScript 인브라우저 Python + moaui** 구성.
+
+---
+
 ## D. 후속 액션
 
 | # | 항목 | 액션 |

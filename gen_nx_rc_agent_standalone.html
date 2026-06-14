@@ -1991,7 +1991,7 @@ async function actDynamic(opt={}){
     if(!(sp.SDS>0)||!ds.func.length){
       log('▸ '+L3('SDS/SD1 없음 — 응답스펙트럼 생략','no SDS/SD1 — RS skipped','無SDS/SD1 — 略過反應譜'),'warn'); ds=null;
     } else {
-      await mapi('PUT','spfc',{Assign:{1:{NAME:'TW-RS',iTYPE:1,iMETHOD:0,SCALE:1,GRAV:9.806,DRATIO:0.05,DESC:'TWD design spectrum',aFUNC:ds.func}}});
+      await mapi('PUT','spfc',{Assign:{1:{NAME:'TW-RS',iTYPE:1,iMETHOD:0,SCALE:1,GRAV:9.806,DRATIO:0.05,DESC:'TWD design spectrum',STR:{SPEC_CODE:'USER'},aFUNC:ds.func}}});
       await mapi('PUT','splc',{Assign:{1:splcPayload('RSX','X','TW-RS'),2:splcPayload('RSY','Y','TW-RS')}});
       log('▸ '+L3('응답스펙트럼(대만) RSX·RSY','Response spectrum (TW) RSX·RSY','反應譜(臺灣) RSX·RSY')+` · T0=${ds.T0}s Ts=${ds.Ts}s`,'ok');
     }
