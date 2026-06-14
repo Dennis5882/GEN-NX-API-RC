@@ -331,6 +331,20 @@ per-object 클래스 래퍼. 키는 **Windows 레지스트리에서 읽음**(하
 - **`moapy`** (WGSD 단면설계·DgnEngine) — 공식 RC 설계 Python 라이브러리(moa.rpm 플랫폼 fetch). 우리 자체계산 배근의 대안/검증 참고.
 - 아키텍처 참고: 공식 플러그인은 **PyScript 인브라우저 Python + moaui** 구성.
 
+### moapy 상세 — RC 설계 교차검증 가능성 (PyPI `moapy` 1.3.2, 소스 `engineers-api-python`=비공개)
+moapy는 **3부분**: ① `moapy/wgsd/`(오픈스택 단면솔버) ② `moapy/dgnengine/`(폐쇄 Win DLL 부재설계) ③ `moapy/midasapi.py`(db/* REST 래퍼, 설계와 분리).
+- **① wgsd — 독립 실행 가능**(`pip install moapy[full]`, MIDAS 연결 불필요). `concreteproperties`+`sectionproperties` 기반.
+  - `calc_rc_uls_bending_capacity(theta,n)` → **Mn/φMn**(휨강도) · `calc_rc_mm_interaction_curve` → **이축 M-M** · `calc_3dpm` → **3D P-Mx-My 곡면**.
+  - 코드: **ACI318M-19 / Eurocode2 뿐** (φ: 인장 0.85/압축 0.65, Pn,max=0.8Pn, β1=0.85, εcu=0.003).
+- **② dgnengine — EC2 RC 부재설계(보/기둥)만**, Windows DLL(블랙박스·비이식).
+- **③ midasapi — db/* CRUD + post/table + doc/anal** (우리와 동일 패턴).
+
+**우리 TWD-USD112 자체계산과의 관계:**
+- ✅ **교차검증 가능(독립 실행)**: 보 **휨 Mn/φMn**(ACI 경로) + 기둥 **이축 P-M**(fiber 기반, 우리 Bresler 근사보다 엄밀). QA 도구로 유용.
+- ❌ **불가**: 보 **전단(Vc·스터럽)** — moapy에 없음 → 자체계산 유지 필수. **Taiwan 코드 없음** — ACI318M-19은 동일 계보 proxy일 뿐(TWD-USD112 φ/하중계수 상이).
+- → **결론: MIDAS 공식 Python에도 Taiwan RC 코드는 없음** → 우리 자체계산 TWD-USD112는 재발명이 아니라 **필요한 것**. moapy[full]은 휨/이축 P-M **검증용**으로 도입 가치.
+- 저변 오픈라이브러리 **`concreteproperties`**(RC fiber/stress-block, P-M, M-φ) = 실제 RC 솔버 — 참고처.
+
 ---
 
 ## D. 후속 액션
