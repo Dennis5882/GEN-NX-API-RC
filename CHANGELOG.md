@@ -1,5 +1,27 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.11.0 — 2026-06-14 (기둥 P-M 곡선 고도화) — 둘레 다층배근 + φPn,max 축캡
+
+`/POST/PM` 라이브 조사(§MAPI_FINDINGS C++++++++)로 확인된 코드기반 P-M 계약을 우리 자체 해석곡선에 반영·고도화.
+
+- **주근 둘레 다층 분포** (`colLayers`) — 기존 2층(상·하면 As/2) 이상화 → **단면 둘레 균등 분포**로
+  측면근(side bars) 기여를 정확히 반영. 굽힘축별(강축 x/약축 y) 깊이별 철근층 자동 생성.
+- **φPn,max 평탄캡** (`colPMcurve`) — ACI 318/TWD-USD112 띠철근 압축 상한 **φPn,max = 0.80·φ·Po** 추가.
+  순축 squash 하중을 캡으로 클립(이전엔 미적용 = 압축측 과대평가). `Po` 순축 공칭도 산출.
+- **실배근 곡선 노출** — `rcColumnDesign`이 확정 주근(nBars)으로 P-M 곡선 재계산·U 재평가,
+  결과에 `pm{x,y,Po,phiPnMax,MnX,MnY,balX,balY}` 추가(QA·플롯·`/POST/PM` 교차검증용).
+  화면에 `φPn,max·P/cap%` 표시, 축캡 초과 시 over.
+- **균형점 검출** — 인장철근 항복 개시(εt=εty) 전이점 포착(`balanced`).
+- **하위호환** — 기존 `colPMpoints/colMcapAt` 시그니처는 8층 둘레균등 래퍼로 유지.
+- **검증**(py-mini-racer): 600×600·fc28·fy420 → Po 10,101kN(수계산 일치)·φPn,max 5,253kN(=0.8·0.65·Po, 곡선 maxP와 일치)·
+  10-D22·ρ1.07%·U0.751·대칭축 MnX=MnY=558.9kN·m·곡선 118점.
+- **★문서 정정**: `db/DCON`에 **`TWN-USD112`(대만 건물 RC)가 네이티브 존재**(라이브 확인) — 위키 "교량코드뿐" 정정.
+  `/POST/PM`은 엔드포인트·I/O·RCHK 스키마 검증됨(실곡선은 db/RCHK 부재+요청정형 미공개로 GUI 설계 선행 필요 → 선택적 교차검증).
+- **★동적해석 주기 회수 수정**(`actDynamic`) — 모달 주기 테이블은 **`EIGENVALUEMODE`**의 `SUB_TABLES["EIGENVALUE ANALYSIS"]`(Period(sec))에 있음.
+  기존엔 `PARTICIPATIONVECTORMODE`(모드형상만·SUB_TABLES 없음)를 조회 → 그래서 "SUB_TABLES 미반환"으로 오판했음.
+  **라이브 검증(2026-06-14)**: EIGENVALUEMODE 조회 → `pickModalPeriods`가 15모드·**T₁=1.1214s** 정상 파싱(실모델 459절점 RC빌딩).
+  EIGENVALUEMODE는 참여질량 SUB_TABLE도 함께 반환(향후 활용 여지). 메시지도 "해석 후 재시도"로 정정.
+
 ## v2.10.1 — 2026-06-14 (M2-A4 실모델 검증 수정) — 고유치 Lanczos
 
 실모델(2층 RC 프레임) end-to-end 라이브 검증에서 나온 수정.

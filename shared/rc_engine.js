@@ -466,50 +466,96 @@ function rcBeamDesign(demand,geom,mat){
           stirrup:{dia:'D10',leg:2,Av:226,s:Math.max(50,Math.floor(sh.s/10)*10),note:sh.note}, over};
 }
 
-/* ── 기둥 P-M 배근 (TWD-USD112, 변형률적합 + 사각형 응력블록, 대칭 2층배근) ──
+/* ── 기둥 P-M 배근 (TWD-USD112, 변형률적합 + 사각형 응력블록) ──
    demand{Pu(N,압축),Mux,Muy(N·mm)} + geom{b,h} + mat → 필요 철근비 ρ(1~6%)·주근·띠철근.
-   ⚠ 주축(지배축) 단축 P-M MVP. 이축(Bresler)·세장효과(P-Δ)·SMRF 디테일은 후속. */
+   v2.11: 주근을 단면 둘레에 균등 분포(측면근 기여 반영)·φPn,max 평탄캡·실배근 다층 곡선 노출.
+   ⚠ 이축은 Bresler 하중컨투어(α=1.0 보수). 세장효과(P-Δ)·정착/SMRF 디테일은 후속. */
 const ES_STEEL=200000, ECU=0.003;
-function colPMpoints(rho,b,h,fc,fy,cover){
-  const Ag=b*h, As=rho*Ag, dp=(cover||40)+10+13, d=h-dp, b1=beta1(fc);
-  const layers=[{A:As/2,di:dp},{A:As/2,di:d}], pts=[];
-  for(let c=0.04*h;c<=2.2*h;c*=1.05){
-    const a=Math.min(b1*c,h), Cc=0.85*fc*b*a; let Ps=0,Ms=0,etl=0;
-    layers.forEach(L=>{ const es=ECU*(c-L.di)/c; let fs=Math.max(-fy,Math.min(fy,ES_STEEL*es));
-      const f=(L.di<a)?(fs-0.85*fc):fs; Ps+=L.A*f; Ms+=L.A*f*(h/2-L.di); if(L.di===d) etl=-es; });
-    const Pn=Cc+Ps, Mn=Cc*(h/2-a/2)+Ms;
-    let phi=0.65; const ety=fy/ES_STEEL;
-    if(etl>=0.005)phi=0.9; else if(etl>ety)phi=0.65+(etl-ety)*0.25/(0.005-ety);
-    pts.push({P:phi*Pn,M:phi*Math.abs(Mn)});
+
+/* 주근 nBars개를 단면 둘레에 균등 배치 → 굽힘축 깊이별 철근층 [{di,A}].
+   axis 'x'=강축(깊이 h), 'y'=약축(깊이 b). di=압축연단부터의 깊이(mm). 모서리근 포함. */
+function colLayers(As,nBars,b,h,cover,axis){
+  const dp=(cover||40)+10+13;                        // 피복+띠철근(D10)+주근반경(≈D25/2)
+  const depth=(axis==='y')?b:h, width=(axis==='y')?h:b;
+  const Hc=Math.max(1,depth-2*dp), Wc=Math.max(1,width-2*dp);  // 주근 중심 둘레사각형
+  const peri=2*(Hc+Wc), Abar=As/nBars, step=peri/nBars, acc=new Map();
+  for(let i=0;i<nBars;i++){
+    let s=step*i, y;                                  // (0,0)→(Wc,0)→(Wc,Hc)→(0,Hc) 둘레 진행
+    if(s<Wc) y=0; else if(s<Wc+Hc) y=s-Wc;
+    else if(s<2*Wc+Hc) y=Hc; else y=Hc-(s-2*Wc-Hc);
+    const di=Math.round(dp+y); acc.set(di,(acc.get(di)||0)+Abar);
   }
-  return pts;
+  return [...acc.entries()].map(([di,A])=>({di:+di,A}));
 }
-function colMcapAt(rho,b,h,fc,fy,cover,Pu){
-  const pts=colPMpoints(rho,b,h,fc,fy,cover); let best=0;
-  for(let i=1;i<pts.length;i++){ const A=pts[i-1],Bp=pts[i];
-    if((A.P-Pu)*(Bp.P-Pu)<=0){ const t=(Pu-A.P)/((Bp.P-A.P)||1); best=Math.max(best,A.M+t*(Bp.M-A.M)); } }
+
+/* 변형률적합 단축 P-M 설계곡선(φ 적용)+φPn,max 평탄캡(0.80·φ·Po, 띠철근).
+   widthC=압축연단 폭, depth=굽힘방향 깊이, layers=colLayers(...,axis). → {pts,Po,phiPnMax,balanced}. */
+function colPMcurve(layers,widthC,depth,fc,fy,Ast){
+  const b1=beta1(fc), ety=fy/ES_STEEL, pts=[];
+  const Po=0.85*fc*(widthC*depth-Ast)+fy*Ast;        // 순축 공칭(콘크리트 점유 공제)
+  const phiPnMax=0.80*0.65*Po;                        // ACI 318/TWD 띠철근 압축 평탄캡
+  let balanced=null, prevEtl=null;
+  for(let c=0.03*depth;c<=3*depth;c*=1.04){
+    const a=Math.min(b1*c,depth), Cc=0.85*fc*widthC*a; let Ps=0,Ms=0,etl=0,dmax=0;
+    layers.forEach(L=>{ const es=ECU*(c-L.di)/c; let fs=Math.max(-fy,Math.min(fy,ES_STEEL*es));
+      const f=(L.di<a)?(fs-0.85*fc):fs; Ps+=L.A*f; Ms+=L.A*f*(depth/2-L.di);
+      if(L.di>=dmax){dmax=L.di; etl=-es;} });          // 최외측 인장철근 변형률(인장 +)
+    const Pn=Cc+Ps, Mn=Cc*(depth/2-a/2)+Ms;
+    let phi=0.65; if(etl>=0.005)phi=0.9; else if(etl>ety)phi=0.65+(etl-ety)*0.25/(0.005-ety);
+    let P=phi*Pn; const M=phi*Math.abs(Mn);
+    if(P>phiPnMax)P=phiPnMax;                          // 압축지배 평탄부 클립
+    if(prevEtl!==null && prevEtl>=ety && etl<ety && !balanced) balanced={P:+P.toFixed(0),M:+M.toFixed(0)};
+    prevEtl=etl; pts.push({P,M});
+  }
+  return {pts,Po,phiPnMax,balanced};
+}
+
+/* 곡선 pts에서 주어진 Pu의 허용 설계모멘트 φMn(P-축 교차 보간). */
+function colMcapFrom(pts,Pu){ let best=0;
+  for(let i=1;i<pts.length;i++){ const A=pts[i-1],B=pts[i];
+    if((A.P-Pu)*(B.P-Pu)<=0){ const t=(Pu-A.P)/((B.P-A.P)||1); best=Math.max(best,A.M+t*(B.M-A.M)); } }
   return best;
 }
+
+/* 하위호환 래퍼(기존 시그니처 유지) — 8개 둘레균등 가정으로 강축 곡선. */
+function colPMpoints(rho,b,h,fc,fy,cover){
+  const Ast=rho*b*h; return colPMcurve(colLayers(Ast,8,b,h,cover,'x'),b,h,fc,fy,Ast).pts;
+}
+function colMcapAt(rho,b,h,fc,fy,cover,Pu){ return colMcapFrom(colPMpoints(rho,b,h,fc,fy,cover),Pu); }
+
 function pickColBars(As){
   for(const [dia,a] of [['D22',387],['D25',507],['D29',642],['D32',794]]){
     let n=Math.ceil(As/a); if(n%2)n++; n=Math.max(4,n); if(n<=16) return {dia,n,As:n*a}; }
   let n=Math.max(4,Math.ceil(As/794)); if(n%2)n++; return {dia:'D32',n,As:n*794};
 }
 /* 기둥 이축 설계 — Bresler 하중컨투어 (Mux/Mnx)^α+(Muy/Mny)^α ≤ 1 (α=1.0 보수).
-   축별 용량은 해당 휨 깊이로 colMcapAt(축x: b×h, 축y: h×b). 필요 ρ 이분법 역산. */
+   1) ρ는 8층 둘레균등 가정으로 이분법 역산.
+   2) 확정 주근(nBars)으로 실제 둘레배근 다층 P-M 곡선 재계산·U 재평가·곡선 노출.
+   3) φPn,max(축캡) 초과 시 over. 반환에 pm{x,y,Po,phiPnMax,MnX,MnY} 추가. */
 function rcColumnDesign(demand,geom,mat){
   mat=Object.assign({},DEFAULT_REBAR,mat||{});
   const b=geom.b,h=geom.h,fc=mat.fc,fy=mat.fy,cover=mat.cover, A=1.0;
   const Pu=Math.abs(demand.Pu||0), Mux=Math.abs(demand.Mux||0), Muy=Math.abs(demand.Muy||0);
-  const util=rho=>{ const Mnx=colMcapAt(rho,b,h,fc,fy,cover,Pu), Mny=colMcapAt(rho,h,b,fc,fy,cover,Pu);
+  const curve=(rho,nB,axis)=>{ const Ast=rho*b*h;
+    const wC=(axis==='y')?h:b, dp=(axis==='y')?b:h;
+    return colPMcurve(colLayers(Ast,nB,b,h,cover,axis),wC,dp,fc,fy,Ast); };
+  const util=(rho,nB)=>{ const Mnx=colMcapFrom(curve(rho,nB,'x').pts,Pu), Mny=colMcapFrom(curve(rho,nB,'y').pts,Pu);
     if(Mux>0&&Mnx<=0) return 9; if(Muy>0&&Mny<=0) return 9;
     return (Mnx>0?Math.pow(Mux/Mnx,A):0)+(Mny>0?Math.pow(Muy/Mny,A):0); };
   let lo=0.01,hi=0.06,ok=false;
-  for(let it=0;it<26;it++){ const mid=(lo+hi)/2; if(util(mid)<=1.0){hi=mid;ok=true;} else lo=mid; }
-  const rho=ok?hi:0.06, over=!ok;
-  const As=rho*b*h;
-  const tieS=Math.min(16*22,48*10,Math.min(b,h));   // min(16db_long, 48db_tie, 최소변)
-  return {b,h,rho,As,bars:pickColBars(As),tie:{dia:'D10',s:Math.floor(tieS/10)*10},over,Pu,Mux,Muy,util:+util(rho).toFixed(3)};
+  for(let it=0;it<26;it++){ const mid=(lo+hi)/2; if(util(mid,8)<=1.0){hi=mid;ok=true;} else lo=mid; }
+  const rho0=ok?hi:0.06; const bars=pickColBars(rho0*b*h);
+  const rho=bars.As/(b*h);                             // 실제 배근 기준 ρ
+  const fx=curve(rho,bars.n,'x'), fy_=curve(rho,bars.n,'y');
+  const MnX=colMcapFrom(fx.pts,Pu), MnY=colMcapFrom(fy_.pts,Pu);
+  let U=(Mux>0&&MnX<=0)||(Muy>0&&MnY<=0)?9
+        :(MnX>0?Math.pow(Mux/MnX,A):0)+(MnY>0?Math.pow(Muy/MnY,A):0);
+  const axialCap=fx.phiPnMax, over=!ok||U>1.0||Pu>axialCap;
+  const tieS=Math.min(16*22,48*10,Math.min(b,h));      // min(16db_long, 48db_tie, 최소변)
+  return {b,h,rho,As:bars.As,bars,tie:{dia:'D10',s:Math.floor(tieS/10)*10},
+          over,Pu,Mux,Muy,util:+U.toFixed(3),
+          pm:{x:fx.pts,y:fy_.pts,Po:+fx.Po.toFixed(0),phiPnMax:+axialCap.toFixed(0),
+              MnX:+MnX.toFixed(0),MnY:+MnY.toFixed(0),balX:fx.balanced,balY:fy_.balanced}};
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -771,8 +817,9 @@ function splcPayload(name, dir, funcName, scale){
     bMODE:false, aFUNCNAME:[funcName]};
 }
 /* 모달 응답에서 주기 추출 — HEAD에 'Period' 포함된 {HEAD,DATA} 테이블을 응답 전체에서 재귀 탐색.
-   주기는 PARTICIPATIONVECTORMODE 응답의 SUB_TABLES[].EIGENVALUEANALYSIS(HEAD에 Period(sec))에 위치(매뉴얼).
-   ※ 라이브(2026-06-14): 일부 서버 버전은 SUB_TABLES를 미반환 → 그 경우 T1=null(주기 회수 불가, 모드형상만).
+   주기는 EIGENVALUEMODE 응답의 SUB_TABLES[0]["EIGENVALUE ANALYSIS"](HEAD에 Period(sec))에 위치(라이브 확인 2026-06-14).
+   ※ PARTICIPATIONVECTORMODE는 모드형상만(SUB_TABLES 없음) → 주기 회수엔 EIGENVALUEMODE를 조회할 것.
+     SUB_TABLES 미반환 시 T1=null. 키명 "EIGENVALUE ANALYSIS"(공백)도 'period' 헤더 탐색으로 자동 매칭.
    반환 {modes:[{mode,period,fcyc}], T1}(T1=최대 주기=1차모드). 미발견 시 {modes:[],T1:null}. */
 function pickModalPeriods(resp){
   const out=[];
@@ -809,7 +856,7 @@ if(typeof window!=='undefined'){
     WIND_EXPOSURE, windStoryForces, detectTypicalFloors,
     KGFCM2_TO_MPA, fcMPa, REBAR_FY, BAR_AREA, DEFAULT_REBAR, beamEffDepth,
     flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign,
-    ES_STEEL, beta1, colPMpoints, colMcapAt, pickColBars, rcColumnDesign,
+    ES_STEEL, beta1, colLayers, colPMcurve, colMcapFrom, colPMpoints, colMcapAt, pickColBars, rcColumnDesign,
     DRAW_PROFILE, dxfStr, DxfDoc, beamRebarDXF, rebarSheetDXF,
     zhNum, floorLabelTW, columnRebarDXF, tableDXF, titleBlockDXF, framingPlanDXF, drawingSetDXF,
     groupDiffNotes, diffNoteDXF,

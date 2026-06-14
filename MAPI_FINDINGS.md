@@ -238,9 +238,13 @@ MIDAS 보고 대상 버그.
 - **해결**: `eigvPayload`를 **`TYPE:"LANCZOS"`** 로 고정 → `doc/anal` **"command complete" 성공**(실검증).
 - 같은 모델에서 정적해석(eigv 없이)은 항상 정상 → "not allowed"는 동적 방법 문제였음.
 - **모드형상**은 `EIGENVALUEMODE`/`PARTICIPATIONVECTORMODE`로 회수됨(Node/Mode/UX…).
-- **주기(Period)**: 매뉴얼상 `PARTICIPATIONVECTORMODE` 응답의 **`SUB_TABLES[].EIGENVALUEANALYSIS`**(HEAD에 Period(sec))에 위치.
-  그러나 **이 서버 버전은 SUB_TABLES를 미반환** → 라이브 주기 회수 불가(`pickModalPeriods`는 SUB_TABLES 재귀 탐색하나 없으면 T1=null).
-  ※ 주기는 전역 모달값이라 Story 정의와 무관(Story 정의해도 미반환 확인).
+- **★주기(Period) — 정정·해결(2026-06-14 재검증)**: 주기는 **`EIGENVALUEMODE`** 응답의
+  `SUB_TABLES[0]["EIGENVALUE ANALYSIS"]`(HEAD `["ModeNo","Frequency(rad/sec)","Frequency(cycle/sec)","Period(sec)","Tolerance"]`)에 위치.
+  - **이전 오판 정정**: "이 서버는 SUB_TABLES 미반환"은 **테이블 오선택이 원인**. `PARTICIPATIONVECTORMODE`는 모드형상만(SUB_TABLES 없음),
+    **`EIGENVALUEMODE`는 SUB_TABLES를 정상 반환**(주기 + MODAL PARTICIPATION MASSES/FACTOR/DIRECTION 4종).
+  - **라이브 검증**: 실모델(459절점 RC빌딩) EIGENVALUEMODE → `pickModalPeriods` 15모드·**T₁=1.1214s** 정상 파싱. (mode2 0.897, mode3 0.794s …)
+  - `actDynamic`을 `EIGENVALUEMODE` 조회로 수정(v2.11.0). `pickModalPeriods`(SUB_TABLES 재귀)는 무변경 — 키명 `"EIGENVALUE ANALYSIS"`(공백 포함)도 'period' 헤더 탐색으로 매칭.
+  - 부가: EIGENVALUEMODE의 `MODAL PARTICIPATION MASSES PRINTOUT (1)`(TRAN-X/Y MASS%·SUM%)도 동봉 → 참여질량비 회수 가능(향후).
 - **`db/STOR`(Story Data)**: WIND_*/SEIS_* per-story 필드 보유(정적 풍·지진이 Story에 결합). 단 전체 필수필드로도
   "Wrong Field" — 추가 전제(모델 선행조건/미문서 필드) 필요. **정적 횡하중 생성의 향후 단서**(미해결).
 
@@ -267,7 +271,7 @@ MIDAS 보고 대상 버그.
 ### 우리 발견의 외부 교차검증 (신뢰도↑)
 - **`REACTIONG`**(TABLE_NAME "Reaction(Global)") — 동일 확인. `REACTION`/`REACTIONFORCE` 무효도 일관.
 - **FBLD 스키마** `{Assign:{id:{NAME,DESC,ITEM:[{LCNAME,FLOOR_LOAD,OPT_SUB_BEAM_WEIGHT}]}}}` — 우리 구현과 **완전 동일**(SDK로 검증됨).
-- **주기 numeric 회수 난점** — 그들도 못 뽑아 `/view/capture` 스크린샷 + "35+ TABLE_TYPE 후보 probe"로 우회. ⇒ 우리 SUB_TABLES 미반환 결론과 동일한 벽.
+- **주기 numeric 회수 난점** — 그들도 못 뽑아 `/view/capture` 스크린샷 + "35+ TABLE_TYPE 후보 probe"로 우회. ⇒ **우리는 해결**: `EIGENVALUEMODE`의 SUB_TABLES로 T₁ numeric 회수 성공(§B 주기 정정 참조). albertp16가 못 찾은 길.
 - **`STORY_SHEAR` 미노출** — 우리 STORYSHEAR probe 실패와 일치.
 - **정적 지진·Story는 GUI 경로** — 그들은 GUI로 만든 `.mgbx`를 `/doc/open` 후 후처리(정적지진 "Ex +"도 GUI 생성). ⇒ Track C(정적 횡하중 생성 API 미노출) 재확인.
 - ⚠️ 그 저장소는 **소스에 MAPI-Key 하드코딩**(노출) — 본 프로젝트 "키 비커밋" 원칙의 반례.
@@ -393,6 +397,33 @@ Story(STOR/STRY)·Wind(WIND)·정적지진 생성·**모달 주기 numeric 회�
 - **RC 기둥 P-M은 `/POST/PM`로 API 가능**(레거시 문서, Gen 동작 여부는 라이브 확인 필요). 단 **Taiwan 건물 RC 코드 부재**로 TWD-USD112 자체계산은 유지.
 - 나머지(Story/Wind/정적지진/주기)는 위키로도 안 풀림 — 기존 결론 불변.
 - 인용 가치: **RC(`/POST/PM`+DCON/MATD/RCHK)에 한해 유의미**, 그 외는 기존과 중복.
+
+---
+
+## C++++++++. `/POST/PM` 라이브 검증 (Gen NX, 2026-06-14)
+
+실모델(459절점·980부재 RC 빌딩, 관리자 모드) 라이브. `/mapikey/verify` connected·gen 확인 후 read-only 위주 probe.
+
+### ★ 중대 정정 — Taiwan 건물 RC 코드는 **네이티브 존재**
+- `GET db/DCON` → `{"DCON":{"1":{"DGNCODE":"TWN-USD112"}}}`. **위키엔 "Taiwan은 교량 TWN-BRG-LSD90뿐"이라 기록했으나, 실 Gen NX엔 우리 자체계산 기준명과 동일한 `TWN-USD112`(대만 건물 RC)가 db/DCON에 네이티브로 존재.** (§C+++++++ 381행의 "Taiwan 건축 RC 코드 없음"은 위키 DCON 목록 한정 — Civil/교량 위주였음. Gen 제품 자체는 TWN-USD112 보유.)
+- `GET db/MATD` → CNS560-18(RC)·`C_FC 34323.275`·`MAINREBAR SD420`·`SUBREBAR SD420`로 채워짐(설계재료 정상).
+
+### `/POST/PM` 엔드포인트 동작 (라이브 확인)
+- **POST 200 응답·라우트 실재** (`GET /POST/PM`=404 → POST 전용). **래퍼 = `Argument`** (Argument 있으면 "Failed to create json"까지 진행 / 없으면 "error status").
+- **출력 계약 재확인**(위키): `{"PM":{"<elem>":{"vPHI_PN_MN":[{ELEM,PHI_PN,PHI_MN}…]}}}`. 위키 샘플 `PHI_PN 98249 @ M=0`(순축 φPn), General Section은 `81331079 @ M 1.306` 등.
+- **필수 입력(위키 명시, 12종)**: DCON·NODE·ELEM·경계(CONS)·STLD·**CNLD**·LCOM(콘크리트설계조합)·MATL·MATD·SECT·**RCHK**. + **전제: "RC Design 완료"**.
+- **RCHK 기둥 배근 스키마 확보**(위키 id 36175968):
+  `{"RCHK":{"<elem>":{"MEMBTYPE":"COLUMN","COLM":{"vLAYER":[{"INDEX":1,"dDc":<피복 m>,"vPOSITION":[{"POSITION":"P1","BAR_NUM":n,"BAR_NAME1":"D22"},…]}],"SUB_BAR":{"SUBBAR_NAME":"D10","SUBBAR_DIST":.15,"SUBBAR_NUM":2.0}}}}}`. (보는 id 36077767: `BEAM.vMAIN[].POS_TOP/BOT_LAYERS[]`)
+
+### ⚠️ 라이브 곡선 회수 실패 — 원인 2가지(미해결)
+1. **`db/RCHK` 라우트가 이 빌드에 부재**: `GET/PUT db/RCHK` 모두 **404**. → 배근을 API로 주입·조회 불가. (위키 `[RCHK]`는 문서 명령코드일 뿐, 이 서버판 db 라우트로는 미노출.) `db/LCB`·`db/LCOM`도 404(조합은 `db/LCOM-GEN`=200으로 존재, 키 `LCOM-GEN`).
+2. **`/POST/PM` 요청 본문 정형 미공개**: Argument에 (a) 요소선택만, (b) 전체모델 12종+합성 RCHK, (c) 모델상주+RCHK 등 다수 조합 시도 → **전부 `"Failed to create json"`**. 공개 문서에 완전한 request body 예시 없음. 배근명(D22/#7/UD22/D25/#8) 무관하게 동일 실패 → 구조적 문제(정형 불명 또는 RC Design 미실행 전제).
+- `post/table` RC 검토 TABLE_TYPE(CONCCOLUMNCHECK 등) → `"error creating utbl (ex PostMode…)"` (포스트모드/해석결과 전제).
+
+### 결론(검증 범위)
+- **검증됨**: 엔드포인트 실재·래퍼(Argument)·I/O 계약·**TWN-USD112 네이티브**·RCHK 스키마.
+- **미달성**: 실 곡선 1건 — `db/RCHK` 부재 + 요청정형 미공개로 API 단독 불가. **유일 경로 = GUI에서 RC Design 선실행 후 모델상주 PM 읽기**(이 빌드에서 가능 여부 추가확인 필요).
+- **제품 영향**: 우리 기둥 P-M은 **자체 해석곡선(strain-compatibility, TWD-USD112)**로 고도화(§#2). `/POST/PM`은 GUI 설계 완료 모델에서의 **선택적 교차검증**으로 남김.
 
 ---
 

@@ -76,6 +76,8 @@ midas_story/  units · domain · grid · combos · validation · payloads · exp
   - **M2-A4(동적해석)** ✅ 고유치(`db/EIGV`)→실주기 T₁→지진 Cs 보정 + 응답스펙트럼(`db/SPFC`+`db/SPLC`, 대만).
     API 전수조사로 "차단" 오판 정정·라이브 검증 ([MAPI_FINDINGS.md](MAPI_FINDINGS.md)). v2.10.0(최신판)에 반영.
 - **M3** ✅ 해석 결과 회수 + 구간별 배근(보 휨·전단 + 기둥 이축 P-M, TWD-USD112)
+  - **기둥 P-M 고도화(v2.11)** ✅ 둘레 다층배근(측면근 반영)·φPn,max(0.80φPo) 축캡·실배근 P-M 곡선 노출.
+    `/POST/PM` 라이브 조사로 `db/DCON` 네이티브 `TWN-USD112` 확인 ([MAPI_FINDINGS.md](MAPI_FINDINGS.md) §C++++++++).
 - **M4** ✅ 도면·문서 자동화(DXF) — 配筋圖·일람표·층별차이·표제란 (대만 公會 標準圖 참조)
 
 문서: [DESIGN.md](DESIGN.md) · [M2_DESIGN.md](M2_DESIGN.md) · [M4_DESIGN.md](M4_DESIGN.md) · [CHANGELOG.md](CHANGELOG.md)

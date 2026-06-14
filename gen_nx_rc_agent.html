@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gen NX 대화형 모델링 에이전트 v2.10.1 (M2-A4 동적해석)</title>
+<title>Gen NX 대화형 모델링 에이전트 v2.11.0 (기둥 P-M 고도화)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -335,7 +335,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.10.1</span><small data-i18n="subtitle">對話式結構建模</small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.11.0</span><small data-i18n="subtitle">對話式結構建模</small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <button data-l="ko" onclick="setLang('ko')">한국어</button>
@@ -1114,11 +1114,12 @@ async function actDesignRebar(){
     if(g.beam){ const D=g.beam.d;
       msg+=`<br>　${L3('보','Beam','梁')} ${g.beam.sec.B}×${g.beam.sec.H} · M⁺${(g.beam.MuPos/1e6).toFixed(0)}/M⁻${(g.beam.MuNeg/1e6).toFixed(0)}·V${(g.beam.Vu/1e3).toFixed(0)} → `+
         `${L3('하','Bot','下')} <b>${D.barsBot.n}-${D.barsBot.dia}</b> · ${L3('상','Top','上')} <b>${D.barsTop.n}-${D.barsTop.dia}</b> · ${L3('스터럽','Stirr','箍')} ${D.stirrup.leg}-${D.stirrup.dia}@${D.stirrup.s}`+(D.over?OV:''); }
-    if(g.col){ const C=g.col.d;
+    if(g.col){ const C=g.col.d; const axR=C.pm?(C.Pu/C.pm.phiPnMax):0;
       msg+=`<br>　${L3('기둥','Col','柱')} ${g.col.sec.B}×${g.col.sec.H} · P${(g.col.Pu/1e3).toFixed(0)}kN·Mx${(g.col.Mux/1e6).toFixed(0)}/My${(g.col.Muy/1e6).toFixed(0)} → `+
-        `<b>${C.bars.n}-${C.bars.dia}</b> (ρ${(C.rho*100).toFixed(1)}%, U=${C.util}) · ${L3('띠철근','Tie','箍')} ${C.tie.dia}@${C.tie.s}`+(C.over?OV:''); }
+        `<b>${C.bars.n}-${C.bars.dia}</b> (ρ${(C.rho*100).toFixed(1)}%, U=${C.util}) · ${L3('띠철근','Tie','箍')} ${C.tie.dia}@${C.tie.s}`+
+        (C.pm?` · <span style="color:var(--dim)">φPn,max ${(C.pm.phiPnMax/1e3).toFixed(0)}kN(P/cap ${(axR*100).toFixed(0)}%)</span>`:'')+(C.over?OV:''); }
   });
-  msg+=`<br><span style="color:var(--dim);font-size:.85em">${L3('보:주축 휨 포락·단철근. 기둥:이축 P-M(Bresler 컨투어)·대칭배근. SD420/SD280. 세장·정착/SMRF 디테일 별도.','Beam: major-axis flexure, singly-reinforced. Column: biaxial P-M (Bresler), symmetric. SD420/SD280. Slenderness/detailing separate.','梁:主軸彎矩單筋。柱:雙軸 P-M(Bresler)對稱配筋。SD420/SD280。細長/錨定另計。')}</span>`;
+  msg+=`<br><span style="color:var(--dim);font-size:.85em">${L3('보:주축 휨 포락·단철근. 기둥:이축 P-M(Bresler 컨투어)·둘레 다층배근·φPn,max(0.80φPo) 축캡. SD420/SD280. 세장·정착/SMRF 디테일 별도.','Beam: major-axis flexure, singly-reinforced. Column: biaxial P-M (Bresler contour), perimeter multi-layer rebar, φPn,max(0.80φPo) axial cap. SD420/SD280. Slenderness/detailing separate.','梁:主軸彎矩單筋。柱:雙軸 P-M(Bresler)周邊多層配筋·φPn,max(0.80φPo)軸壓上限。SD420/SD280。細長/錨定另計。')}</span>`;
   msg+=`<br><button onclick="exportRebarCSV()" style="margin-top:8px;background:var(--cyan);color:#04121c;border:none;border-radius:7px;padding:6px 14px;font-weight:700;cursor:pointer">⬇ ${L3('배근표 CSV','Rebar CSV','配筋表 CSV')}</button>`;
   return msg;
 }
@@ -1185,10 +1186,12 @@ async function actDynamic(opt={}){
   if(notAllowed) log('▸ '+L3('해석 실행 거부: ','analysis refused: ','分析被拒: ')+analMsg+
     L3(' (고유치는 Lanczos 사용 — off-diagonal 질량 시 Subspace 불가)',' (eigen uses Lanczos — Subspace invalid with off-diagonal mass)',' (特徵值用 Lanczos — off-diagonal 質量時 Subspace 不可)'),'err');
   else log(tl('analDone'),'ok');
-  /* 5) 주기 회수 (PARTICIPATIONVECTORMODE 응답의 Period 서브테이블 파싱) */
+  /* 5) 주기 회수 — EIGENVALUEMODE 응답의 SUB_TABLES["EIGENVALUE ANALYSIS"](Period(sec)) 파싱.
+       ※ 라이브 확인(2026-06-14): PARTICIPATIONVECTORMODE는 모드형상만(SUB_TABLES 없음),
+         EIGENVALUEMODE가 주기·참여질량 SUB_TABLES를 반환. (이전 "SUB_TABLES 미반환"은 테이블 오선택이 원인.) */
   let modal={modes:[],T1:null};
   try{
-    const resp=await mapi('POST','/post/table',{Argument:{TABLE_NAME:'PV',TABLE_TYPE:'PARTICIPATIONVECTORMODE',UNIT:{FORCE:'KN',DIST:'M'}}});
+    const resp=await mapi('POST','/post/table',{Argument:{TABLE_NAME:'EV',TABLE_TYPE:'EIGENVALUEMODE',UNIT:{FORCE:'KN',DIST:'M'}}});
     modal=pickModalPeriods(resp);
   }catch(e){ log('▸ '+L3('주기 회수 실패: ','period retrieval failed: ','週期擷取失敗: ')+e.message,'warn'); }
   /* 6) 지진 Cs 재산정 (실주기 T₁ 피드백) */
@@ -1214,9 +1217,9 @@ async function actDynamic(opt={}){
                    '⚠ Analysis was refused — setup (mass·eigen·RS) created OK. Eigen uses Lanczos.',
                    '⚠ 分析被拒 — 設定(質量·特徵值·反應譜)已建立。特徵值採 Lanczos。');
   } else {
-    msg+='<br>'+L3('✓ 해석 실행됨. 단, 주기(SUB_TABLES) 미반환 — 일부 서버 버전은 모달 주기 테이블을 반환하지 않음(모드형상은 회수됨).',
-                   '✓ Analysis ran, but period (SUB_TABLES) not returned — some server versions omit the modal period table (mode shapes are retrieved).',
-                   '✓ 分析已執行，但週期(SUB_TABLES)未回傳 — 部分伺服器版本不回傳模態週期表(模態形狀可擷取)。');
+    msg+='<br>'+L3('✓ 해석 실행됨. 단, EIGENVALUEMODE 주기 테이블을 회수하지 못함 — 고유치 결과가 없거나 모델 미해석 상태일 수 있음(해석 후 재시도).',
+                   '✓ Analysis ran, but the EIGENVALUEMODE period table was not retrieved — no eigen results yet or model not analyzed (retry after analysis).',
+                   '✓ 分析已執行，但未擷取 EIGENVALUEMODE 週期表 — 可能尚無特徵值結果或模型未分析(分析後重試)。');
   }
   if(fb){
     msg+='<br>'+L3('지진 Cs 재산정 (경험식 Ta → 해석 T₁)','Seismic Cs update (empirical Ta → modal T₁)','地震 Cs 重算 (經驗式 Ta → 解析 T₁)');
