@@ -79,6 +79,11 @@ midas_story/  units · domain · grid · combos · validation · payloads · exp
   - **기둥 P-M 고도화(v2.11)** ✅ 둘레 다층배근(측면근 반영)·φPn,max(0.80φPo) 축캡·실배근 P-M 곡선 노출.
     `/POST/PM` 라이브 조사로 `db/DCON` 네이티브 `TWN-USD112` 확인 ([MAPI_FINDINGS.md](MAPI_FINDINGS.md) §C++++++++).
 - **M4** ✅ 도면·문서 자동화(DXF) — 配筋圖·일람표·층별차이·표제란 (대만 公會 標準圖 참조)
+- **M5** 📋 (후보, 미착수) 차기 확장 방향 — 범위 미확정
+  - 기초/말뚝 설계
+  - 시공도(shop drawing)·물량산출(BOQ) 자동화
+  - 설계서(계산서) PDF 리포트 생성
+  - `/POST/PM` 라이브 교차검증 정식 연동
 
 문서: [DESIGN.md](DESIGN.md) · [M2_DESIGN.md](M2_DESIGN.md) · [M4_DESIGN.md](M4_DESIGN.md) · [CHANGELOG.md](CHANGELOG.md)
 
