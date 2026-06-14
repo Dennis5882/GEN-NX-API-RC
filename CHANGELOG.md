@@ -1,5 +1,27 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.11.1 — 2026-06-14 (버그 수정·동기화)
+
+### 버그 수정
+
+- **actBuildFrame 단위계 선제 설정** — `actBuildFrame()` 첫 줄에 `await setUnit('N','MM')` 추가.
+  Gen NX가 kN/m 등 다른 단위 상태에서 실행 중일 때 첫 모델링 시 노드 좌표가 잘못 해석돼
+  `WARNING: DISPLACEMENT DZ IS ABNORMAL` 296건이 발생하던 문제 해결.
+  (`runAnalysis()`의 `setUnit` 호출은 모델 생성 이후였으므로 첫 실행에서만 단위 불일치가 발생했음)
+
+- **callTool build_frame 동기화** — `gen_nx_rc_agent.html` · `gen_nx_rc_agent_standalone.html`
+  두 파일의 `callTool('build_frame')` 로직을 통일.
+  `bldgType` 값이 있으면 `BUILDING_TYPES[bldgType]` 프리셋을 베이스로, 없으면 `DEFAULT_SPEC`을
+  베이스로 사용하도록 수정. (이전엔 agent는 항상 `DEFAULT_SPEC` 기반이어서 standalone과 다른
+  모델이 생성되는 불일치 존재)
+
+### 기타
+
+- **autoSavePath() 폴백 경로** — verifyConn 실패 시 저장 경로를 `C:/Temp/gen_rc_temp_{ts}.mgbx`
+  로 확정. (이전: `C:/Windows/Temp/`)
+
+---
+
 ## v2.11.0 — 2026-06-14 (기둥 P-M 곡선 고도화) — 둘레 다층배근 + φPn,max 축캡
 
 `/POST/PM` 라이브 조사(§MAPI_FINDINGS C++++++++)로 확인된 코드기반 P-M 계약을 우리 자체 해석곡선에 반영·고도화.

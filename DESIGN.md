@@ -135,6 +135,13 @@ PDF §2의 필드를 그대로 1차 매핑한다.
 - 메서드: **POST**=생성 / **PUT**=수정(신규파일 필수데이터는 GET/PUT만) / **GET** / **DELETE**
 - **공통 바디 래퍼**: `{ "Assign": { "<ID>": { …필드… } } }` — ID는 부재/항목 번호
 
+> **구현 주의 (2026-06-14 확인):**
+> - 단위계(`PUT /db/unit`) 설정은 **모델 생성 직전**에 호출해야 한다.
+>   Gen NX가 다른 단위(kN/m 등)로 열린 상태에서 노드를 추가하면 좌표가 잘못 해석됨.
+> - `callTool('build_frame')` 에서 `bldgType` 파라미터가 있으면 `BUILDING_TYPES[bldgType]`
+>   프리셋을 베이스로, 없으면 `DEFAULT_SPEC`을 베이스로 사용한다.
+>   agent.html · standalone.html 양쪽 동일하게 유지할 것.
+
 ```
 [문서 시작]  POST /doc/new                       ← 새 프로젝트(빈 바디 {})
       └─ PUT  /db/unit  {DIST,FORCE}             ← 단위계 고정 (대만: M·TONF 등)

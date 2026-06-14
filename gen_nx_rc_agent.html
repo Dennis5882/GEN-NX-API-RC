@@ -820,9 +820,18 @@ async function putNodalLoad(no,lcName,nodeIds,f){
     FX:f.fx||0,FY:f.fy||0,FZ:f.fz||0,MX:f.mx||0,MY:f.my||0,MZ:f.mz||0}]});
   await mapi('PUT','CNLD',{Assign:a}); log(tl('nodal',nodeIds.length,lcName),'ok');
 }
+async function autoSavePath(){
+  try{
+    const {base,key}=cfg();
+    const {j}=await verifyConn(base,key);
+    if(j&&j.user){ const u=j.user.split('@')[0]; return `C:/Users/${u}/Documents/gen_rc_temp_${Date.now()}.mgbx`; }
+  }catch(e){}
+  return `C:/Temp/gen_rc_temp_${Date.now()}.mgbx`;
+}
 async function runAnalysis(){
   await setUnit('N','MM');
   log(tl('analRun'),'info');
+  try{ await mapi('POST','/doc/saveas',{Argument:await autoSavePath()}); }catch(e){}
   await mapi('POST','/doc/anal',{});
   log(tl('analDone'),'ok');
 }
@@ -887,6 +896,7 @@ async function putCombos(){
 
 async function actBuildFrame(p, clear=true){
   if(!S.connected) throw new Error(t('e_notconn'));
+  await setUnit('N','MM');
   if(p.core&&p.core.on && !(p.walls&&p.walls.length)) p.walls=[autoCore(p,p.core.thick)];
   const f=buildFrame(p);
   if(clear) await clearModel();
@@ -1180,6 +1190,7 @@ async function actDynamic(opt={}){
      doc/anal은 그 경우 HTTP 200 + message로 회신하므로(에러필드 아님) 직접 메시지를 점검. */
   await setUnit('KN','M');
   log(tl('analRun'),'info');
+  try{ await mapi('POST','/doc/saveas',{Argument:await autoSavePath()}); }catch(e){}
   const analRes=await mapi('POST','/doc/anal',{});
   const analMsg=String((analRes&&analRes.message)||'');
   const notAllowed=/not allowed|not permitted|허용되지|許可/i.test(analMsg);
@@ -1798,7 +1809,8 @@ IMPORTANT — incremental editing: when a model already exists and the user asks
 
 async function callTool(name,inp){
   if(name==='build_frame'){
-    const p={...DEFAULT_SPEC,...inp};
+    const _base = inp.bldgType && BUILDING_TYPES[inp.bldgType] ? {...BUILDING_TYPES[inp.bldgType], bldgType:inp.bldgType} : {...DEFAULT_SPEC};
+    const p={..._base,...inp};
     if(inp.colH||inp.colB){p.colName=`C${p.colH||p.colH}x${p.colB||p.colB}`;p.colH=inp.colH||p.colH;p.colB=inp.colB||p.colB;}
     if(inp.beamH||inp.beamB){p.beamH=inp.beamH||p.beamH;p.beamB=inp.beamB||p.beamB;p.beamName=`B${p.beamB}x${p.beamH}`;}
     if(inp.connectFloor===0)p.connectFloor=0;

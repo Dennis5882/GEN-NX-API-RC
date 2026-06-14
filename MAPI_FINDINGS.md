@@ -133,7 +133,22 @@ PLATE보다 먼저 생성. (매뉴얼: Properties → Thickness - Value/Stiffene
 ### B-3. 자중→질량 — `db/styp` `bSELFWEIGHT:true`  ✅
 - 매뉴얼 Static Loads에 **Self-Weight / Loads to Masses** 별도 항목 존재 → 필드명 교차확인 권장.
 
-### B-4. 결과 회수 — `post/table`, `TABLE_TYPE="BEAMFORCE"`  ✅
+### B-4. 단위계 선제 설정 필수 — `PUT /db/unit` ⚠️
+
+모델 생성 API 호출 전 반드시 단위계를 명시적으로 설정해야 한다.
+Gen NX 앱이 이미 kN/m 등 다른 단위 상태로 열려 있을 경우, MAPI로 노드를 추가하면
+해당 좌표가 현재 앱 단위로 해석된다.
+
+- **현상**: 첫 실행에서만 `WARNING: DISPLACEMENT DZ IS ABNORMAL` 296건 발생.
+  두 번째 실행부터는 동일 코드임에도 경고 없음.
+- **원인**: `runAnalysis()`에서만 `setUnit('N','MM')`을 호출해, 모델 빌드 시점에는
+  Gen NX가 kN/m 상태 → 노드 좌표 7000(mm 의도)이 7000m로 해석 → 이상 변위.
+  두 번째 실행 시에는 직전 `setUnit` 호출로 세션 단위가 N/mm로 유지된 상태.
+- **수정**: `actBuildFrame()` 첫 줄에 `await setUnit('N','MM')` 추가 → 항상 단위 선제 고정.
+
+**교훈**: MAPI 단위 설정은 모델 생성 직전에 해야 한다. 해석 직전 호출만으로는 부족.
+
+### B-5. 결과 회수 — `post/table`, `TABLE_TYPE="BEAMFORCE"`  ✅
 HEAD: `Index|Elem|Load|Part|Axial|Shear-y|Shear-z|Torsion|Moment-y|Moment-z`,
 `Part`=`I,1/4,2/4,3/4,J`, 단위 **N·mm**.
 
