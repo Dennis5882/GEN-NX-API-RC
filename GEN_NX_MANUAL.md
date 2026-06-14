@@ -74,9 +74,16 @@
 ### Results 탭 (우리 M3)
 - Reaction/Displacement/Beam Force → `post/table`(REACTIONG·BEAMFORCE…). Story Drift/Mass = 불규칙성 관련 노출 테이블. 모달 주기는 SUB_TABLES(서버 버전따라 미반환).
 
-### Design 탭 (우리 M3 배근의 GUI 대응)
-- **RC Design Type**: Design Code → Input Data → Table → Perform → Result. **GUI 모듈**(설계코드 내장). 
-  - ⚠️ **Taiwan 코드는 공식 API/Python에 없음** → 우리 자체계산 **TWD-USD112** 유지(필수). 휨·P-M은 moapy(ACI)로 교차검증 가능.
+### Design 탭 (우리 M3 배근의 GUI 대응) — §2.2 정독
+**RC Design Type** = Design Code Option → Design Input Data(파라미터·배근기준) → Perform → Result/Table → Modify Rebar. **GUI 모듈**.
+- **Design Code Option**: 기본 `KDS 41 31:2018`(한국). **내진 특별규정(기준 21장)**: Ordinary/Intermediate/**Special Moment Frame**(OMF/IMF/SMF), 설계전단력 산정법. **특수 RC 벽체 경계요소**(변위기반 `c≥lw/[600(δu/hw)]` / 응력기반 `fc≥0.2fck`). 문서는 KDS/KBC/KCI 중심.
+- **Design Parameters**:
+  - **Strength Reduction Factors(φ)**: `Phi_B`(휨)·`Phi_T`(축인장)·`Phi_C1`(나선기둥)/`Phi_C2`(띠기둥)·`Phi_V`(전단) — 코드별 자동, override 가능. → **우리 엔진 φ(휨0.9·전단0.75·기둥)와 동일 개념**.
+  - **P-M Curve Calculation Method**(기둥/브레이스/벽): **`Keep P Constant`(동일축력)** 또는 **`Keep M/P Constant`(동일편심)** — **실제 P-M 곡선** 기반. ⇒ 우리 **Bresler 하중컨투어 근사보다 엄밀**(moapy도 동일). 보강 후보.
+  - 기타: Moment Redistribution, Torsion Reduction, **Limiting Maximum Rebar Ratio**(ρmax), Live Load Reduction, Seismic Column Type.
+- **Rebar Input ▸ Design Criteria for Rebar**: 주철근 규격(최대 5종)·**Stirrup 규격+다리수(최대 9)**·벽 수직/수평근 간격. → **우리 `pickBars`/스터럽 선택과 동일 방식**.
+- ⚠️ **API엔 RC 설계 자체가 없음**(공식 SDK·문서 모두). GUI RC설계도 KDS/국제코드 중심으로 **Taiwan RC는 미확인**. → **우리 자체계산 TWD-USD112 유지(필수)**. 휨 Mn/φMn·기둥 P-M은 **moapy(ACI318) 또는 GUI(P-M curve)**로 교차검증 가능.
+- MIDAS가 더 풍부한 부분(우리 미구현): 내진 디테일링(OMF/IMF/SMF), 특수벽 경계요소, 비틀림, 모멘트 재분배 — 향후 확장 후보.
 
 ### Apps 탭
 - **API** = MIDAS Open API 진입점(우리 도구의 토대). MGT(텍스트 모델), Application/Editor/Link.
