@@ -8,6 +8,143 @@
 
 ---
 
+## 🆕 신버전 회귀검증 (2026-06-15 / 대상: **Gen NX 2026 v2.1 베타 (2026-06-12 빌드)**, 단위 N·mm)
+
+전체 빌드→해석→결과회수 end-to-end를 신버전에서 재실행 (모델 DELETE 후 클린 재빌드로 2회 재현). **종합: 회귀 0건, 신규 노출 2건(db/STOR·db/SEIS). BODF·autoSavePath "이상" 2건은 모두 자가 오류로 판명·철회.**
+
+### 🌟🌟 신규 노출 — `db/STOR` (Story Data) 전체 스키마 도출 (★대만 RC 직결)
+신버전이 노출한 `db/STOR`의 **필수 필드 15개**를 라이브로 완전 도출 (Gen NX가 부분 PUT 시 누락 필드를 전수 enumerate → 그대로 채워 PUT 200 + GET 영속 확인).
+```json
+PUT /db/STOR
+{ "Assign": { "1": {
+  "STORY_NAME": "1F",            // 층 이름
+  "STORY_LEVEL": 0,             // 층 표고(레벨)
+  "bFLOOR_DIAPHRAGM": true,     // 바닥 강막(rigid diaphragm) 여부
+  "WIND_FLOOR_WIDTH_X": 0, "WIND_FLOOR_WIDTH_Y": 0,   // 풍하중 산정 바닥폭
+  "WIND_CENTER_X": 0,  "WIND_CENTER_Y": 0,            // 풍 작용 중심
+  "WIND_ECCENT_X": 0,  "WIND_ECCENT_Y": 0,            // 풍 편심
+  "SEIS_ACC_ECCENT_X": 0.05, "SEIS_ACC_ECCENT_Y": 0.05,        // 내진 우발편심(보통 5%)
+  "SEIS_INHERENT_ECCENT_X": 0, "SEIS_INHERENT_ECCENT_Y": 0,    // 내진 고유편심
+  "SEIS_TORSIONAL_AMP_FACTOR_X": 1.0, "SEIS_TORSIONAL_AMP_FACTOR_Y": 1.0  // 내진 비틀림증폭계수 Ax
+}}}  // → 200, GET 영속
+```
+- **구분**: 1개 DTO가 **층 정의 + 풍(WIND) 6필드 + 내진(SEIS) 6필드**를 통합. (사용자 추측 적중: "하나는 스토리, 하나는 내진".)
+- **대만 RC 의미**: `SEIS_ACC_ECCENT`(우발편심)·`SEIS_INHERENT_ECCENT`(고유편심)·`SEIS_TORSIONAL_AMP_FACTOR_*`(비틀림증폭 Ax)는 **TWD 내진코드 층별 비틀림 파라미터** — 자체계산 등가정적 지진에 직접 연동 가능. **이전엔 미노출이라 수동입력이던 항목이 API로 쓰기 가능해짐.**
+- **주의**: 부분 PUT은 "Wrong Field"(일부) + GUI에 `DTO_STOR.1.<FIELD> Data does not exist` 전수 표출 → **15필드 모두 필수**(부분 저장 불가로 보임).
+- **구모델 비호환 정황**: 구버전 .mgbx 해석 시 `SEIS_TORSIONAL_AMP_FACTOR_Y` 등 신필드 누락 오류 가능(이전 세션 사용자 보고와 일치).
+
+### 🌟 신규 노출 — `db/SEIS` (Seismic Load, 부분 도출 · 쓰기 미완성)
+`GET /db/SEIS` → 200 (이전 미노출). GUI DTO 덤프로 **필수 필드 3개 도출**:
+```
+DTO_SEIS.1.SEIS_LOAD_CODE     // 내진 코드 (enum/string)
+DTO_SEIS.1.SCALE_FACTOR_X
+DTO_SEIS.1.SCALE_FACTOR_Y
+```
+- **거동**: 이 3필드로 PUT 시 "Wrong Field"는 사라지나(필드명 인식됨) **"Unknown Error"** 발생.
+  `SEIS_LOAD_CODE` 값을 11종(IBC2015/ASCE7-16/UBC(97)/KBC2016/Taiwan/TWN/IS1893/GB50011/None…) + 정수(1·2·3)로 스윕해도 **전부 "Unknown Error"** → 값 enum 문제 아님.
+- **해석**: 3필드 외 추가 필드 필요 / 부모 컨텍스트(내진 하중경우·층 데이터) 선행 필요 / **베타에서 쓰기 경로 미완성** 중 하나. POSL이 "강제력 미생성"이던 것과 같은 계열(정적 횡하중 생성=GUI 레이어)일 가능성.
+- **액션**: 신버전 공식 SDK로 SEIS DTO 전체 필드 도출 + **"Unknown Error" 불투명 응답을 MIDAS 베타 피드백**으로 보고 권장.
+- (STRY/STORY/SRCF/SPSF/ESCB는 404로 부재.)
+
+### 🚨🚨 대정정 — 정적 횡하중 "생성"이 v2.1에서 API로 노출됨 (`db/SSEIS`·`db/SWIND`, 2026-06-16 실증)
+**그동안 "정적 지진·풍 생성은 GUI 전용, REST 미노출 → 자체계산→`db/CNLD` 주입이 유일"이라 3중 확정(§C++·C+++·C+++++)했으나, v2.1에서 뒤집힘.**
+공식 API 매뉴얼이 **2026-06-15 갱신**(정기 업데이트 확인), Zendesk Help Center JSON API로 우회 취득(`/api/v2/help_center/ko/articles/<id>.json`, 브라우저 UA — 일반 포털은 403). 신규 등재(2026-06-12):
+- **`db/SSEIS` (Static Seismic Load)** · **`db/SWIND` (Static Wind Load)** · **`db/EPSE` (Seismic Earth Pressure)** — 모두 GET 200, full CRUD. 각 **KDS 코드판 + User Type**.
+- **★`db/SSEIS` User Type 라이브 실증(PUT 200 + 계산 프로파일 반환)**:
+```json
+PUT /db/SSEIS
+{ "Assign": { "1": {
+  "SEIS_CODE": "USER TYPE",                 // const "USER TYPE" (필수)
+  "SCALE_FACTOR_X": 1.0, "SCALE_FACTOR_Y": 1.0,   // 필수
+  "SEISMIC_FORCE": [ { "STORY_NAME":"1F", "FORCE_X":10000, "FORCE_Y":0 } ],  // 필수 — 층별 사용자 지진력
+  "ACCIDENT_ECCEN_X":0, "ACCIDENT_ECCEN_Y":0, "ACCIDENT_TORSION":false, "INHERENT_TORSION":false,
+  "ADDITIONAL_LOAD": [ { "STORY_NAME, ALONG_X, ALONG_Y, TORSIONAL_RZ" } ],  // 선택
+  "DESC": "" }}}
+```
+  → GET이 **네이티브 계산 결과** 반환: `SEISMIC_FORCE`에 `WEIGHT`/`ELEV` 추가 + **`PROFILE{X_DIR,Y_DIR,SRSS}`** (STORY_WEIGHT·STORY_FORCE·**STORY_SHEAR**·**OVERTURN_MOMENT**·**ACCIDENT_TORSION**·INHERENT/TOTAL_TORSION). 실측 검산: 10000N@3000mm → OTM 3.00e7 ✓, 우발토션 500=10000×0.05 ✓, G.L. 밑면전단 행 포함.
+- **`db/SWIND` User Type**(동일 실증, PUT 200): `WIND_CODE:"USER TYPE"`, `STORY_WIND_PRESSURE:[{STORY_NAME,PRESS_X,PRESS_Y}]` → `PROFILE{X_DIR…}`(WIND_FORCE/STORY_SHEAR/OVERTURN_MOMENT). ※floor 폭/높이(STOR의 WIND_FLOOR_WIDTH·층고) 0이면 WIND_FORCE=0 — 모델 완성도 의존.
+- **⚠️ 전제조건(라이브 규명)**: **층이 G.L.(지표면) 위에 있어야 함**. `STORY_LEVEL ≤ G.L.`이면 `"The Story <n> is skipped: elevation ≤ G.L."` + `"USER TYPE requires a building model with stories."`로 거부. STORY_LEVEL=0(=기본 G.L.)→실패, 3000→성공.
+- **에러 메시지 품질 ↑**: 구 `db/SEIS`의 "Unknown Error"와 달리 SSEIS/SWIND는 **구체적 사유** 반환(요구 전제 명확).
+- **`db/SEIS` vs `db/SSEIS`**: 둘 다 GET 200으로 별개 실재. 우리가 앞서 "Unknown Error"로 막혔던 `db/SEIS`(`SEIS_LOAD_CODE`/`SCALE_FACTOR`)는 **정적 지진의 정답 엔드포인트가 아님** — 정답은 **`db/SSEIS`**(`SEIS_CODE`+`SEISMIC_FORCE[]`). db/SEIS 정체는 미확정(ASCE7-22 Hazard 계열 추정).
+- **🇹🇼 프로젝트 영향(중대)**: **User Type이 사용자 층력/압력을 직접 받음** → 우리 **TWD-USD112 자체계산 지진·풍을 네이티브 static 케이스로 주입** 가능(우발편심·비틀림·밑면전단·OTM을 Gen NX가 계산). **`db/CNLD` 절점하중 우회보다 층 의미론이 살아있는 정석 경로**가 새로 열림 → 엔진 연동 재설계 후보.
+
+#### ⚠️ 생성 완결성 검증 결과 (2026-06-16, 라이브) — "프로파일 생성 ✓ / 해석 투입 미확인"
+SSEIS를 실모델(2절점 base 고정, 1F@3000, 자중질량)에 PUT 후 `doc/anal` "command complete"까지 갔으나:
+- ✅ **프로파일 생성 확정**: `GET /db/SSEIS`가 **계산된 설계 횡력 분포** 반환 — STORY_FORCE 10000·**STORY_SHEAR(밑면) 10000**·**OVERTURN_MOMENT 3.00e7**(=10000×3000 검산✓)·**ACCIDENT_TORSION 500**(=10000×0.05✓), X_DIR/Y_DIR/SRSS + STORY_WEIGHT(모델 질량에서 산정). **즉 "설계 횡력 계산"은 API로 완전히 회수 가능.**
+- ❌ **해석 하중케이스 자동생성은 미관찰**: `db/STLD`엔 DL뿐, `REACTIONG` 케이스도 **DL·RSX(RS)만**(SSEIS/ESX/EX/SX… 후보명 전부 빈 결과). SSEIS 스키마에 LCNAME 없음. → **SSEIS의 계산값이 doc/anal 반력으로 자동 투입되진 않음**(이 모델/이 빌드 기준).
+- **해석 정리(수정)**: 앞 "정적 지진 생성이 완전히 열렸다"는 **과한 표현 → 정정**. 정확히는 **(a) 설계 횡력 "프로파일" 생성·회수 = API 노출(신규, 확정)**, **(b) 그 하중의 "구조해석 자동 적용" = 미확인**(층 강막/master node·`ope/STOR` Story Calculation 선행 또는 GUI 레이어 가능성). db/CNLD 주입 경로는 (b)가 규명되기 전까지 유효.
+- **프로젝트 활용**: (a)만으로도 가치 큼 — **사용자 층력 → Gen NX 네이티브 층전단/OTM/우발토션 산정**을 API로 받는 "계산 서비스"로 즉시 사용 가능(자체계산 교차검증). (b)는 후속 규명 과제(diaphragm+Story Calculation 빌드).
+
+### 📕 릴리즈 노트 대조 — STOR/SEIS는 **ASCE 7-22 내진하중 생성** 기능 (v2.1 핵심)
+`archive/MIDAS GEN NX 2026 (v2.1)_draft_rev8.pdf` (49p) 대조 결과:
+- **p33-34 "Seismic Load Standard: ASCE 7-22"**: ELF(등가횡력)+응답스펙트럼 생성, **ASCE Hazard Tool**에서 파라미터 회수→**SDS/SD1 자동계산**(§11.4.4), multi-period 스펙트럼(ASCE 7-22 신규) 지원.
+  → **`db/SEIS`의 정체 = ASCE 7-22 내진하중**. `SEIS_LOAD_CODE`/`SCALE_FACTOR_X/Y`는 그 일부.
+  → standalone PUT이 "Unknown Error"인 이유: **Hazard Tool 데이터 바인딩 등 부모 컨텍스트가 GUI/툴 레이어에 있음**(코드명 `ASCE7-22`/`ASCE 7-22` + SDS/SD1 줘도 동일). 우리의 기존 결론(정적 횡하중 "강제력 생성"은 REST 미노출)과 정합.
+  → **`db/STOR`의 SEIS_ACC_ECCENT/SEIS_INHERENT_ECCENT/SEIS_TORSIONAL_AMP_FACTOR**는 ASCE 7-22 ELF의 **층별 우발비틀림·증폭(Ax, §12.8.4.3)** 입력 — STOR은 쓰기 가능(위 ✅).
+- **p35 "Seismic hook": 지원 코드에 `TWN-USD112` 명시** (+ ACI 318 2014/2019/2025, NTC-DCEC 2023, NSCP 2015).
+  → 본 프로젝트 코드 **TWN-USD112가 신버전에 네이티브 내진 후크 디테일링 대상**으로 포함. (column rebar nₗ/kₙ 영향, ACI318-25 18.7.5.4 기반.)
+- **p32 "ACI 318-25"**: RC·Meshed Slab 설계 + **하중조합 자동생성** ACI 318-25 반영.
+- **p38 "Wind Pressure: IS875:2015"**: Area/Beam/Nodal 풍압 생성(인도 코드).
+- **함의**: 신규 노출 STOR/SEIS는 **ASCE 7-22 내진 패키지**의 DB 노출. 대만(TWD)엔 직접 안 쓰이나, **STOR의 층별 편심/비틀림 필드는 코드무관**이라 자체계산 등가정적 지진에 활용 가능. SEIS(ASCE 생성기)는 TWD 자체계산 경로(`db/CNLD` 주입) 대체 아님.
+
+### 🇹🇼 TWN-USD112 네이티브 지원 범위 (v2.1, 릴리즈 노트 + 라이브)
+- **`db/DCON` `DGNCODE="TWN-USD112"` → 200 + GET 영속 ✅** (라이브). 설계코드 네이티브 지정 가능. `"ACI318-25"`도 인식(신코드), `"ZZZ"`→"Wrong Field"(enum 검증). DCON은 `DGNCODE` 단일필드(SEISMIC 추가 시 "Wrong Field").
+- **릴리즈 노트 근거 TWN-USD112 네이티브 기능**:
+  - **RC 보 설계**(p36): **Vc 로직 최적화** §22.5.5.1 — `Av≥Av,min`일 때 `Vc.a/Vc.b` 중 최대 자동선택(설계경제성↑, 배근↓). v2025→v2026 개선.
+  - **기둥 내진 후크**(p35): 90°+135°(또는 180°)/Both 선택 가능(과설계 방지). nₗ/kₙ(ACI318-25 §18.7.5.4) 영향.
+  - **구조 도면 자동생성 + 배근**(p22): 지원코드에 TWN-USD112 포함(+ACI318-25/19/14, ACI318M, NSCP2015). bar size/정착장/이음장 코드기반.
+- ⚠️ **설계 결과 테이블 라이브 탐침 금지**: 재검증 결과 원인 확정 — **`post/TABLE`에 미지원/설계계 `TABLE_TYPE`(예: `BEAMDESIGNFORCES`)을 넣으면 Gen NX가 하드 크래시(404 + 프로그램 종료)**. 재현: 5종 일괄(1차)·`BEAMDESIGNFORCES` 단건(2차) 모두 즉사. 정상 타입(`BEAMFORCE`)은 200 정상. → **`db/NMAS`와 동급의 크래시 트리거. 설계 TABLE_TYPE은 라이브로 찌르지 말 것.** MIDAS 베타 버그 보고 대상.
+
+### 🧩 공식 SDK 소스 대조 (`MIDASIT-Co-Ltd/midas-gen-python`, 오프라인·라이브 0회)
+신버전 검증을 SDK 소스로 교차확정 (라이브 크래시 회피):
+- **`_result_table.py`의 TABLE_TYPE 전수에 설계계 타입 0개** — REACTIONG/L, DISPLACEMENTG/L, TRUSS*, BEAMFORCE(+VBM/STP/STRESS변형), PLATEFORCE*, TNDN_LOSS_FORCE 까지만. **`BEAMDESIGNFORCES`·RC/CONCRETE/COLUMN 설계 타입 없음.**
+  → **라이브 404+크래시의 정체 규명: 미지원 TABLE_TYPE이라 SDK에도 없음.** RC 설계결과는 post/TABLE로 회수 불가가 **소스로 확정**(매뉴얼 "API엔 RC 설계 없음"과 3중 일치).
+- **`_load.py` 스키마 SDK 확정**: **BODF = flat `{LCNAME,GROUP_NAME,FV:[f,f,f]}`**(내 ITEMS 오용 철회 재확인) · NMAS `{mX,mY,mZ,rmX,rmY,rmZ}` · LTOM `{DIR,bNODAL,bBEAM,bFLOOR,bPRES,GRAV,vLC:[{LCNAME,FACTOR}]}`.
+- **STOR·SEIS는 SDK에 없음** — v2.1 신규라 공개 SDK 미반영. **→ 우리가 라이브로 도출한 STOR 15필드가 현존 최상위 스키마**(SDK보다 앞섬).
+- **`_loadcomb.py`엔 DGNCODE 없음** — 하중조합은 범용 빌더(NAME/CASE/CLS/ACT/TYPE). **코드기반 자동 하중조합 생성(ACI318-25/TWN-USD112)은 GUI 기능, SDK/REST 미노출.**
+- **결론**: TWN-USD112 관련 API 접점은 **`db/DCON DGNCODE` 지정 단 하나**(SDK에도 없는 raw 엔드포인트). 설계 실행·결과·코드별 하중조합은 전부 GUI 모듈 → **자체계산 TWD-USD112 유지가 API상 유일·정당.**
+
+### 🔬 v2.1 전 엔드포인트 필드 라이브 검증 (2026-06-15, 크래시 0건)
+깨끗한 모델에서 문서 스키마대로 **PUT→GET 영속**을 전수 점검(크래시 확정 항목 제외). 상세표는 카탈로그 `MAPI_Endpoints_Gen_Civil.xlsx` 시트 **`v2.1 필드검증(0615)`**.
+- **PASS(필드 유효 확정)**: unit/matl/sect/**thik**/node/**elem(BEAM+PLATE)**/stld/cons/cnld/**bodf(flat)**/styp/LTOM/EIGV/POSL/SPFC/**SPLC**/**STOR(15)**/**DCON(TWN-USD112)**/**MATD**/**BMLD** + 결과타입 BEAMFORCE·REACTIONG·EIGENVALUEMODE.
+- **PASS — `db/SPLC`** (값 주의, 버그 아님): `DIR` 유효값은 **`"XY"`/`"Z"`만**(단일축 X·Y는 제품상 미제공 — 제품매뉴얼 확인). `PMFT`는 주기배율 **기본 1.0**(0 거부 정상). GET이 보이는 bAUTO/bACCECC/bADDSIGN/iSIGNTYPE/DESC는 다이얼로그 정식 옵션. ※"X→Wrong Field" 메시지가 generic한 점만 개선 여지.
+- **CHECK — `db/NBOF`**: PUT 200이나 GET 미영속(no-op) → 추가 구조/전제 필요로 보임.
+- **FLAG — `db/SEIS`**: 필드명 인식되나 standalone PUT "Unknown Error"(ASCE7-22 Hazard Tool 선행 필요).
+- **제외(크래시 확정, 미검증)**: db/NMAS · post/TABLE 설계타입 · doc/new 반복.
+- **신규 라이브 최초확인**: `db/thik`·`db/elem PLATE`·`db/BMLD`·`db/MATD`(CNS560-18(RC)/SD420).
+
+### ✅ end-to-end 정상 (이전과 동일)
+| 단계 | 페이로드 핵심 | 결과 |
+|---|---|---|
+| `PUT /db/unit` | `{Assign:{"1":{FORCE:"N",DIST:"MM"}}}` | 200 ✅ |
+| `PUT /db/matl` | `{TYPE:"CONC",NAME:"C280",DAMP_RAT:0.05,PARAM:[{P_TYPE:1,STANDARD:"CNS560(RC)",DB:"C280"}]}` | 200, GET 재확인 ELAST 자동계산 ✅ |
+| `PUT /db/sect` | `{SECTTYPE:"DBUSER",SECT_NAME,SECT_BEFORE:{SHAPE:"SB",DATATYPE:2,SECT_I:{vSIZE:[H,B,0,0,0,0,0]},USE_SHEAR_DEFORM:true,USE_WARPING_EFFECT:false}}` | 200, GET 영속 ✅ (이전 `{SHAPE,SECT_H,SECT_B}` 평면포맷은 "Wrong Field" — **SECT_BEFORE/vSIZE 구조가 정답** 재확인) |
+| `PUT /db/node` `/db/elem` | node `{X,Y,Z}`, elem `{TYPE:"BEAM",MATL,SECT,NODE:[i,j],ANGLE}` | 200 ✅ |
+| `PUT /db/cons` | `{ITEMS:[{ID,CONSTRAINT:"1111110",GROUP_NAME}]}` — **CONSTRAINT 7자리** (6자리 "111111"은 "incorrectly entered" 거부) | 200 ✅ |
+| `PUT /db/cnld` | key=nodeId, `{ITEMS:[{ID,LCNAME,GROUP_NAME,FX..MZ}]}` | 200, GET 영속 ✅ (이전 "Wrong Field"는 포맷오류였고, **절점키+ITEMS가 정답**) |
+| `PUT /db/styp` | `{STYP:0,MASS:1,bSELFWEIGHT:true,SMASS:2,GRAV:9806.65}` 자중→질량 | 200 ✅ (db/NMAS 크래시 회피경로) |
+| `PUT /db/EIGV` | `{TYPE:"LANCZOS",iFREQ:3,iITER:20,iDIM:1,TOL:1e-10,...}` | 200 ✅ |
+| `POST /doc/saveas` | **`{Argument:"<경로문자열>"}`** — Argument는 경로 문자열 직접 (객체 `{PATH:..}`는 "second query is wrong") | "command complete" ✅ |
+| `POST /doc/anal` | `{}` | "command complete" ✅ |
+| `POST /post/TABLE` EIGENVALUEMODE | — | **T₁=0.1561s** 회수, SUB_TABLES 5개(EIGENVALUE ANALYSIS / 질량참여율(1)(2) / PARTICIPATION FACTOR / DIRECTION FACTOR) ✅ |
+| `POST /post/TABLE` BEAMFORCE | LOAD_CASE_NAMES `["DL(ST)"]` | rows>0, 캔틸레버 모멘트 60e6 N·mm 정확 ✅ |
+| `POST /post/TABLE` REACTIONG | — | ΣFX=-10000N 평형 정확, SUB_TABLES 합계 ✅ |
+| `PUT /db/bodf` | **flat** `{Assign:{"1":{LCNAME,GROUP_NAME,FV:[0,0,-1]}}}` | 200, GET 영속 ✅ (제품 `putSelfWeight` 포맷 그대로 정상) |
+
+### ⚠️ 회귀 오보 철회 — `db/BODF`는 정상 (자가 오류였음)
+초기 검증에서 BODF를 "회귀(스키마 파괴)"로 기록했으나 **클린 재검증 결과 거짓 경보로 판명, 철회.**
+- **실제 원인**: BODF는 **flat 포맷**(`{"1":{LCNAME,GROUP_NAME,FV:[..]}}`)인데, cnld/cons식 **`ITEMS` 배열 래퍼**를 잘못 씌워 호출 → 파서가 최상위에서 LCNAME/FV를 못 찾아
+  Gen NX가 `[Error] DTO_BODF.<id>.LCNAME Data does not exist` / `.FV Data does not exist` 표출. (id를 "2"로 바꿔 래퍼 테스트하니 정확히 `DTO_BODF.2.LCNAME...` 재현 → 원인 확정.)
+- **확정 사실**: flat 포맷 PUT → 200 + GET 영속. **rc_agent.html `putSelfWeight`(LCNAME/GROUP_NAME/FV) 포맷은 신버전에서도 유효.**
+- **교훈**: cnld·cons는 `ITEMS` 배열, **BODF는 flat** — 테이블마다 래핑 규약이 다르므로 혼용 금지. "Data does not exist"는 필드 제거가 아니라 **기대 레벨에 필드 없음(래핑 오류)** 신호로 해석.
+
+### ✅ autoSavePath(이메일 prefix) 정상 — 오보 철회
+- **확정**: `/mapikey/verify`의 `user`(`sjj0507@midasit.com`) → `@` 앞 `sjj0507` → `C:/Users/sjj0507/Documents/...mgbx` 경로로 `{Argument:"<경로문자열>"}` saveas → **다이얼로그 없이 조용히 저장**(사용자 확인). 예제 `examples/auto_save_before_analysis.html`의 `autoSavePath()`가 정답.
+- **이전에 "머신경로 함정"으로 기록했던 건 자가 오류**: 검증 중 내가 임의로 `C:/Users/Dennis/...`(로컬 OS 사용자)로 바꿔 호출 → 그 경로가 **Gen NX 세션 컨텍스트(sjj0507 계정)에 없어** "잘못된 경로가 있습니다" 다이얼로그 발생. **이메일 prefix 가정이 옳음** — 로컬 OS 사용자명으로 바꾸면 안 됨. (Gen NX MAPI 세션은 로그인 MIDAS 계정 사용자 폴더 기준.)
+- **db/STOR 신규 노출 + `SEIS_TORSIONAL_AMP_FACTOR_Y` 신필드**(이전 세션 발견): 신버전 Story 스키마 확장. 구모델 해석 시 `DTO_STOR.1.SEIS_TORSIONAL_AMP_FACTOR_Y Data does not exist` 가능.
+
+---
+
 ## ※ 전제: MIDAS API는 Civil NX · Gen NX 공용
 
 "MIDAS API" JSON 매뉴얼은 **Civil NX(교량)와 Gen NX(건물) 공용**이라, 항목 일부는 한 제품에만 속한다.
@@ -62,6 +199,10 @@
 - `db/POSL`: `{"NAME","METHOD":"EQV_STATIC","SZ","EPA","SC","FA","FV","SDS","SD1","IF","RMF"}` → 201.
 - `db/SPFC`: `{"NAME","iTYPE","iMETHOD","SCALE","GRAV","DRATIO","DESC","aFUNC":[{"PERIOD","VALUE"}]}` → 201. (추측한 `iGRAV/DAMPRATIO`는 틀림 → 실제 `GRAV/DRATIO`)
 - `db/SPLC`: `{"NAME","DIR":"XY","ANGLE","SCALE","PMFT","bDAMP","INTERP":"LOG","COMTYPE":"CQC","bADDSIGN","iSIGNTYPE","bMODE":false,"aFUNCNAME":["<SPFC name>"]}` → 201.
+  - **★v2.1 라이브 + 제품매뉴얼 대조(2026-06-15)**: 유효값/거동은 **모두 설계상 정상**(버그 아님). 제품 매뉴얼(manual.midasuser.com, RS Load Cases) 확인:
+    - **`DIR` 유효값 = `"XY"`(수평) / `"Z"`(수직)뿐.** 단일축 `"X"`·`"Y"`는 **원래 제공 안 함**(수평은 X-Y 결합) → `"X"`가 "Wrong Field"인 건 정상. ⚠️API 메시지가 generic("Wrong Field")이라 "invalid DIR(allowed XY/Z)"였으면 더 친절.
+    - **`PMFT`(Period Modification Factor) = 주기 배율**(비구조요소 강성 보정). 배율 0은 무의미 → `0.0` 거부 정상, **기본 1.0**.
+    - GET이 보이는 `bAUTO`(Auto-Search Angle)·`bACCECC`(Accidental Eccentricity)·`bADDSIGN`/`iSIGNTYPE`(Add signs)·`DESC`는 **다이얼로그 정식 옵션**(미문서 기능 아님, JSON 필드목록에만 누락).
   - **주의**: `bMODE:true`면 `aUSEMODE`(모드 목록) 필요 → 없으면 "Unknown Error". 전체 모드는 `bMODE:false`.
   - SPFC를 `aFUNCNAME`으로 참조(필드명 "FUNCTION" 아님). 모달조합은 `COMTYPE`(CQC/SRSS).
 - `db/WIND`: GET 200(빈 상태), POST `{}` → "Wrong Field" = **엔드포인트 실재, 필드 필요**. JSON REST 필드 스키마 미문서(GrassHopper만 존재) → 도출 필요.
@@ -109,8 +250,8 @@
 ### A-4. 응답스펙트럼 하중경우 — `db/SPLC`
 ```json
 { "Assign": { "1": {
-  "NAME": "RSX", "DIR": "<방향>", "ANGLE": 0,
-  "SCALE": 1.0, "PMFT": 0.0, "bDAMP": false, ...
+  "NAME": "RSX", "DIR": "XY", "ANGLE": 0,    // DIR 유효값 = "XY"(수평)/"Z"(수직)만. 단일축 X·Y는 제품상 미제공
+  "SCALE": 1.0, "PMFT": 1.0, "bDAMP": false, ...   // PMFT=주기배율, 기본 1.0 (0은 무의미→거부)
 }}}
 ```
 > 순서: SPFC(함수) 정의 → SPLC(하중경우) → EIGV(고유치) → Perform Analysis.
@@ -227,6 +368,8 @@ REST(클라이언트) → AWS 서버(중개) → WebSocket → 로컬 MIDAS 제�
 ---
 
 ## C++. 정적 횡하중 "생성"은 API 미노출 — 자체계산 확정 (2026-06-13 실모델 검증)
+
+> ⚠️ **[2026-06-16 대정정] 이 섹션 결론은 v2.1에서 뒤집혔다.** 정적 지진·풍 생성은 이제 **`db/SSEIS`·`db/SWIND`로 API 노출**(상단 "🚨🚨 대정정" 참조, 라이브 실증). 아래는 **v2.1 이전(2026-06-13~14) 기준 기록**으로 보존.
 
 미니 2층 RC 프레임(12절점·16부재·자중질량)을 라이브로 빌드해 검증한 **결정적 결과**:
 
