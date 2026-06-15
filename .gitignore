@@ -23,3 +23,8 @@ _*.py
 *.docx
 *.xlsx
 shot_*.png
+
+# v2.1 베타 검증 로컬 전용 문서(비커밋) — 비제품, MIDAS 내부 보고/계획
+GEN_NX_v2.1_BETA_FEEDBACK.md
+GEN_NX_v2.1_RELNOTE_API_ADDENDUM.md
+GEN_NX_SSEIS_INTEGRATION_PLAN.md

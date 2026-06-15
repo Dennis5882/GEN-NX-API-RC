@@ -1,3 +1,7 @@
+> ⚠️ **은퇴(RETIRED) 2026-06-16** — 이 문서는 `GEN_NX_v2.1_BETA_FEEDBACK.md`로 **통합·대체**되었습니다.
+> 06-13 기준이라 일부 내용이 구식·오류: ① db/NMAS는 v2.1서 크래시 미재현(해소), ③ 정적 횡하중은 db/SSEIS·SWIND로 v2.1에 노출됨. post/TABLE 크래시(현 최우선)는 본 문서에 없음.
+> 대외 한/번중 제출본이 다시 필요하면 FEEDBACK에서 재생성할 것. (번중 번역·④ 제품적용성 요청 보존용으로만 archive)
+
 # MIDAS Gen NX MAPI — 보고/요청 (버그 · 문서 · 기능)
 # MIDAS Gen NX MAPI — 回報／請求 (Bug · 文件 · 功能)
 
