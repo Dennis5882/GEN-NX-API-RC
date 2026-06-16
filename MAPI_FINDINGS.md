@@ -15,7 +15,7 @@ MIDAS Open API는 제품과 앱이 직접 통신하지 않는 **웹 중개 구�
 앱(클라이언트) ──REST/HTTPS──> [AWS 서버] ──WebSocket──> Gen NX(로컬 제품)
 ```
 - AWS 서버가 중개자. Gen NX는 **WebSocket 클라이언트**로 붙고, **MAPI-Key로 제품 식별**(Key 안에 `cn`=connectionID 내장). 한 클라이언트가 여러 Key로 다수 제품 관리 가능.
-- ✅ **크래시 응답 해석**: 제품이 죽으면 REST는 여전히 `404`를 주되 내용은 `"Client Disconnected"`→`"client does not exist"` = **AWS 서버는 생존, 제품 WebSocket만 끊김**(=프로세스 사망 신호). post/TABLE 크래시(2026-06-16)에서 이 시그니처 실측.
+- ✅ **크래시 응답 해석(시그니처 정의)**: 제품이 죽으면 REST는 여전히 `404`를 주되 내용은 `"Client Disconnected"`→`"client does not exist"` = **AWS 서버는 생존, 제품 WebSocket만 끊김**(=프로세스 사망 신호). 생존 확인은 `/mapikey/verify` `status:"connected"`. ※이 시그니처는 직전 빌드 post/TABLE 크래시 때 정의된 것이며, **현 v2.1 빌드에선 해당 크래시 재현 안 됨**(아래 post/TABLE 절 참조).
 - ✅ **표준 헬스체크 = `/mapikey/verify`** — URL은 **base에서 제품경로(`/gen`) 제거** 후 붙임:
   - `https://moa-engineers.midasit.com:443/mapikey/verify` → 200 `{"user","program":"gen","connectionID","keyVerified":true,"status":"connected"}` ✅
   - `…/gen/mapikey/verify` → 404 ❌ (제품경로 포함 시 실패)
@@ -87,12 +87,14 @@ PUT /db/SSEIS
 - **`db/SEIS` vs `db/SSEIS`**: 둘 다 GET 200으로 별개 실재. 우리가 앞서 "Unknown Error"로 막혔던 `db/SEIS`(`SEIS_LOAD_CODE`/`SCALE_FACTOR`)는 **정적 지진의 정답 엔드포인트가 아님** — 정답은 **`db/SSEIS`**(`SEIS_CODE`+`SEISMIC_FORCE[]`). db/SEIS 정체는 미확정(ASCE7-22 Hazard 계열 추정).
 - **🇹🇼 프로젝트 영향(중대)**: **User Type이 사용자 층력/압력을 직접 받음** → 우리 **TWD-USD112 자체계산 지진·풍을 네이티브 static 케이스로 주입** 가능(우발편심·비틀림·밑면전단·OTM을 Gen NX가 계산). **`db/CNLD` 절점하중 우회보다 층 의미론이 살아있는 정석 경로**가 새로 열림 → 엔진 연동 재설계 후보.
 
-#### ⚠️ 생성 완결성 검증 결과 (2026-06-16, 라이브) — "프로파일 생성 ✓ / 해석 투입 미확인"
+#### ⚠️→✅ 생성 완결성 검증 결과 (2026-06-16, 라이브) — "프로파일 생성 ✓ / 해석 투입 ✓(실모델서 정정)"
 SSEIS를 실모델(2절점 base 고정, 1F@3000, 자중질량)에 PUT 후 `doc/anal` "command complete"까지 갔으나:
 - ✅ **프로파일 생성 확정**: `GET /db/SSEIS`가 **계산된 설계 횡력 분포** 반환 — STORY_FORCE 10000·**STORY_SHEAR(밑면) 10000**·**OVERTURN_MOMENT 3.00e7**(=10000×3000 검산✓)·**ACCIDENT_TORSION 500**(=10000×0.05✓), X_DIR/Y_DIR/SRSS + STORY_WEIGHT(모델 질량에서 산정). **즉 "설계 횡력 계산"은 API로 완전히 회수 가능.**
-- ❌ **해석 하중케이스 자동생성은 미관찰**: `db/STLD`엔 DL뿐, `REACTIONG` 케이스도 **DL·RSX(RS)만**(SSEIS/ESX/EX/SX… 후보명 전부 빈 결과). SSEIS 스키마에 LCNAME 없음. → **SSEIS의 계산값이 doc/anal 반력으로 자동 투입되진 않음**(이 모델/이 빌드 기준).
-- **해석 정리(수정)**: 앞 "정적 지진 생성이 완전히 열렸다"는 **과한 표현 → 정정**. 정확히는 **(a) 설계 횡력 "프로파일" 생성·회수 = API 노출(신규, 확정)**, **(b) 그 하중의 "구조해석 자동 적용" = 미확인**(층 강막/master node·`ope/STOR` Story Calculation 선행 또는 GUI 레이어 가능성). db/CNLD 주입 경로는 (b)가 규명되기 전까지 유효.
-- **프로젝트 활용**: (a)만으로도 가치 큼 — **사용자 층력 → Gen NX 네이티브 층전단/OTM/우발토션 산정**을 API로 받는 "계산 서비스"로 즉시 사용 가능(자체계산 교차검증). (b)는 후속 규명 과제(diaphragm+Story Calculation 빌드).
+- ❌ **(당시 토이모델) 해석 하중케이스 자동생성 미관찰**: `db/STLD`엔 DL뿐, `REACTIONG` 케이스도 DL·RS만. → 이 2절점 모델 기준으론 SSEIS 계산값이 반력에 안 잡힘.
+- **✅✅ 정정(2026-06-16, GUI Story 13층 실모델 라이브)**: **(b) 구조해석 자동 적용도 확인됨.** GUI Story 등록 + 다이어프램 실모델에 SSEIS PUT→`doc/anal`→`REACTIONG`의 **`DL` 케이스 ΣFX = -1260**(= SSEIS 밑면전단), **SSEIS DELETE 후 재해석 → DL ΣFX = 0**. 즉 **SSEIS 층력은 doc/anal에 실제 투입**됨. 앞 "(b) 미확인"은 **diaphragm/master node 없는 2절점 토이모델 한계였음**. (a)는 그대로 확정.
+  - **⚠ 단 케이스 명명 이슈**: 전용 지진 케이스가 STLD에 안 생기고 **`DL` 케이스 반력에 합산**됨(SSEIS 스키마에 LCNAME 필드 없음 → 첫 정적케이스로 유입 정황). → 피드백 §3-4 Q1' 개선요청(결과 LCNAME 지정 필드).
+  - **🆕 부수**: SSEIS GET PROFILE에 `STORY_WEIGHT`(실모델 층질량) 동봉 → ope/STORPROP 404여도 층중량 회수 가능. `ACCIDENT_TORSION`은 enum/bool 플래그 무관하게 STOR `SEIS_ACC_ECCENT` 거리로 PROFILE에 층별 계산(Roof 232.8=160×1.455). STOR의 SEIS_ACC_ECCENT는 **비율 아닌 거리값**(1.8=0.05×36m).
+- **프로젝트 활용**: **사용자 층력 → Gen NX 네이티브 층전단/OTM/우발토션 + 실제 해석반력**까지 API로 수령 가능 → 자체계산 교차검증 정석 경로 확정. db/CNLD 절점하중 우회 불필요(케이스 명명만 제품측 개선 대기).
 
 #### ✅✅ SSEIS 교차검증 라이브 PASS + Story 등록 규명 (2026-06-16, GUI Story 모델)
 **GUI로 Story 등록된 실모델(13층 1F~Roof)** 에 자체 층력 PUT→GET diff → **STORY_SHEAR 13행(밑면 G.L. 포함) 0% 오차 PASS** (밑면전단 650/650, OTM 22520 검산 일치). **제품 v2.12.0(M2-A5)으로 반영**(엔진 `sseisSelfProfile/sseisDiff` + `verify_seismic_sseis` 도구).
@@ -127,7 +129,11 @@ SSEIS를 실모델(2절점 base 고정, 1F@3000, 자중질량)에 PUT 후 `doc/a
   - **RC 보 설계**(p36): **Vc 로직 최적화** §22.5.5.1 — `Av≥Av,min`일 때 `Vc.a/Vc.b` 중 최대 자동선택(설계경제성↑, 배근↓). v2025→v2026 개선.
   - **기둥 내진 후크**(p35): 90°+135°(또는 180°)/Both 선택 가능(과설계 방지). nₗ/kₙ(ACI318-25 §18.7.5.4) 영향.
   - **구조 도면 자동생성 + 배근**(p22): 지원코드에 TWN-USD112 포함(+ACI318-25/19/14, ACI318M, NSCP2015). bar size/정착장/이음장 코드기반.
-- ⚠️ **설계 결과 테이블 라이브 탐침 금지**: 재검증 결과 원인 확정 — **`post/TABLE`에 미지원/설계계 `TABLE_TYPE`(예: `BEAMDESIGNFORCES`)을 넣으면 Gen NX가 하드 크래시(404 + 프로그램 종료)**. 재현: 5종 일괄(1차)·`BEAMDESIGNFORCES` 단건(2차) 모두 즉사. 정상 타입(`BEAMFORCE`)은 200 정상. → **설계 TABLE_TYPE은 라이브로 찌르지 말 것.** ★0616 v2.1 재확인: `BEAMDESIGNFORCES` 단건 POST→404 `"Client Disconnected"`→`"client does not exist"`(제품 WebSocket 사망). **db/NMAS는 v2.1서 해소됐으나 post/TABLE 크래시는 미수정 — 유효 최우선 Critical.** MIDAS 베타 버그 보고 대상.
+- ✅→ **post/TABLE 설계타입 크래시: v2.1 라이브 재현 불가(2026-06-16 정정, 해결로 판단)**: 이전엔 `BEAMDESIGNFORCES`가 404 `"Client Disconnected"`→`"client does not exist"`로 하드 크래시라 기록했으나, **현 v2.1 빌드에서 5개 조건 정밀 재검증 결과 전부 graceful·세션 생존**:
+  - ① API 신규 토이 RC 보(해석완료·DCON TWN-USD112) ② 13층 RC GUI 모델(4회 반복) ③ 320노드 모델 ④ 220노드 모델 ⑤ 무작위 미정의 타입(`ZZ_RANDOM_QWE123`).
+  - `BEAMDESIGNFORCES` → **`{"message":""}` graceful(HTTP 200)**, 무작위/설계검토 타입 → **`{"error":"... error creating utbl. (ex PostMode ...)"}` graceful**, 매번 `status:connected`·프로세스 생존. **크래시 0건.**
+  - → 이전 하드 크래시는 **직전 빌드/특정 상태 한정**이었던 것으로 추정. **유효 Critical 아님(피드백 §1 해결로 격하).** 정상 타입(`BEAMFORCE`/`REACTIONG`)은 그대로 200 정상.
+- 🆕 **Story-category 결과표는 post/TABLE 미노출(2026-06-16)**: 같은 모델서 REACTIONG/BEAMFORCE는 정상이나 `OVERTURNINGMOMENT`·`STORYOVERTURN(INGMOMENT)`·`STORYDRIFT(X)`·`STORYSHEAR`·`STORYMASS`·`STIFFNESSIRREGULARITY`·`SOFTSTORY` 등 Story 계열 전부 `error creating utbl`. GUI엔 "Overturning Moment"/"Stiffness Irregularity Check" 표 존재하나 REST 회수 경로 불명 → Smart Report Table(별도 엔드포인트) 추정. ※GUI OTM 표의 `Reduction Factor(τ)` API 불일치는 **내부(장창현) 수정 진행중**이라 피드백 제외.
 
 ### 🧩 공식 SDK 소스 대조 (`MIDASIT-Co-Ltd/midas-gen-python`, 오프라인·라이브 0회)
 신버전 검증을 SDK 소스로 교차확정 (라이브 크래시 회피):
@@ -144,7 +150,7 @@ SSEIS를 실모델(2절점 base 고정, 1F@3000, 자중질량)에 PUT 후 `doc/a
 - **PASS — `db/SPLC`** (값 주의, 버그 아님): `DIR` 유효값은 **`"XY"`/`"Z"`만**(단일축 X·Y는 제품상 미제공 — 제품매뉴얼 확인). `PMFT`는 주기배율 **기본 1.0**(0 거부 정상). GET이 보이는 bAUTO/bACCECC/bADDSIGN/iSIGNTYPE/DESC는 다이얼로그 정식 옵션. ※"X→Wrong Field" 메시지가 generic한 점만 개선 여지.
 - **CHECK — `db/NBOF`**: PUT 200이나 GET 미영속(no-op) → 추가 구조/전제 필요로 보임.
 - **해소 — `db/SEIS`**: standalone PUT "Unknown Error"는 버그 아님 → **`db/SSEIS`로 정식 교체된 레거시**(개발팀 확인 2026-06-16). 정상 경로는 db/SSEIS USER TYPE.
-- **제외(크래시 위험)**: post/TABLE 설계타입 · doc/new 반복. (※db/NMAS는 0616 재검증서 크래시 미재현 → 위 NMAS 절 참조)
+- **제외(크래시 위험)**: **현 v2.1선 확정 하드 크래시 트리거 0건**(2026-06-16 재검증). post/TABLE 설계타입(`BEAMDESIGNFORCES`)·db/NMAS·doc/new 반복 모두 라이브 재현 안 됨 — 전부 graceful·세션 생존. (각 절 참조.)
 - **신규 라이브 최초확인**: `db/thik`·`db/elem PLATE`·`db/BMLD`·`db/MATD`(CNS560-18(RC)/SD420).
 
 ### ✅ end-to-end 정상 (이전과 동일)
