@@ -1,5 +1,16 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.12.6 — 2026-06-17 (M2-A7: db/SWIND 풍 교차검증)
+
+SSEIS(지진)와 대칭으로 **정적풍 층력 교차검증** 추가 — 자체계산 풍 층력 ↔ Gen 네이티브 `db/SWIND`(USER TYPE) STORY_SHEAR/OTM diff.
+
+- **엔진(`shared/rc_engine.js`)** — `swindSelfPressures(forces, regStories)` 추가(순수): 자체 풍력(kN)을 Gen이 force로 환산하도록 압력으로 역산(`WIND_FORCE = PRESS × 수직바닥폭 × tribH`, tribH=위층 절반+아래층(G.L.포함) 절반 — 라이브 규약). `sseisSelfProfile`/`sseisGenRows`/`sseisDiff`는 force→shear/OTM 누적이 코드무관이라 **그대로 재사용**.
+- **에이전트(+standalone)** — `actSwindVerify`: `windStoryForces`→등록Story 매핑→압력 역산→`db/SWIND` PUT(USER TYPE)→GET PROFILE→diff. `renderSwindReport`(전단·OTM 자체/Gen 표). `verify_swind` 도구 + dispatch + SYSTEM 힌트.
+- **전제**: SSEIS와 동일 — **Gen Story Manager 등록 층 필요**(GUI Auto Generate). API 빌드 모델(db/STOR+rigd)만으론 "Wrong Key"(라이브 재확인 0617). 그래픽 graceful 안내.
+- **검증**: 3개 파일 compile-OK. 라이브 — 2층 토이 force↔pressure 왕복(WIND_FORCE=10000 복원), 13층 GUI SWIND PROFILE(앞 세션) 다층 누적. **오프라인 체인 검증**: swindSelfPressures→sseisDiff, 합성 Gen 응답서 WIND_FORCE 왕복·shear/OTM matched 4·worst 0%·PASS. ⚠ GUI Story 모델 정의적 라이브 PASS 예정.
+
+---
+
 ## v2.12.5 — 2026-06-17 (clearModel을 doc/new로 — 삭제 알림음 제거)
 
 v2.12.4의 "삭제 순서 재배치"로도 **항목별 삭제 알림음(뿅뿅)이 남음**(라이브 확인) → 근본 해결: `clearModel`을 16개 항목별 DELETE 대신 **`doc/new`(문서 통째 초기화) 1회**로 교체.

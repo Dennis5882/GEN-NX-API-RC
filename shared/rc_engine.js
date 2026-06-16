@@ -386,6 +386,24 @@ function sseisSelfProfile(forces, ecc){
   return {rows, base:{shear:baseShear, otm:baseOTM}};
 }
 
+/* SWIND(USER TYPE) 교차검증용 — 자체 풍 층력(kN)을 Gen이 force로 환산하도록 압력으로 역산.
+   Gen 규약(라이브 0616): WIND_FORCE = PRESS × 수직바닥폭 × 재하높이(tribH).
+   tribH(L) = 위층까지 절반 + 아래층(G.L. 0 포함)까지 절반 (최상층은 위쪽 0). 라이브 검산 일치.
+   forces : [{name, h(level mm), F(kN)}] (level>0만). regStories : 전 층(G.L. 0 포함) [{name, level(mm), width(mm, 수직바닥폭)}].
+   반환 : { press:[{STORY_NAME, PRESS}], skipped:[name] } — PRESS는 N/mm²(단위 N·mm 전제, F는 ×1000으로 N 환산).
+   ※ 같은 width·tribH를 Gen이 forward로 쓰므로 Gen WIND_FORCE = 입력 F(N)로 복원됨 → shear/OTM 누적을 교차검증. */
+function swindSelfPressures(forces, regStories){
+  const lv=(regStories||[]).map(s=>+s.level||0).filter(x=>isFinite(x)).sort((a,b)=>a-b);
+  const widthByName={}; (regStories||[]).forEach(s=>{ widthByName[String(s.name)]=+s.width||0; });
+  const tribH=L=>{ const i=lv.indexOf(L); if(i<0) return 0;
+    const up=(i<lv.length-1)?(lv[i+1]-L)/2:0, dn=(i>0)?(L-lv[i-1])/2:0; return up+dn; };
+  const press=[], skipped=[];
+  (forces||[]).forEach(f=>{ const L=+f.h||0, w=widthByName[String(f.name)]||0, th=tribH(L);
+    if(L<=0 || w<=0 || th<=0){ skipped.push(f.name); return; }
+    press.push({STORY_NAME:f.name, PRESS:((+f.F||0)*1000)/(w*th)}); });
+  return {press, skipped};
+}
+
 /* Gen GET /db/SSEIS 응답에서 PROFILE 행 추출(방향별). 응답 형태 변동 대비 방어적 파싱. */
 function sseisGenRows(gen, dir){
   dir=dir||'X';
@@ -988,7 +1006,7 @@ if(typeof window!=='undefined'){
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,
-    sseisSelfProfile, sseisGenRows, sseisDiff, storyWeightDiff, sseisProfileToStoryProp, buildStoryData,
+    sseisSelfProfile, sseisGenRows, sseisDiff, storyWeightDiff, sseisProfileToStoryProp, swindSelfPressures, buildStoryData,
     WIND_EXPOSURE, windStoryForces, detectTypicalFloors,
     KGFCM2_TO_MPA, fcMPa, REBAR_FY, BAR_AREA, DEFAULT_REBAR, beamEffDepth,
     flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign,
