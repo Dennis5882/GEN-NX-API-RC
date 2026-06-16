@@ -8,6 +8,22 @@
 
 ---
 
+## 🌐 아키텍처 / 연결 (공식문서 "How to work" + 라이브 검증, 2026-06-16)
+
+MIDAS Open API는 제품과 앱이 직접 통신하지 않는 **웹 중개 구조**:
+```
+앱(클라이언트) ──REST/HTTPS──> [AWS 서버] ──WebSocket──> Gen NX(로컬 제품)
+```
+- AWS 서버가 중개자. Gen NX는 **WebSocket 클라이언트**로 붙고, **MAPI-Key로 제품 식별**(Key 안에 `cn`=connectionID 내장). 한 클라이언트가 여러 Key로 다수 제품 관리 가능.
+- ✅ **크래시 응답 해석**: 제품이 죽으면 REST는 여전히 `404`를 주되 내용은 `"Client Disconnected"`→`"client does not exist"` = **AWS 서버는 생존, 제품 WebSocket만 끊김**(=프로세스 사망 신호). post/TABLE 크래시(2026-06-16)에서 이 시그니처 실측.
+- ✅ **표준 헬스체크 = `/mapikey/verify`** — URL은 **base에서 제품경로(`/gen`) 제거** 후 붙임:
+  - `https://moa-engineers.midasit.com:443/mapikey/verify` → 200 `{"user","program":"gen","connectionID","keyVerified":true,"status":"connected"}` ✅
+  - `…/gen/mapikey/verify` → 404 ❌ (제품경로 포함 시 실패)
+  - **배치 호출 전·크래시 후 생존확인의 표준 수단**(db GET 프록시보다 우월 — `status`로 서버다운/제품다운 구분).
+- CORS로 브라우저 직접호출 불가 → PowerShell/curl 사용하는 이유도 이 구조(REST가 AWS로 감) 때문.
+
+---
+
 ## 🆕 신버전 회귀검증 (2026-06-15 / 대상: **Gen NX 2026 v2.1 베타 (2026-06-12 빌드)**, 단위 N·mm)
 
 전체 빌드→해석→결과회수 end-to-end를 신버전에서 재실행 (모델 DELETE 후 클린 재빌드로 2회 재현). **종합: 회귀 0건, 신규 노출 2건(db/STOR·db/SEIS). BODF·autoSavePath "이상" 2건은 모두 자가 오류로 판명·철회.**
@@ -93,7 +109,7 @@ SSEIS를 실모델(2절점 base 고정, 1F@3000, 자중질량)에 PUT 후 `doc/a
   - **RC 보 설계**(p36): **Vc 로직 최적화** §22.5.5.1 — `Av≥Av,min`일 때 `Vc.a/Vc.b` 중 최대 자동선택(설계경제성↑, 배근↓). v2025→v2026 개선.
   - **기둥 내진 후크**(p35): 90°+135°(또는 180°)/Both 선택 가능(과설계 방지). nₗ/kₙ(ACI318-25 §18.7.5.4) 영향.
   - **구조 도면 자동생성 + 배근**(p22): 지원코드에 TWN-USD112 포함(+ACI318-25/19/14, ACI318M, NSCP2015). bar size/정착장/이음장 코드기반.
-- ⚠️ **설계 결과 테이블 라이브 탐침 금지**: 재검증 결과 원인 확정 — **`post/TABLE`에 미지원/설계계 `TABLE_TYPE`(예: `BEAMDESIGNFORCES`)을 넣으면 Gen NX가 하드 크래시(404 + 프로그램 종료)**. 재현: 5종 일괄(1차)·`BEAMDESIGNFORCES` 단건(2차) 모두 즉사. 정상 타입(`BEAMFORCE`)은 200 정상. → **`db/NMAS`와 동급의 크래시 트리거. 설계 TABLE_TYPE은 라이브로 찌르지 말 것.** MIDAS 베타 버그 보고 대상.
+- ⚠️ **설계 결과 테이블 라이브 탐침 금지**: 재검증 결과 원인 확정 — **`post/TABLE`에 미지원/설계계 `TABLE_TYPE`(예: `BEAMDESIGNFORCES`)을 넣으면 Gen NX가 하드 크래시(404 + 프로그램 종료)**. 재현: 5종 일괄(1차)·`BEAMDESIGNFORCES` 단건(2차) 모두 즉사. 정상 타입(`BEAMFORCE`)은 200 정상. → **설계 TABLE_TYPE은 라이브로 찌르지 말 것.** ★0616 v2.1 재확인: `BEAMDESIGNFORCES` 단건 POST→404 `"Client Disconnected"`→`"client does not exist"`(제품 WebSocket 사망). **db/NMAS는 v2.1서 해소됐으나 post/TABLE 크래시는 미수정 — 유효 최우선 Critical.** MIDAS 베타 버그 보고 대상.
 
 ### 🧩 공식 SDK 소스 대조 (`MIDASIT-Co-Ltd/midas-gen-python`, 오프라인·라이브 0회)
 신버전 검증을 SDK 소스로 교차확정 (라이브 크래시 회피):
@@ -110,7 +126,7 @@ SSEIS를 실모델(2절점 base 고정, 1F@3000, 자중질량)에 PUT 후 `doc/a
 - **PASS — `db/SPLC`** (값 주의, 버그 아님): `DIR` 유효값은 **`"XY"`/`"Z"`만**(단일축 X·Y는 제품상 미제공 — 제품매뉴얼 확인). `PMFT`는 주기배율 **기본 1.0**(0 거부 정상). GET이 보이는 bAUTO/bACCECC/bADDSIGN/iSIGNTYPE/DESC는 다이얼로그 정식 옵션. ※"X→Wrong Field" 메시지가 generic한 점만 개선 여지.
 - **CHECK — `db/NBOF`**: PUT 200이나 GET 미영속(no-op) → 추가 구조/전제 필요로 보임.
 - **FLAG — `db/SEIS`**: 필드명 인식되나 standalone PUT "Unknown Error"(ASCE7-22 Hazard Tool 선행 필요).
-- **제외(크래시 확정, 미검증)**: db/NMAS · post/TABLE 설계타입 · doc/new 반복.
+- **제외(크래시 위험)**: post/TABLE 설계타입 · doc/new 반복. (※db/NMAS는 0616 재검증서 크래시 미재현 → 위 NMAS 절 참조)
 - **신규 라이브 최초확인**: `db/thik`·`db/elem PLATE`·`db/BMLD`·`db/MATD`(CNS560-18(RC)/SD420).
 
 ### ✅ end-to-end 정상 (이전과 동일)
@@ -383,10 +399,11 @@ REST(클라이언트) → AWS 서버(중개) → WebSocket → 로컬 MIDAS 제�
 → **본 프로젝트의 자체계산 지진(等效靜力)·풍(층별 정적풍) → `db/CNLD` 절점하중 투입이 유일·정석 경로임이 실증됨.**
 (MIDAS 공식 풍 플러그인도 "계산 후 하중 주입" 방식 — 동일.)
 
-### ⚠ db/NMAS (절점질량) — Gen NX 하드 크래시 (재현율 3/3)
-검증 중 `db/NMAS` PUT 직후 매번 **Gen NX가 비정상 종료**("Program will be closed… _restore.mgbx").
-→ **절점질량은 `db/NMAS` 대신 `db/styp`(bSELFWEIGHT) + `db/LTOM`(하중→질량) 사용.** (actDynamic도 이 경로)
-MIDAS 보고 대상 버그.
+### ✅ db/NMAS (절점질량) — 이전빌드 하드크래시(3/3) → **v2.1 미재현(0616 closed)**
+- 이전빌드: `db/NMAS` PUT 직후 매번 **Gen NX 비정상 종료**("Program will be closed… _restore.mgbx").
+- **v2.1 재검증(2026-06-16, 라이브, 모델 사전저장)**: 공식예제(절점실재)·존재X절점(999)·필수mX누락·극값1e308·타입위반 **5종 전부 graceful·프로세스 생존**(200 / `Unknown Error` / `Wrong Field`). → 이전 크래시 **v2.1서 해소**.
+- 경미: 존재X 절점에 `"Unknown Error"`(불투명, db/SEIS와 동일패턴) · 매뉴얼 `mX`=Required인데 누락 수용(문서/동작 불일치).
+- 질량 대체경로 `db/styp`(bSELFWEIGHT) + `db/LTOM`은 여전히 유효(actDynamic 경로). 정식출시 전 입력 다양화 재검증 권장.
 
 ### ✅ 동적해석 실행 = Lanczos 필요 (2026-06-14 actDynamic end-to-end 실검증)
 실모델(자중질량 styp+LTOM, `DIR:"XY"`)에 `db/EIGV` **TYPE:"EIGEN"(Subspace)** 으로 `doc/anal` 시
