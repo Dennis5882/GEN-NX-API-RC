@@ -426,6 +426,28 @@ function sseisDiff(self, gen, dir, tol){
   return {dir, tol, matched, shearFails, worstShear, pass:(matched>0 && shearFails===0), rows:out, base};
 }
 
+/* ope/STORPROP(Gen 실모델 층중량) ↔ 자체 등가정적 지진중량 비교 (정보성 sanity-check).
+   self: [{level(mm), weight(kN)}], gen: ope/STORPROP 응답({STORYPROP:{DATA:[{STORY,WEIGHT,ELEV}]}}).
+   ELEV(mm)로 최근접 매칭(G.L./지하 제외). ⚠ 자체중량은 w0 추정이라 Gen(실질량)과 차이는 정상 — PASS/FAIL 아닌 비교.
+   반환: {tol,matched,fails,worst,totalSelf,totalGen,totalErr,rows:[{name,level,self,gen,err,ok}]} */
+function storyWeightDiff(selfStories, gen, tol){
+  tol=(tol==null?0.10:tol);
+  const P = gen && (gen.STORYPROP || (gen.Assign&&gen.Assign['1']&&gen.Assign['1'].STORYPROP)) || gen;
+  const data=(P&&P.DATA)?P.DATA:[];
+  const rel=(a,b)=> (Math.abs(b)<1e-9 ? (Math.abs(a)<1e-9?0:1) : Math.abs(a-b)/Math.abs(b));
+  const isGL=nm=>/^(g\.?\s*l\.?|base|ground)$/i.test(String(nm||'').trim());
+  const out=[]; let matched=0, fails=0, worst=0, sSelf=0, sGen=0;
+  data.forEach(g=>{
+    const ev=_ssNum(g.ELEV), gw=_ssNum(g.WEIGHT), nm=String(g.STORY!=null?g.STORY:'');
+    if(ev==null||gw==null||isGL(nm)) return;
+    let best=null,bd=1e9; (selfStories||[]).forEach(s=>{ const d=Math.abs((+s.level||0)-ev); if(d<bd){bd=d;best=s;} });
+    if(!best||bd>1) return;
+    const e=rel(best.weight, gw); worst=Math.max(worst,e); if(e>tol)fails++; matched++; sSelf+=best.weight; sGen+=gw;
+    out.push({name:nm, level:ev, self:best.weight, gen:gw, err:e, ok:e<=tol});
+  });
+  return {tol, matched, fails, worst, totalSelf:sSelf, totalGen:sGen, totalErr:rel(sSelf,sGen), rows:out};
+}
+
 /* ── 지진 工址 프리셋 (대만 건축물내진설계규범 113년판, 表2-6b 一般震區) ──
    설계 수평스펙트럼가속도계수 SDS(=S_S^D), SD1(=S_1^D). 全區所有里 단위만 수록.
    ⚠ 臺北盆地(表2-6a, 臺北一/二/三區) 행정구는 미분구 설계스펙트럼 別表 필요 → 미수록.
@@ -924,7 +946,7 @@ if(typeof window!=='undefined'){
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,
-    sseisSelfProfile, sseisGenRows, sseisDiff,
+    sseisSelfProfile, sseisGenRows, sseisDiff, storyWeightDiff,
     WIND_EXPOSURE, windStoryForces, detectTypicalFloors,
     KGFCM2_TO_MPA, fcMPa, REBAR_FY, BAR_AREA, DEFAULT_REBAR, beamEffDepth,
     flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign,

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gen NX 대화형 모델링 에이전트 v2.12.0 (SSEIS 층전단 교차검증)</title>
+<title>Gen NX 대화형 모델링 에이전트 v2.12.1 (SSEIS + 층중량 교차검증)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -335,7 +335,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.12.0</span><small data-i18n="subtitle">對話式結構建模</small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.12.1</span><small data-i18n="subtitle">對話式結構建模</small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <button data-l="ko" onclick="setLang('ko')">한국어</button>
@@ -1082,6 +1082,50 @@ function renderSseisReport(d, self){
   const tag=d.pass?'ok':'err';
   log((S.lang==='ko'?'🔬 SSEIS 교차검증 (X방향)':S.lang==='en'?'🔬 SSEIS cross-check (X-dir)':'🔬 SSEIS 交叉驗證 (X向)')+
       ` — ${d.pass?'PASS ✓':'MISMATCH ✗'} (${S.lang==='ko'?'최대 전단오차':'worst shear err'} ${(d.worstShear*100).toFixed(1)}%)`+html, tag);
+}
+
+/* ════════════════════════════════════════════════════════════
+   M2-A6 — ope/STORPROP 층중량 교차검증 (정보성)
+   Gen 실모델 층중량(ope/STORPROP) ↔ 자체 등가정적 지진중량(w0 추정) 비교.
+   ⚠ 정의가 달라(추정 vs 실질량) 차이는 정상 — w0 가정 sanity-check + 보정 단서. 전제: 등록 Story 모델.
+════════════════════════════════════════════════════════════ */
+async function actStoryWeightVerify(spec){
+  if(!S.connected) throw new Error(t('e_notconn'));
+  const p=spec||S.model.spec;
+  if(!p||!S.model.nodes.length) throw new Error(t('e_nomodel_edit'));
+  await setUnit('N','MM');
+  const sp=p.seismic||{};
+  const W=seismicStoryWeights(p,{w0:sp.w0,liveRatio:sp.liveRatio});   // kN, [1..stories]
+  const elev=storyElevations(p);                                     // mm
+  const selfStories=[]; for(let s=1;s<=p.stories;s++){ if((elev[s]||0)>0) selfStories.push({level:elev[s], weight:W[s]||0}); }
+  if(!selfStories.length) throw new Error(S.lang==='ko'?'G.L. 위 층이 없습니다.':'No stories above G.L.');
+  let gen;
+  try{ gen=await mapi('POST','/ope/STORPROP',{Argument:{FORCE_UNIT:'KN',LENGTH_UNIT:'MM',FORMAT:'Fixed',PLACE:4}}); }
+  catch(e){ if(/404/.test(e.message||'')) throw new Error(S.lang==='ko'
+      ?'ope/STORPROP가 이 빌드에 없습니다(404). 문서엔 있으나 v2.1 0612 베타엔 미탑재 — 차기 빌드에서 사용 가능.'
+      :'ope/STORPROP not available in this build (404) — documented but absent in the v2.1 0612 beta; available in a later build.'); throw e; }
+  const genResp=(gen&&gen.STORYPROP)?gen:((gen&&gen.Assign&&gen.Assign['1'])?gen.Assign['1']:gen);
+  const d=storyWeightDiff(selfStories, genResp, 0.10);
+  if(!d.matched) throw new Error(S.lang==='ko'
+    ?'층중량을 매칭하지 못했습니다 — 등록 Story 모델(레벨 일치)이 필요합니다.'
+    :'No story weights matched — needs a model with registered stories (matching levels).');
+  renderWeightReport(d);
+  return `Story weight check: ${d.matched} stories. Self ΣW=${Math.round(d.totalSelf)} kN vs Gen ΣW=${Math.round(d.totalGen)} kN (Δ${(d.totalErr*100).toFixed(1)}%). Informational — self uses w0 estimate; Gen is model-derived (use Gen weights to calibrate w0).`;
+}
+
+/* 층중량 비교 표 로그 (정보성) */
+function renderWeightReport(d){
+  const f0=x=>x==null?'–':Math.round(x);
+  const pe=c=>`<b style="color:${c.ok?'var(--green,#3c3)':'var(--amber,#d90)'}">${(c.err*100).toFixed(1)}%</b>`;
+  const hdr=S.lang==='ko'?['층','자체 W(kN)','Gen W(kN)','Δ']:S.lang==='en'?['Story','self W(kN)','Gen W(kN)','Δ']:['樓層','自重 W(kN)','Gen W(kN)','Δ'];
+  let html='<table style="font-size:11px;border-collapse:collapse;margin:4px 0"><tr>'+
+    hdr.map(h=>`<th style="text-align:left;padding:1px 8px 1px 0;border-bottom:1px solid #555">${h}</th>`).join('')+'</tr>';
+  d.rows.forEach(rw=>{ html+=`<tr><td style="padding:1px 8px 1px 0">${rw.name}</td>`+
+    `<td style="padding:1px 8px 1px 0">${f0(rw.self)}</td><td style="padding:1px 8px 1px 0">${f0(rw.gen)}</td>`+
+    `<td style="padding:1px 8px 1px 0">${pe(rw)}</td></tr>`; });
+  html+=`<tr><td style="padding:2px 8px 1px 0;border-top:1px solid #555"><b>Σ</b></td><td style="border-top:1px solid #555">${f0(d.totalSelf)}</td><td style="border-top:1px solid #555">${f0(d.totalGen)}</td><td style="border-top:1px solid #555"><b>${(d.totalErr*100).toFixed(1)}%</b></td></tr></table>`;
+  log((S.lang==='ko'?'⚖ 층중량 비교 (자체 추정 vs Gen 실모델, 정보성)':S.lang==='en'?'⚖ Story weight check (self estimate vs Gen model — informational)':'⚖ 樓層重量比較（自估 vs Gen，參考）')+
+      ` — ΣΔ ${(d.totalErr*100).toFixed(1)}%`+html, 'ok');
 }
 
 async function actModifySection(target, H, B){
@@ -1896,6 +1940,7 @@ const TOOLS=[
   {name:'add_bracing',description:'Add diagonal bracing in one building at given floors. Incremental edit — appends new elements.',
    input_schema:{type:'object',properties:{building:{type:'integer',description:'0-based building index'},floors:{type:'array',items:{type:'integer'}}},required:['building','floors']}},
   {name:'verify_seismic_sseis',description:'QA cross-check: feed the self-computed equivalent-static seismic story forces into Gen NX native db/SSEIS (USER TYPE) and compare the returned STORY_SHEAR / overturning moment / accidental torsion profile against our own. Read-back verification only — does NOT change the analysis loads (EX/EY via CNLD stay authoritative). Requires an existing model with seismic load enabled. Beta feature.',input_schema:{type:'object',properties:{}}},
+  {name:'verify_story_weight',description:'Informational QA: compare our estimated equivalent-static seismic story weights (w0 assumption) against Gen NX model-derived story weights via ope/STORPROP. Read-only. Differences are expected (estimate vs actual mass) — use to sanity-check / calibrate w0. Requires a model with registered stories.',input_schema:{type:'object',properties:{}}},
   {name:'run_analysis',description:'Run static analysis and fetch reaction / displacement / beam-force result tables.',input_schema:{type:'object',properties:{}}},
   {name:'get_result',description:'Summarize a previously computed result.',input_schema:{type:'object',properties:{which:{type:'string',enum:['disp','react','force']}},required:['which']}},
   {name:'clear_model',description:'Delete all model data in Gen NX.',input_schema:{type:'object',properties:{}}},
@@ -1903,7 +1948,7 @@ const TOOLS=[
 ];
 const SYSTEM=`You are a structural engineering agent that builds, EDITS, and analyzes models in MIDAS Gen NX through tools. Defaults when unspecified: 2 buildings, 10 stories, 4x2 bays, 7000x8000mm spans, first floor 3600mm / typical 2900mm, columns 600x600, beams 400x600, C24 concrete, connect buildings at floor 8 if 2+ buildings.
 spanX and spanY accept either a single number (uniform bays) OR an array of per-bay distances for non-uniform spacing, e.g. spanY=[3000,4000,3000] makes 3 Y-bays of 3000/4000/3000mm; the bay count auto-syncs to the array length.
-When the user asks to verify / cross-check / QA the seismic story shear (層剪力 교차검증) against Gen's native calculation, call verify_seismic_sseis (requires seismic to be on). It is a read-back QA check and does not alter the analysis model.
+When the user asks to verify / cross-check / QA the seismic story shear (層剪力 교차검증) against Gen's native calculation, call verify_seismic_sseis (requires seismic to be on). It is a read-back QA check and does not alter the analysis model. To compare story weights (層重量) against Gen's model-derived values, call verify_story_weight (informational). Both require a model whose stories are registered in Gen's Story Manager (GUI Story tab / Auto Generate).
 IMPORTANT — incremental editing: when a model already exists and the user asks to change part of it, do NOT call build_frame. Instead use modify_section / resize_subset / add_load / add_bracing. Floors are 1-based. After an edit, suggest re-running analysis to see the effect. If unsure of the current state, call get_status first. Always confirm key parameters in your reply. Be concise and reply in the user's language: Korean if they write Korean, English if English, and Traditional Chinese (Taiwan) if Traditional Chinese — using Taiwan structural-engineering terminology (結構, 構架, 柱, 梁, 斷面, 載重, 桿件內力, 變位, 反力, 斜撐, 跨距, 樓層). Use millimetres and Newtons.`;
 
 async function callTool(name,inp){
@@ -1924,6 +1969,7 @@ async function callTool(name,inp){
   if(name==='add_load'){ tab('logP'); return await actAddLoad(inp.name,inp.type,inp.floor,inp.fz); }
   if(name==='add_bracing'){ tab('logP'); return await actAddBracing(inp.building,inp.floors||[]); }
   if(name==='verify_seismic_sseis'){ tab('logP'); return await actSseisVerify(); }
+  if(name==='verify_story_weight'){ tab('logP'); return await actStoryWeightVerify(); }
   if(name==='run_analysis'){ await actAnalyze(); tab('resP');
     const d=extremum(S.results.disp,'DZ'), r=extremum(S.results.react,'FZ');
     return `Analysis done. Max vertical disp ${d?d.v.toFixed(3)+'mm @node '+d.node:'n/a'}; max vertical reaction ${r?(r.v/1000).toFixed(1)+'kN @node '+r.node:'n/a'}.`; }

@@ -1,5 +1,22 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.12.1 — 2026-06-16 (M2-A6: ope/STORPROP 층중량 교차검증 — 정보성)
+
+Story 작업 엔드포인트 매뉴얼 5종 확보 후, `ope/STORPROP`(Gen 실모델 층중량)을 자체 등가정적 지진중량과
+비교하는 **정보성 QA**를 추가. (SSEIS 교차검증과 동일 결)
+
+- **엔진(`shared/rc_engine.js`)** — `storyWeightDiff(selfStories, gen, tol)` 추가(순수): ope/STORPROP 응답
+  `{STORYPROP:{DATA:[{STORY,WEIGHT,ELEV}]}}`을 자체 층중량과 **ELEV(mm) 최근접 매칭**(G.L. 제외), per-story·합계 Δ%.
+- **에이전트(+standalone)**: `verify_story_weight` 도구 + `actStoryWeightVerify()`(`seismicStoryWeights`→ope/STORPROP→diff)
+  + `renderWeightReport`(자체/Gen/Δ 표). **정보성**(자체는 w0 추정, Gen은 실질량 → 차이 정상; w0 보정 단서).
+- **⚠ 빌드 가용성(라이브 확인)**: **`ope/STORPROP`는 v2.1 0612 베타에 미탑재(404)** — 문서엔 존재, 차기 빌드 예정.
+  도구는 404를 명확히 안내. 엔진 diff는 매뉴얼 응답스키마로 오프라인 검증 완료(2층 예제 ΣΔ 정확).
+- **Story 엔드포인트 패밀리 기록**(MAPI_FINDINGS·Excel r317-320): `ope/STOR`(우발편심 산정, 라이브 OK)·
+  `ope/STORPROP`(층중량, 404)·`ope/STORY_PARAM`·`ope/STORY_IRR_PARAM`(문서).
+- **검증**(py-mini-racer): 양 파일 compile-OK, `storyWeightDiff` 매칭·합계·G.L. 제외 정확.
+
+---
+
 ## v2.12.0 — 2026-06-16 (M2-A5: db/SSEIS 층전단 교차검증 — Phase 1)
 
 v2.1 베타 MAPI 검증으로 확정된 **`db/SSEIS`(USER TYPE) 네이티브 횡력 프로파일**을 자체계산 등가정적

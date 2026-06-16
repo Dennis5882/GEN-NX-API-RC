@@ -76,6 +76,7 @@ midas_story/  units · domain · grid · combos · validation · payloads · exp
   - **M2-A4(동적해석)** ✅ 고유치(`db/EIGV`)→실주기 T₁→지진 Cs 보정 + 응답스펙트럼(`db/SPFC`+`db/SPLC`, 대만).
     API 전수조사로 "차단" 오판 정정·라이브 검증 ([MAPI_FINDINGS.md](MAPI_FINDINGS.md)). v2.10.0(최신판)에 반영.
   - **M2-A5(SSEIS 교차검증, v2.12)** ✅ 자체계산 등가정적 층력 ↔ Gen 네이티브 `db/SSEIS`(USER TYPE) STORY_SHEAR/OTM diff(QA, `verify_seismic_sseis` 도구). **라이브 검증(0616): GUI Story 정의 모델에서 13행(밑면 포함) 0% 오차 PASS.** STORY_SHEAR=엄격상위 누적·OTM=ΣF·(z−L)·밑면 G.L.행 검증. `actSseisVerify`가 `GET db/STOR`로 등록 층명에 자동 매핑. **전제: Gen Story Manager에 등록된 Story(GUI Story탭/Auto Generate) 필요 — `db/STOR` API만으론 미등록**([GEN_NX_SSEIS_INTEGRATION_PLAN.md](GEN_NX_SSEIS_INTEGRATION_PLAN.md)).
+  - **M2-A6(층중량 교차검증, v2.12.1)** ⚙ 자체 등가정적 층중량 ↔ Gen 실모델 `ope/STORPROP` 층중량 비교(정보성, `verify_story_weight` 도구). w0 추정 sanity-check·보정 단서. 엔진 `storyWeightDiff` 오프라인 검증 완료. **⚠ `ope/STORPROP`는 0612 베타 미탑재(404) — 차기 빌드 대기**(도구가 404 안내).
 - **M3** ✅ 해석 결과 회수 + 구간별 배근(보 휨·전단 + 기둥 이축 P-M, TWD-USD112)
   - **기둥 P-M 고도화(v2.11)** ✅ 둘레 다층배근(측면근 반영)·φPn,max(0.80φPo) 축캡·실배근 P-M 곡선 노출.
     `/POST/PM` 라이브 조사로 `db/DCON` 네이티브 `TWN-USD112` 확인 ([MAPI_FINDINGS.md](MAPI_FINDINGS.md) §C++++++++).
