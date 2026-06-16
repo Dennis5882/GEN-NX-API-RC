@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gen NX 대화형 모델링 에이전트 v2.11.0 (기둥 P-M 고도화)</title>
+<title>Gen NX 대화형 모델링 에이전트 v2.12.0 (SSEIS 층전단 교차검증)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -335,7 +335,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.11.0</span><small data-i18n="subtitle">對話式結構建模</small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.12.0</span><small data-i18n="subtitle">對話式結構建模</small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <button data-l="ko" onclick="setLang('ko')">한국어</button>
@@ -823,6 +823,77 @@ function windStoryForces(spec, params){
     fxx.push({story:s,h:elev[s],qz,F:Fx}); fyy.push({story:s,h:elev[s],qz,F:Fy}); Vx+=Fx; Vy+=Fy;
   }
   return {V10,alpha,G,Cf,I,Vx,Vy,forcesX:fxx,forcesY:fyy};
+}
+
+/* ════════════════════════════════════════════════════════════
+   M2-A5 — db/SSEIS 교차검증(QA) : 자체계산 등가정적 층력 ↔ Gen NX 네이티브 프로파일
+   근거: MAPI_FINDINGS "🚨🚨 대정정" (라이브 검증). 모델 단위 N·mm 기준.
+   ⚠ 베타 한정 — "프로파일 생성·회수"만 확정 사실. 해석 자동투입은 미확인(Phase 2).
+   여기서는 순수 산술만(네트워크 없음): 자체 프로파일 생성 + Gen 응답과 diff.
+════════════════════════════════════════════════════════════ */
+function _ssNum(v){ const n=parseFloat(v); return isFinite(n)?n:null; }
+
+/* 자체계산 프로파일. (Gen db/SSEIS PROFILE 규약에 정합 — 라이브 검증 2026-06-16)
+   forces : seismicStoryForces(...).forces = [{story, h(mm), w, F(kN)}]
+   ⚠ Gen STORY_SHEAR(level L) = 해당 레벨보다 '위'(strictly above) 층력 합 — 자기 층력 제외.
+     밑면전단(=ΣF)은 GET 응답의 'G.L.' 행에만 나타남 → base.shear로 별도 보관.
+   ⚠ OVERTURN_MOMENT(L) = Σ_{level>L} F·(level−L) (자기 층은 0 기여라 ≥/> 동일).
+   ⚠ ACCIDENT_TORSION은 Gen이 F×편심'거리'(=ecc비율×평면폭)로 계산 → 평면치수 의존이라 자체예측 안 함(참고만).
+   반환   : { rows:[{story,name,level,force,shear,otm}], base:{shear,otm} } (단위: forces 입력단위 그대로, kN→N 환산) */
+function sseisSelfProfile(forces, ecc){
+  const fs=(forces||[]).map(f=>({story:f.story, name:f.name, level:+f.h||0, force:(+f.F||0)*1000})); // kN→N
+  const rows=fs.map(cur=>{
+    let shear=0, otm=0;
+    for(const o of fs){
+      if(o.level > cur.level+1e-6) shear+=o.force;                  // Gen 규약: 엄격 상위
+      if(o.level >= cur.level-1e-6) otm+=o.force*(o.level-cur.level);
+    }
+    return {story:cur.story, name:(cur.name!=null?String(cur.name):String(cur.story)+'F'),
+            level:cur.level, force:cur.force, shear:shear, otm:otm};
+  }).sort((a,b)=>a.level-b.level);
+  const baseShear=fs.reduce((s,o)=>s+o.force,0);
+  const baseOTM  =fs.reduce((s,o)=>s+o.force*o.level,0);
+  return {rows, base:{shear:baseShear, otm:baseOTM}};
+}
+
+/* Gen GET /db/SSEIS 응답에서 PROFILE 행 추출(방향별). 응답 형태 변동 대비 방어적 파싱. */
+function sseisGenRows(gen, dir){
+  dir=dir||'X';
+  const P = gen && (gen.PROFILE || (gen.Assign&&gen.Assign['1']&&gen.Assign['1'].PROFILE)) || null;
+  if(!P) return [];
+  let arr = P[dir+'_DIR'] || P[dir] || P.X_DIR || P.SRSS || [];
+  if(!Array.isArray(arr)) arr = arr.ITEMS || arr.STORY || arr.rows || [];
+  return Array.isArray(arr)?arr:[];
+}
+
+/* 자체 프로파일 ↔ Gen 프로파일 diff. STORY_NAME 매칭 + 'G.L.' 밑면 행으로 총 밑면전단·OTM 검증.
+   pass 판정 = STORY_SHEAR(엄격상위 누적) 오차 전부 tol 이내. OTM은 참고 ok, torsion은 Gen값 표시만(평면치수 의존).
+   반환: {dir,tol,matched,shearFails,worstShear,pass,rows:[{name,shear,otm,torsion}], base} */
+function sseisDiff(self, gen, dir, tol){
+  tol=(tol==null?0.05:tol); dir=dir||'X';
+  const rel=(a,b)=> (Math.abs(b)<1e-9 ? (Math.abs(a)<1e-9?0:1) : Math.abs(a-b)/Math.abs(b));
+  const cmp=(sv,gv)=>{ const g=_ssNum(gv); if(g==null) return null; const e=rel(sv,g); return {self:sv,gen:g,err:e,ok:e<=tol}; };
+  const genRows=sseisGenRows(gen,dir);
+  const byName={}; (self.rows||[]).forEach(r=>{ byName[String(r.name)]=r; });
+  const isGL=nm=>/^(g\.?\s*l\.?|base|ground)$/i.test(String(nm||'').trim());
+  const out=[]; let matched=0, shearFails=0, worstShear=0, glRow=null;
+  genRows.forEach(g=>{
+    const nm=String(g.STORY_NAME!=null?g.STORY_NAME:(g.NAME!=null?g.NAME:''));
+    if(isGL(nm)){ glRow=g; return; }
+    const s=byName[nm]; if(!s) return; matched++;
+    const cs=cmp(s.shear, g.STORY_SHEAR);
+    if(cs){ worstShear=Math.max(worstShear,cs.err); if(!cs.ok)shearFails++; }
+    out.push({name:nm, shear:cs, otm:cmp(s.otm,g.OVERTURN_MOMENT),
+              torsion:{self:null, gen:_ssNum(g.ACCIDENT_TORSION), err:null, ok:null}}); // 평면치수 의존 → 참고만
+  });
+  let base=null;
+  if(glRow){
+    const bs=cmp(self.base.shear, glRow.STORY_SHEAR), bo=cmp(self.base.otm, glRow.OVERTURN_MOMENT);
+    if(bs){ matched++; worstShear=Math.max(worstShear,bs.err); if(!bs.ok)shearFails++; }
+    base={name:'G.L.(base)', shear:bs, otm:bo, torsion:null};
+    out.push(base);
+  }
+  return {dir, tol, matched, shearFails, worstShear, pass:(matched>0 && shearFails===0), rows:out, base};
 }
 
 /* ── 지진 工址 프리셋 (대만 건축물내진설계규범 113년판, 表2-6b 一般震區) ──
@@ -1323,6 +1394,7 @@ if(typeof window!=='undefined'){
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,
+    sseisSelfProfile, sseisGenRows, sseisDiff,
     WIND_EXPOSURE, windStoryForces, detectTypicalFloors,
     KGFCM2_TO_MPA, fcMPa, REBAR_FY, BAR_AREA, DEFAULT_REBAR, beamEffDepth,
     flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign,
@@ -1853,6 +1925,103 @@ async function applyLateral(p, f){
   for(const nid in perNode){ a[nid]={ITEMS:perNode[nid].map((it,i)=>(
     {ID:i+1,LCNAME:it.LCNAME,GROUP_NAME:'',FX:it.FX||0,FY:it.FY||0,FZ:0,MX:0,MY:0,MZ:0}))}; }
   if(Object.keys(a).length) await mapi('PUT','cnld',{Assign:a});
+}
+
+/* ════════════════════════════════════════════════════════════
+   M2-A5 — db/SSEIS 교차검증(QA, Phase 1)
+   자체계산 등가정적 층력을 Gen NX 네이티브 db/SSEIS(USER TYPE)에 입력 →
+   Gen이 산정한 STORY_SHEAR/OVERTURN_MOMENT/ACCIDENT_TORSION 회수 → 자체값과 diff.
+   ⚠ 베타 한정·읽기검증 성격. 해석 하중케이스 자동투입은 미확인(Phase 2) → 기존 CNLD 경로(EX/EY) 유지.
+   전제: STOR 층 STORY_LEVEL > G.L.(0). (라이브 규명: 0이면 "skipped")
+════════════════════════════════════════════════════════════ */
+/* db/STOR 층 데이터 PUT — 라이브 검증된 15필드 스키마(MAPI_FINDINGS §3-1). ecc=우발편심 비율 */
+async function putStoryData(forces, ecc){
+  const a={};
+  forces.forEach(f=>{ const s=f.story;
+    a[s]={ STORY_NAME:String(s)+'F', STORY_LEVEL:+f.h||0, bFLOOR_DIAPHRAGM:true,
+      WIND_FLOOR_WIDTH_X:0, WIND_FLOOR_WIDTH_Y:0, WIND_CENTER_X:0, WIND_CENTER_Y:0,
+      WIND_ECCENT_X:0, WIND_ECCENT_Y:0,
+      SEIS_ACC_ECCENT_X:ecc, SEIS_ACC_ECCENT_Y:ecc,
+      SEIS_INHERENT_ECCENT_X:0, SEIS_INHERENT_ECCENT_Y:0,
+      SEIS_TORSIONAL_AMP_FACTOR_X:1.0, SEIS_TORSIONAL_AMP_FACTOR_Y:1.0 }; });
+  await mapi('PUT','STOR',{Assign:a});
+  log('▸ '+(S.lang==='ko'?'층 데이터(STOR)':S.lang==='en'?'Story data (STOR)':'樓層資料(STOR)')+' <b>'+forces.length+'</b>','ok');
+}
+
+/* SSEIS 교차검증 실행. spec 미지정 시 현재 모델 스펙 사용.
+   ⚠ SSEIS USER TYPE은 Gen Story Manager에 '등록된' 층명을 참조한다(라이브 확인 0616 — db/STOR 입력·다이어프램으론 미등록).
+   따라서 GET db/STOR로 등록 층(이름·레벨)을 받아 자체 층력을 레벨로 매핑→실제 층명으로 PUT한다. G.L./지하(level≤0)는 제외. */
+async function actSseisVerify(spec){
+  if(!S.connected) throw new Error(t('e_notconn'));
+  const p=spec||S.model.spec;
+  if(!p||!S.model.nodes.length) throw new Error(t('e_nomodel_edit'));
+  const sp=p.seismic;
+  if(!(sp&&sp.on)) throw new Error(S.lang==='ko'?'지진하중이 켜진 모델이 필요합니다(EX/EY).':S.lang==='en'?'Need a model with seismic load on (EX/EY).':'需要已啟用地震載重的模型(EX/EY)。');
+  await setUnit('N','MM');
+  const r=seismicStoryForces(p,{SDS:sp.SDS,SD1:sp.SD1,T0:sp.T0,I:sp.I,R:sp.R,w0:sp.w0,liveRatio:sp.liveRatio,Cs:sp.Cs,V:sp.V});
+  // 1) 등록 Story 회수 (SSEIS가 참조하는 레지스트리). level>0(지진층)만.
+  let reg=[];
+  try{ const sd=await mapi('GET','STOR'); const T=(sd&&sd.STOR)||{};
+    reg=Object.keys(T).map(k=>({name:T[k].STORY_NAME, level:+T[k].STORY_LEVEL||0})).filter(s=>s.level>0); }catch(e){}
+  if(!reg.length) throw new Error(S.lang==='ko'
+    ?'모델에 등록된 Story가 없습니다. SSEIS는 Gen Story Manager 등록 층을 참조하므로, GUI의 Story 탭에서 Story 정의(또는 Auto Generate Story Data)된 모델이 필요합니다(라이브 확인 0616).'
+    :'No stories registered. SSEIS references Gen Story Manager stories — define them in the GUI Story tab (or Auto Generate) first (live-confirmed 0616).');
+  // 2) 자체 층력을 등록 층 레벨에 최근접 매핑(tol 1mm) → 실제 등록 층명 사용
+  const mapped=[];
+  (r.forces||[]).forEach(f=>{ const lv=+f.h||0; if(lv<=0) return;
+    let best=null,bd=1e9; reg.forEach(s=>{ const d=Math.abs(s.level-lv); if(d<bd){bd=d;best=s;} });
+    if(best&&bd<=1) mapped.push({story:best.name, name:best.name, h:lv, F:f.F}); });
+  if(!mapped.length) throw new Error(S.lang==='ko'
+    ?'자체계산 층 레벨이 등록 Story 레벨과 일치하지 않습니다(단위·표고 확인).'
+    :'Computed story levels do not match registered story levels (check units/elevations).');
+  // 3) db/SSEIS USER TYPE PUT (등록 층명으로). ACCIDENT_ECCEN은 정수 옵션 enum[0,1,2]; 비율은 STOR가 보유.
+  const seisForce=mapped.map(m=>({STORY_NAME:m.name, FORCE_X:(+m.F||0)*1000, FORCE_Y:0}));
+  try{
+    await mapi('PUT','SSEIS',{Assign:{1:{
+      SEIS_CODE:'USER TYPE', SCALE_FACTOR_X:1.0, SCALE_FACTOR_Y:1.0,
+      SEISMIC_FORCE:seisForce, ACCIDENT_ECCEN_X:1, ACCIDENT_ECCEN_Y:1, ACCIDENT_TORSION:true, DESC:'QA-verify'
+    }}});
+  }catch(e){
+    if(/Wrong Key|not a seismic-load story/i.test(e.message||'')) throw new Error(S.lang==='ko'
+      ?'SSEIS가 일부 층명을 인식하지 못했습니다 — 지진층(G.L. 위)·등록 Story명과 일치해야 합니다.'
+      :'SSEIS did not recognize some story names — must be seismic-load stories (above G.L.) matching registered names.');
+    throw e;
+  }
+  log('▸ db/SSEIS USER TYPE PUT <b>'+seisForce.length+'</b> '+(S.lang==='ko'?'층력(등록 Story명)':S.lang==='en'?'forces (registered stories)':'層力(已登錄樓層)'),'ok');
+  // 4) GET → 네이티브 프로파일 회수
+  const gen=await mapi('GET','SSEIS');
+  const genResp=(gen&&gen.SSEIS&&gen.SSEIS['1'])?gen.SSEIS['1']:((gen&&gen.Assign&&gen.Assign['1'])?gen.Assign['1']:gen);
+  // 5) diff (X방향, 기본 허용오차 5%)
+  const self=sseisSelfProfile(mapped, 0.05);   // mapped[].name = 등록 층명 → Gen 행과 정확 매칭
+  const tol=(sp.verifyTol!=null?sp.verifyTol:0.05);
+  const d=sseisDiff(self, genResp, 'X', tol);
+  S.model.sseisQA={dir:d.dir,tol:d.tol,matched:d.matched,pass:d.pass,worstShear:d.worstShear,base:self.base};
+  renderSseisReport(d, self);
+  const pct=(d.worstShear*100).toFixed(1);
+  if(!d.matched){
+    log('⚠ SSEIS '+(S.lang==='ko'?'프로파일을 매칭하지 못했습니다(응답 형식 확인 필요)':'no PROFILE rows matched (check response shape)'),'err');
+    return 'SSEIS verify: GET returned but no PROFILE story rows matched. Inspect log.';
+  }
+  return `SSEIS cross-check (X-dir): ${d.matched} rows matched (incl. base), worst STORY_SHEAR diff ${pct}% (tol ${(tol*100).toFixed(0)}%) → ${d.pass?'PASS ✓ self-computed seismic matches Gen native profile':'MISMATCH — review story-force mapping'}.`;
+}
+
+/* SSEIS diff 결과 표 로그 (전단·OTM·우발토션) */
+function renderSseisReport(d, self){
+  const f0=x=>x==null?'–':(Math.abs(x)>=1e6?(x/1e6).toFixed(2)+'e6':Math.round(x));
+  const pe=c=>c==null?'<span style="opacity:.4">–</span>':`<b style="color:${c.ok?'var(--green,#3c3)':'var(--red,#e55)'}">${(c.err*100).toFixed(1)}%</b>`;
+  const hdr=S.lang==='ko'?['층','STORY_SHEAR 자체/Gen','OTM','우발토션']
+        :S.lang==='en'?['Story','STORY_SHEAR self/Gen','OTM','Acc.Torsion']
+        :['樓層','STORY_SHEAR 自/Gen','OTM','偶發扭矩'];
+  let html='<table style="font-size:11px;border-collapse:collapse;margin:4px 0"><tr>'+
+    hdr.map(h=>`<th style="text-align:left;padding:1px 8px 1px 0;border-bottom:1px solid #555">${h}</th>`).join('')+'</tr>';
+  d.rows.forEach(rw=>{ html+=`<tr><td style="padding:1px 8px 1px 0">${rw.name}</td>`+
+    `<td style="padding:1px 8px 1px 0">${rw.shear?f0(rw.shear.self)+'/'+f0(rw.shear.gen)+' '+pe(rw.shear):'–'}</td>`+
+    `<td style="padding:1px 8px 1px 0">${rw.otm?f0(rw.otm.self)+'/'+f0(rw.otm.gen)+' '+pe(rw.otm):'–'}</td>`+
+    `<td style="padding:1px 8px 1px 0">${rw.torsion&&rw.torsion.gen!=null?'<span style="opacity:.7">Gen '+f0(rw.torsion.gen)+'</span>':'–'}</td></tr>`; });
+  html+='</table>';
+  const tag=d.pass?'ok':'err';
+  log((S.lang==='ko'?'🔬 SSEIS 교차검증 (X방향)':S.lang==='en'?'🔬 SSEIS cross-check (X-dir)':'🔬 SSEIS 交叉驗證 (X向)')+
+      ` — ${d.pass?'PASS ✓':'MISMATCH ✗'} (${S.lang==='ko'?'최대 전단오차':'worst shear err'} ${(d.worstShear*100).toFixed(1)}%)`+html, tag);
 }
 
 async function actModifySection(target, H, B){
@@ -2666,6 +2835,7 @@ const TOOLS=[
    input_schema:{type:'object',properties:{name:{type:'string'},type:{type:'string',description:'D/L/W/E/U'},floor:{type:'integer'},fz:{type:'number',description:'vertical force N, negative = downward'}},required:['name','type','floor','fz']}},
   {name:'add_bracing',description:'Add diagonal bracing in one building at given floors. Incremental edit — appends new elements.',
    input_schema:{type:'object',properties:{building:{type:'integer',description:'0-based building index'},floors:{type:'array',items:{type:'integer'}}},required:['building','floors']}},
+  {name:'verify_seismic_sseis',description:'QA cross-check: feed the self-computed equivalent-static seismic story forces into Gen NX native db/SSEIS (USER TYPE) and compare the returned STORY_SHEAR / overturning moment / accidental torsion profile against our own. Read-back verification only — does NOT change the analysis loads (EX/EY via CNLD stay authoritative). Requires an existing model with seismic load enabled. Beta feature.',input_schema:{type:'object',properties:{}}},
   {name:'run_analysis',description:'Run static analysis and fetch reaction / displacement / beam-force result tables.',input_schema:{type:'object',properties:{}}},
   {name:'get_result',description:'Summarize a previously computed result.',input_schema:{type:'object',properties:{which:{type:'string',enum:['disp','react','force']}},required:['which']}},
   {name:'clear_model',description:'Delete all model data in Gen NX.',input_schema:{type:'object',properties:{}}},
@@ -2673,6 +2843,7 @@ const TOOLS=[
 ];
 const SYSTEM=`You are a structural engineering agent that builds, EDITS, and analyzes models in MIDAS Gen NX through tools. Defaults when unspecified: 2 buildings, 10 stories, 4x2 bays, 7000x8000mm spans, first floor 3600mm / typical 2900mm, columns 600x600, beams 400x600, C24 concrete, connect buildings at floor 8 if 2+ buildings.
 spanX and spanY accept either a single number (uniform bays) OR an array of per-bay distances for non-uniform spacing, e.g. spanY=[3000,4000,3000] makes 3 Y-bays of 3000/4000/3000mm; the bay count auto-syncs to the array length.
+When the user asks to verify / cross-check / QA the seismic story shear (層剪力 교차검증) against Gen's native calculation, call verify_seismic_sseis (requires seismic to be on). It is a read-back QA check and does not alter the analysis model.
 IMPORTANT — incremental editing: when a model already exists and the user asks to change part of it, do NOT call build_frame. Instead use modify_section / resize_subset / add_load / add_bracing. Floors are 1-based. After an edit, suggest re-running analysis to see the effect. If unsure of the current state, call get_status first. Always confirm key parameters in your reply. Be concise and reply in the user's language: Korean if they write Korean, English if English, and Traditional Chinese (Taiwan) if Traditional Chinese — using Taiwan structural-engineering terminology (結構, 構架, 柱, 梁, 斷面, 載重, 桿件內力, 變位, 反力, 斜撐, 跨距, 樓層). Use millimetres and Newtons.`;
 
 async function callTool(name,inp){
@@ -2692,6 +2863,7 @@ async function callTool(name,inp){
   if(name==='resize_subset'){ tab('logP'); return await actResizeSubset(inp.target,inp.H,inp.B,inp.floors||[]); }
   if(name==='add_load'){ tab('logP'); return await actAddLoad(inp.name,inp.type,inp.floor,inp.fz); }
   if(name==='add_bracing'){ tab('logP'); return await actAddBracing(inp.building,inp.floors||[]); }
+  if(name==='verify_seismic_sseis'){ tab('logP'); return await actSseisVerify(); }
   if(name==='run_analysis'){ await actAnalyze(); tab('resP');
     const d=extremum(S.results.disp,'DZ'), r=extremum(S.results.react,'FZ');
     return `Analysis done. Max vertical disp ${d?d.v.toFixed(3)+'mm @node '+d.node:'n/a'}; max vertical reaction ${r?(r.v/1000).toFixed(1)+'kN @node '+r.node:'n/a'}.`; }

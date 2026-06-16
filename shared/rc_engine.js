@@ -355,6 +355,77 @@ function windStoryForces(spec, params){
   return {V10,alpha,G,Cf,I,Vx,Vy,forcesX:fxx,forcesY:fyy};
 }
 
+/* ════════════════════════════════════════════════════════════
+   M2-A5 — db/SSEIS 교차검증(QA) : 자체계산 등가정적 층력 ↔ Gen NX 네이티브 프로파일
+   근거: MAPI_FINDINGS "🚨🚨 대정정" (라이브 검증). 모델 단위 N·mm 기준.
+   ⚠ 베타 한정 — "프로파일 생성·회수"만 확정 사실. 해석 자동투입은 미확인(Phase 2).
+   여기서는 순수 산술만(네트워크 없음): 자체 프로파일 생성 + Gen 응답과 diff.
+════════════════════════════════════════════════════════════ */
+function _ssNum(v){ const n=parseFloat(v); return isFinite(n)?n:null; }
+
+/* 자체계산 프로파일. (Gen db/SSEIS PROFILE 규약에 정합 — 라이브 검증 2026-06-16)
+   forces : seismicStoryForces(...).forces = [{story, h(mm), w, F(kN)}]
+   ⚠ Gen STORY_SHEAR(level L) = 해당 레벨보다 '위'(strictly above) 층력 합 — 자기 층력 제외.
+     밑면전단(=ΣF)은 GET 응답의 'G.L.' 행에만 나타남 → base.shear로 별도 보관.
+   ⚠ OVERTURN_MOMENT(L) = Σ_{level>L} F·(level−L) (자기 층은 0 기여라 ≥/> 동일).
+   ⚠ ACCIDENT_TORSION은 Gen이 F×편심'거리'(=ecc비율×평면폭)로 계산 → 평면치수 의존이라 자체예측 안 함(참고만).
+   반환   : { rows:[{story,name,level,force,shear,otm}], base:{shear,otm} } (단위: forces 입력단위 그대로, kN→N 환산) */
+function sseisSelfProfile(forces, ecc){
+  const fs=(forces||[]).map(f=>({story:f.story, name:f.name, level:+f.h||0, force:(+f.F||0)*1000})); // kN→N
+  const rows=fs.map(cur=>{
+    let shear=0, otm=0;
+    for(const o of fs){
+      if(o.level > cur.level+1e-6) shear+=o.force;                  // Gen 규약: 엄격 상위
+      if(o.level >= cur.level-1e-6) otm+=o.force*(o.level-cur.level);
+    }
+    return {story:cur.story, name:(cur.name!=null?String(cur.name):String(cur.story)+'F'),
+            level:cur.level, force:cur.force, shear:shear, otm:otm};
+  }).sort((a,b)=>a.level-b.level);
+  const baseShear=fs.reduce((s,o)=>s+o.force,0);
+  const baseOTM  =fs.reduce((s,o)=>s+o.force*o.level,0);
+  return {rows, base:{shear:baseShear, otm:baseOTM}};
+}
+
+/* Gen GET /db/SSEIS 응답에서 PROFILE 행 추출(방향별). 응답 형태 변동 대비 방어적 파싱. */
+function sseisGenRows(gen, dir){
+  dir=dir||'X';
+  const P = gen && (gen.PROFILE || (gen.Assign&&gen.Assign['1']&&gen.Assign['1'].PROFILE)) || null;
+  if(!P) return [];
+  let arr = P[dir+'_DIR'] || P[dir] || P.X_DIR || P.SRSS || [];
+  if(!Array.isArray(arr)) arr = arr.ITEMS || arr.STORY || arr.rows || [];
+  return Array.isArray(arr)?arr:[];
+}
+
+/* 자체 프로파일 ↔ Gen 프로파일 diff. STORY_NAME 매칭 + 'G.L.' 밑면 행으로 총 밑면전단·OTM 검증.
+   pass 판정 = STORY_SHEAR(엄격상위 누적) 오차 전부 tol 이내. OTM은 참고 ok, torsion은 Gen값 표시만(평면치수 의존).
+   반환: {dir,tol,matched,shearFails,worstShear,pass,rows:[{name,shear,otm,torsion}], base} */
+function sseisDiff(self, gen, dir, tol){
+  tol=(tol==null?0.05:tol); dir=dir||'X';
+  const rel=(a,b)=> (Math.abs(b)<1e-9 ? (Math.abs(a)<1e-9?0:1) : Math.abs(a-b)/Math.abs(b));
+  const cmp=(sv,gv)=>{ const g=_ssNum(gv); if(g==null) return null; const e=rel(sv,g); return {self:sv,gen:g,err:e,ok:e<=tol}; };
+  const genRows=sseisGenRows(gen,dir);
+  const byName={}; (self.rows||[]).forEach(r=>{ byName[String(r.name)]=r; });
+  const isGL=nm=>/^(g\.?\s*l\.?|base|ground)$/i.test(String(nm||'').trim());
+  const out=[]; let matched=0, shearFails=0, worstShear=0, glRow=null;
+  genRows.forEach(g=>{
+    const nm=String(g.STORY_NAME!=null?g.STORY_NAME:(g.NAME!=null?g.NAME:''));
+    if(isGL(nm)){ glRow=g; return; }
+    const s=byName[nm]; if(!s) return; matched++;
+    const cs=cmp(s.shear, g.STORY_SHEAR);
+    if(cs){ worstShear=Math.max(worstShear,cs.err); if(!cs.ok)shearFails++; }
+    out.push({name:nm, shear:cs, otm:cmp(s.otm,g.OVERTURN_MOMENT),
+              torsion:{self:null, gen:_ssNum(g.ACCIDENT_TORSION), err:null, ok:null}}); // 평면치수 의존 → 참고만
+  });
+  let base=null;
+  if(glRow){
+    const bs=cmp(self.base.shear, glRow.STORY_SHEAR), bo=cmp(self.base.otm, glRow.OVERTURN_MOMENT);
+    if(bs){ matched++; worstShear=Math.max(worstShear,bs.err); if(!bs.ok)shearFails++; }
+    base={name:'G.L.(base)', shear:bs, otm:bo, torsion:null};
+    out.push(base);
+  }
+  return {dir, tol, matched, shearFails, worstShear, pass:(matched>0 && shearFails===0), rows:out, base};
+}
+
 /* ── 지진 工址 프리셋 (대만 건축물내진설계규범 113년판, 表2-6b 一般震區) ──
    설계 수평스펙트럼가속도계수 SDS(=S_S^D), SD1(=S_1^D). 全區所有里 단위만 수록.
    ⚠ 臺北盆地(表2-6a, 臺北一/二/三區) 행정구는 미분구 설계스펙트럼 別表 필요 → 미수록.
@@ -853,6 +924,7 @@ if(typeof window!=='undefined'){
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,
+    sseisSelfProfile, sseisGenRows, sseisDiff,
     WIND_EXPOSURE, windStoryForces, detectTypicalFloors,
     KGFCM2_TO_MPA, fcMPa, REBAR_FY, BAR_AREA, DEFAULT_REBAR, beamEffDepth,
     flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign,

@@ -1,5 +1,31 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.12.0 — 2026-06-16 (M2-A5: db/SSEIS 층전단 교차검증 — Phase 1)
+
+v2.1 베타 MAPI 검증으로 확정된 **`db/SSEIS`(USER TYPE) 네이티브 횡력 프로파일**을 자체계산 등가정적
+층력의 **교차검증(QA) 수단**으로 도입. ([GEN_NX_SSEIS_INTEGRATION_PLAN.md](GEN_NX_SSEIS_INTEGRATION_PLAN.md) Phase 1)
+
+- **엔진(`shared/rc_engine.js`)** — 순수 함수 3종 추가(네트워크 없음):
+  - `sseisSelfProfile(forces, ecc)` — 등가정적 층력 → 누적 **STORY_SHEAR**(top-down)·**OVERTURN_MOMENT**(ΣF·z, N·mm)·**ACCIDENT_TORSION**(F·ecc). 라이브 검산식 그대로.
+  - `sseisGenRows(gen, dir)` — `GET /db/SSEIS` 응답의 `PROFILE.{X_DIR/Y_DIR/SRSS}` 방어적 파싱(베타 형식 변동 대비).
+  - `sseisDiff(self, gen, dir, tol)` — STORY_NAME 매칭 diff. **pass 판정은 STORY_SHEAR(의미 명확) 기준**, OTM/우발토션은 참고 플래그.
+- **에이전트(`gen_nx_rc_agent.html` + standalone)**:
+  - `verify_seismic_sseis` 도구 추가(LLM 호출 가능) — "층전단 교차검증" 요청 시 실행.
+  - `putStoryData()` — 라이브 검증된 **db/STOR 15필드** 스키마로 층 데이터 PUT(**STORY_LEVEL>G.L.** 전제 보장, G.L. 이하 층 필터).
+  - `actSseisVerify()` — STOR 정의 → `db/SSEIS` USER TYPE PUT(자체 층력 X방향) → GET 프로파일 회수 → 엔진 diff → 결과 표 로그(자체/Gen·오차%·PASS/MISMATCH).
+  - **읽기검증 성격** — EX/EY **해석 하중은 기존 CNLD 경로 유지**(SSEIS 해석 자동투입은 미확인 = Phase 2). 모델/해석 결과 불변.
+- **🔬 라이브 검증(2026-06-16) — GUI Story 모델에서 0% 오차 PASS 확정**: GUI로 13개 층(1F~12F, Roof) 정의된 실모델에 자체 층력(Roof 100…2F 10 kN, X방향) `PUT db/SSEIS`(USER TYPE) → `GET` 프로파일 회수 → 엔진 diff:
+  - **STORY_SHEAR 13행(밑면 G.L. 포함) 전부 0.000% 오차, PASS ✓** (밑면전단 650/650 일치). OVERTURN_MOMENT도 0%(G.L. OTM 22520 검산 일치).
+  - **PROFILE 구조 확정**: `PROFILE.{X_DIR,Y_DIR,SRSS}`, 행 키 `STORY_NAME/STORY_WEIGHT/STORY_LEVEL/STORY_FORCE/STORY_SHEAR/OVERTURN_MOMENT/ACCIDENT_TORSION/…`(값은 문자열). 마지막 행 `STORY_NAME:"G.L."`에 총 밑면전단·OTM.
+  - **STORY_SHEAR 규약**: 해당 레벨보다 '위' 층력 합(자기 층 제외) → 엔진을 이 규약으로 정정(엄격상위) + G.L. 행으로 총 밑면 검증.
+- **전제(라이브 규명)**: SSEIS의 `STORY_NAME`은 **Gen Story Manager 등록 층**을 참조. **`db/STOR` 입력·RIGD 다이어프램만으로는 미등록**(`"Wrong Key"`) — GUI Story 탭 정의(또는 Auto Generate Story Data) 필요. **`1F`(level 0=G.L.)는 "not a seismic-load story"로 제외**.
+- **스키마 정정(라이브)**: `ACCIDENT_ECCEN_X/Y`는 비율이 아니라 **정수 옵션 enum[0,1,2]**(우발편심 비율은 STOR `SEIS_ACC_ECCENT`). `INHERENT_TORSION` optional → 제거. `ACCIDENT_TORSION`(응답)은 F×편심거리(=비율×평면폭)라 평면치수 의존 → 자체예측 안 하고 Gen값 참고표시.
+- **`actSseisVerify` 보강**: `GET db/STOR`로 **등록 층명·레벨 회수 → 자체 층력을 레벨 최근접 매핑 → 실제 등록 층명으로 PUT/diff**(level≤0 제외). 등록 Story 없으면 명확한 안내. 양 파일 + 엔진 동기화.
+- **엔진 검증**(py-mini-racer): 라이브 Gen 응답 13행 재현 PASS(0%); exact-match→PASS, 8%오차→MISMATCH 정확; 명시 층명(name) honor 확인.
+- **후속**: 순수 API 빌드 모델의 Story 등록(`ope/STOR` Argument 미규명 — 라우트 실재). 규명 시 자동 빌드 모델에서도 교차검증 자동화 가능.
+
+---
+
 ## v2.11.1 — 2026-06-14 (버그 수정·동기화)
 
 ### 버그 수정
