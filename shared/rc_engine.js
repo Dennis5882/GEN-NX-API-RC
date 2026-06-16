@@ -465,6 +465,31 @@ function sseisProfileToStoryProp(genSseis){
   return {STORYPROP:{DATA:data}};
 }
 
+/* 표준층 모델 → Gen Story Data(db/STOR) Assign 맵 (15필드, 라이브 검증 스키마).
+   규약: 지반 "1F"@level 0 + 층 표고 elev[iz]를 "(iz+1)F"(최상층 "RF"). 총 stories+1 행.
+   footprint(WIND_FLOOR_WIDTH/CENTER)은 노드 bbox, SEIS_ACC_ECCENT은 5% '거리'(=0.05×폭).
+   ⚠ bFLOOR_DIAPHRAGM은 전 행 false — 강성 다이어프램은 db/rigd(동별·검증됨)가 담당. Story가 또 만들면 같은 절점 DOF 중복("Duplicated DOF at Rigid Link")이라 false로 둠(라이브 규명 0616).
+   ⚠ 단위 전제 N·mm. ⚠ db/STOR는 Story Data 테이블만 채움 — Gen Story Manager(Module) 등록은 GUI Auto Generate 별도. */
+function buildStoryData(p, f){
+  const elev=storyElevations(p);
+  let mnx=Infinity,mxx=-Infinity,mny=Infinity,mxy=-Infinity;
+  ((f&&f.nodes)||[]).forEach(n=>{ if(n.x<mnx)mnx=n.x; if(n.x>mxx)mxx=n.x; if(n.y<mny)mny=n.y; if(n.y>mxy)mxy=n.y; });
+  const wX=isFinite(mxx-mnx)?(mxx-mnx):0, wY=isFinite(mxy-mny)?(mxy-mny):0;
+  const cX=isFinite(mnx)?(mnx+mxx)/2:0, cY=isFinite(mny)?(mny+mxy)/2:0;
+  const mk=(name,lvl)=>({ STORY_NAME:name, STORY_LEVEL:lvl, bFLOOR_DIAPHRAGM:false,
+    WIND_FLOOR_WIDTH_X:wX, WIND_FLOOR_WIDTH_Y:wY, WIND_CENTER_X:cX, WIND_CENTER_Y:cY,
+    WIND_ECCENT_X:0, WIND_ECCENT_Y:0,
+    SEIS_ACC_ECCENT_X:0.05*wX, SEIS_ACC_ECCENT_Y:0.05*wY,
+    SEIS_INHERENT_ECCENT_X:0, SEIS_INHERENT_ECCENT_Y:0,
+    SEIS_TORSIONAL_AMP_FACTOR_X:1.0, SEIS_TORSIONAL_AMP_FACTOR_Y:1.0 });
+  const a={}; let k=1;
+  a[k++]=mk('1F', 0);                                          // 지반 G.L.
+  for(let iz=1; iz<=(p.stories||0); iz++){
+    a[k++]=mk(iz===p.stories?'RF':(iz+1)+'F', +elev[iz]||0);
+  }
+  return a;
+}
+
 /* ── 지진 工址 프리셋 (대만 건축물내진설계규범 113년판, 表2-6b 一般震區) ──
    설계 수평스펙트럼가속도계수 SDS(=S_S^D), SD1(=S_1^D). 全區所有里 단위만 수록.
    ⚠ 臺北盆地(表2-6a, 臺北一/二/三區) 행정구는 미분구 설계스펙트럼 別表 필요 → 미수록.
@@ -963,7 +988,7 @@ if(typeof window!=='undefined'){
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,
-    sseisSelfProfile, sseisGenRows, sseisDiff, storyWeightDiff, sseisProfileToStoryProp,
+    sseisSelfProfile, sseisGenRows, sseisDiff, storyWeightDiff, sseisProfileToStoryProp, buildStoryData,
     WIND_EXPOSURE, windStoryForces, detectTypicalFloors,
     KGFCM2_TO_MPA, fcMPa, REBAR_FY, BAR_AREA, DEFAULT_REBAR, beamEffDepth,
     flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign,

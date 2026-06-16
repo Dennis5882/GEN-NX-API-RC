@@ -1,5 +1,17 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.12.3 — 2026-06-16 (M2-A8: 빌드 시 Story 정보(db/STOR) 자동 생성)
+
+표준층 기반 모델이므로 **Story Data를 빌드에 기본 포함**. 표준층 카드에 체크박스(기본 ON) 추가.
+
+- **엔진(`shared/rc_engine.js`)** — `buildStoryData(p, f)` 추가(순수): 표준층 표고→db/STOR 15필드 Assign. 규약 **지반 1F@0 + 층 표고를 2F·3F…·RF**(총 stories+1행). footprint(WIND_FLOOR_WIDTH/CENTER)=노드 bbox, `SEIS_ACC_ECCENT`=5% **거리**(0.05×폭).
+- **⚠ 다이어프램은 db/STOR가 아니라 db/rigd가 담당** — `bFLOOR_DIAPHRAGM`은 전 행 **false**. (Story가 또 다이어프램을 만들면 기존 rigd와 같은 절점에서 `Duplicated DOF at Rigid Link (Diaphragm)` 에러 → 라이브 규명 0616. rigd는 동별 개별 다이어프램이라 다중 빌딩에도 안전.)
+- **에이전트(+standalone)** — `actBuildFrame`에서 rigd 후 `p.storyData!==false`면 `putStoryData(p,f)` 호출(엔진 buildStoryData PUT). 표준층 편집 카드에 **"Story 정보 자동 생성" 체크박스(기본 ON)** + 캡션(다이어프램=rigd, Story Manager 등록 별도 명시). `readPlanEditor`가 `p.storyData` 파싱. 죽어있던 putStoryData를 재배선.
+- **⚠ 한계 명시(카드 캡션)**: db/STOR는 **Story Data 테이블만** 채움 — Gen Story Manager(Module) 등록은 GUI Auto Generate 별도. SSEIS/층중량 검증은 등록 후 동작(라이브 규명 0616).
+- **검증**: 양 HTML compile-OK(py-mini-racer). `buildStoryData` 오프라인 실증(footprint·5% 편심거리). **라이브 end-to-end**: 토이 빌드→GET db/STOR(1F@0·2F·3F·RF 영속). **다이어프램 충돌 라이브 확인**: Story `bFLOOR_DIAPHRAGM=true`+rigd 동시 → Dup-DOF 에러 / Story만(rigd 없이) 또는 Story=false → `doc/anal` command complete(깨끗).
+
+---
+
 ## v2.12.2 — 2026-06-16 (M2-A6 활성화: 층중량 교차검증 → db/SSEIS PROFILE 기반)
 
 `ope/STORPROP`이 0612 베타에 없어(404) 대기 상태였던 **층중량 교차검증을 즉시 동작**시킴 —

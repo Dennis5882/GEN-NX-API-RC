@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gen NX 대화형 모델링 에이전트 v2.12.2 (SSEIS + 층중량 교차검증)</title>
+<title>Gen NX 대화형 모델링 에이전트 v2.12.3 (SSEIS + 층중량 교차검증)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -335,7 +335,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.12.2</span><small data-i18n="subtitle">對話式結構建模</small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.12.3</span><small data-i18n="subtitle">對話式結構建模</small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <button data-l="ko" onclick="setLang('ko')">한국어</button>
@@ -504,7 +504,7 @@ const I18N = {
     model_hint:'모델명은 직접 수정 가능 (공급자가 최신 모델을 자주 갱신함).', save:'저장', close:'닫기',
     exec:'실행 ▶', cancel:'취소', edit_btn:'✎ 수정',
     test_need:'Base URL과 MAPI Key를 모두 입력하세요.', test_ing:'연결 테스트 중…',
-    test_ok:(prog,user)=>`✅ Gen NX 연결 성공 (제품: ${prog})`,
+    test_ok:(prog,user)=>`✅ Gen NX 연결 성공`,
     test_keyfail:'❌ 키 미검증 또는 제품 미연결 — Gen NX 실행/Connect 상태를 확인하세요.',
     test_wrongprod:p=>`⚠️ 연결됨 — 그러나 제품이 "${p}"입니다. 이 도구는 Gen NX 전용이라 일부 기능(전단벽·풍 등)이 다르게 동작할 수 있습니다.`,
     test_http:c=>`❌ 연결 실패 (HTTP ${c})`, test_err:m=>`❌ ${m} — Gen NX 실행/Connect 상태 및 CORS를 확인하세요.`,
@@ -572,7 +572,7 @@ const I18N = {
     model_hint:'Model name is editable (providers update models often).', save:'Save', close:'Close',
     exec:'Run ▶', cancel:'Cancel', edit_btn:'✎ Edit',
     test_need:'Enter both Base URL and MAPI Key.', test_ing:'Testing connection…',
-    test_ok:(prog,user)=>`✅ Gen NX connected (product: ${prog})`,
+    test_ok:(prog,user)=>`✅ Gen NX connected`,
     test_keyfail:'❌ Key not verified or product not connected — check Gen NX is running/Connect.',
     test_wrongprod:p=>`⚠️ Connected — but product is "${p}". This tool targets Gen NX; some features (shear wall, wind…) may differ.`,
     test_http:c=>`❌ Connection failed (HTTP ${c})`, test_err:m=>`❌ ${m} — Check Gen NX is running/Connect and CORS.`,
@@ -640,7 +640,7 @@ const I18N = {
     model_hint:'模型名稱可自行修改（供應商常更新最新模型）。', save:'儲存', close:'關閉',
     exec:'執行 ▶', cancel:'取消', edit_btn:'✎ 修改',
     test_need:'請輸入 Base URL 與 MAPI Key。', test_ing:'連線測試中…',
-    test_ok:(prog,user)=>`✅ Gen NX 連線成功 (產品: ${prog})`,
+    test_ok:(prog,user)=>`✅ Gen NX 連線成功`,
     test_keyfail:'❌ 金鑰未驗證或產品未連線 — 請確認 Gen NX 執行／Connect 狀態。',
     test_wrongprod:p=>`⚠️ 已連線 — 但產品為「${p}」。本工具專為 Gen NX 設計，部分功能（剪力牆・風力等）可能不同。`,
     test_http:c=>`❌ 連線失敗 (HTTP ${c})`, test_err:m=>`❌ ${m} — 請確認 Gen NX 執行／Connect 狀態及 CORS。`,
@@ -934,6 +934,9 @@ async function actBuildFrame(p, clear=true){
     if(ns.length>=3){ _dia[ns[0]]={ITEMS:[{ID:_rid++,GROUP_NAME:'',DOF:110001,S_NODE:ns.slice(1)}]}; } }
   if(Object.keys(_dia).length){ await mapi('PUT','rigd',{Assign:_dia});
     log('\u25b8 '+(S.lang==='ko'?'강성 다이어프램':S.lang==='en'?'Rigid diaphragm':'剛性樓板')+' <b>'+Object.keys(_dia).length+'</b>','ok'); }
+  /* M2-A8: Story 정보(db/STOR) 자동 생성 — 표준층 모델 기본 ON(p.storyData!==false) */
+  if(p.storyData!==false){ try{ await putStoryData(p, f); }catch(e){
+    log('⚠ '+(S.lang==='ko'?'Story 정보 생성 건너뜀: ':'Story data skipped: ')+(e.message||e),'err'); } }
   Object.assign(S.model,{spec:p, colSect:p.colName, beamSect:p.beamName,
     nodes:f.nodes, cols:f.cols, beams:f.beams, links:f.links, walls:f.walls||[],
     elemRecs:recs, nextEid:eid+1, nextSect:3, nextLC:2,
@@ -994,18 +997,14 @@ async function applyLateral(p, f){
    ⚠ 베타 한정·읽기검증 성격. 해석 하중케이스 자동투입은 미확인(Phase 2) → 기존 CNLD 경로(EX/EY) 유지.
    전제: STOR 층 STORY_LEVEL > G.L.(0). (라이브 규명: 0이면 "skipped")
 ════════════════════════════════════════════════════════════ */
-/* db/STOR 층 데이터 PUT — 라이브 검증된 15필드 스키마(MAPI_FINDINGS §3-1). ecc=우발편심 비율 */
-async function putStoryData(forces, ecc){
-  const a={};
-  forces.forEach(f=>{ const s=f.story;
-    a[s]={ STORY_NAME:String(s)+'F', STORY_LEVEL:+f.h||0, bFLOOR_DIAPHRAGM:true,
-      WIND_FLOOR_WIDTH_X:0, WIND_FLOOR_WIDTH_Y:0, WIND_CENTER_X:0, WIND_CENTER_Y:0,
-      WIND_ECCENT_X:0, WIND_ECCENT_Y:0,
-      SEIS_ACC_ECCENT_X:ecc, SEIS_ACC_ECCENT_Y:ecc,
-      SEIS_INHERENT_ECCENT_X:0, SEIS_INHERENT_ECCENT_Y:0,
-      SEIS_TORSIONAL_AMP_FACTOR_X:1.0, SEIS_TORSIONAL_AMP_FACTOR_Y:1.0 }; });
+/* db/STOR 층 데이터 PUT — 표준층 모델에서 Story Data 자동 생성(엔진 buildStoryData, 15필드 라이브 스키마).
+   규약 A: 지반 1F@0(다이어프램 OFF) + 층 (iz+1)F·최상 RF. ⚠ Story Data 테이블만 채움(Story Manager 등록은 GUI 별도). */
+async function putStoryData(p, f){
+  const a=buildStoryData(p, f);
+  const n=Object.keys(a).length;
   await mapi('PUT','STOR',{Assign:a});
-  log('▸ '+(S.lang==='ko'?'층 데이터(STOR)':S.lang==='en'?'Story data (STOR)':'樓層資料(STOR)')+' <b>'+forces.length+'</b>','ok');
+  log('▸ '+(S.lang==='ko'?'Story 정보(db/STOR)':S.lang==='en'?'Story data (db/STOR)':'樓層資料(db/STOR)')+' <b>'+n+'</b> '+
+      (S.lang==='ko'?'(지반 1F + 층; 다이어프램은 rigd)':S.lang==='en'?'(G.L. 1F + floors; diaphragm via rigd)':'(地盤 1F + 樓層)'),'ok');
 }
 
 /* SSEIS 교차검증 실행. spec 미지정 시 현재 모델 스펙 사용.
@@ -1687,6 +1686,8 @@ function readPlanEditor(el){
     p.stories=Math.max(1,...rows.map(g=>g.to));
     p.h1=rows[0].h; p.hTyp=(rows.find(g=>g.role==='TYPICAL')||rows[rows.length-1]).h;
   }
+  // Story 정보 자동 생성 토글 (기본 ON)
+  const stEl=el.querySelector('[data-story="on"]'); p.storyData = stEl ? stEl.checked : true;
   // 내진 입력
   const seis={}; const onEl=el.querySelector('[data-s="on"]');
   seis.on=!!(onEl&&onEl.checked);
@@ -1730,6 +1731,10 @@ function fgTableHTML(p){
       <th>${L3('역할','Role','類型')}</th><th>${L3('시작','From','起')}</th><th>${L3('끝','To','迄')}</th><th>${L3('층고','Ht','層高')}</th><th>${L3('용도','Use','用途')}</th><th>${L3('다이어프램','Diaph.','剛性樓板')}</th><th>${L3('추가/삭제','Add/Del','增/刪')}</th>
     </tr></thead><tbody>${rows}</tbody></table>
     <div class="pe-tip">${L3('각 행의 ↑(위층) / ↓(아래층)로 그 위·아래에 층을 끼워 넣고, ×로 삭제. 번호는 자동 정렬됩니다.','Use ↑ (above) / ↓ (below) on a row to insert a floor there, × to delete. Numbers auto-renumber.','以各列的 ↑（上層）／↓（下層）於其上下插入樓層，× 刪除。編號自動重排。')}</div>
+    <label style="display:flex;align-items:center;gap:7px;margin-top:8px;font-size:.82rem;cursor:pointer">
+      <input type="checkbox" data-story="on" ${p.storyData===false?'':'checked'}>
+      <span>${L3('Story 정보 자동 생성 (db/STOR — 지반 1F + 층)','Auto-create Story data (db/STOR — G.L. 1F + floors)','自動建立樓層資料 (db/STOR)')}</span></label>
+    <div class="pe-tip" style="opacity:.75">${L3('표준층 표고로 Story Data 테이블을 채웁니다(다이어프램은 강성 다이어프램 rigd가 담당 — Story 표는 false로 두어 DOF 중복 방지). ※Story Manager(Module) 등록은 GUI Auto Generate 별도 — SSEIS/층중량 검증은 등록 후 동작.','Fills the Story Data table from typical-floor elevations (rigid diaphragm is handled by db/rigd — Story flag is false to avoid duplicate DOF). Note: Story Manager (Module) registration is a separate GUI step — SSEIS/weight checks need that.','以標準層高填入樓層資料表（剛性樓板由 rigd 處理）。Story Manager 登錄需 GUI Auto Generate。')}</div>
   </div>`;
 }
 
