@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gen NX 대화형 모델링 에이전트 v2.12.4 (SSEIS + 층중량 교차검증)</title>
+<title>Gen NX 대화형 모델링 에이전트 v2.12.5 (SSEIS + 층중량 교차검증)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -335,7 +335,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.12.4</span><small data-i18n="subtitle">對話式結構建模</small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.12.5</span><small data-i18n="subtitle">對話式結構建模</small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <button data-l="ko" onclick="setLang('ko')">한국어</button>
@@ -1775,11 +1775,10 @@ async function mapi(method, path, body){
 }
 
 async function clearModel(){
-  /* 의존성 순서로 삭제 — 하중/Story/다이어프램(노드·요소 참조)을 '먼저' 지워야
-     노드·요소 삭제 시 Gen이 "참조 중 삭제" 경고(항목별 알림음)를 띄우지 않고,
-     STOR/SSEIS/SWIND 잔존으로 다음 빌드가 겹치는 것도 막는다. */
-  for(const ep of ['SSEIS','SWIND','lcom-gen','CNLD','BODF','fbla','fbld','stld','STOR','rigd','cons','elem','node','thik','sect','matl'])
-    try{ await mapi('DELETE',ep); }catch(e){}
+  /* 전체 문서를 doc/new로 한 번에 초기화 — 항목별 DELETE의 알림음(뿅뿅)·"참조 중 삭제" 경고를
+     피하고, Story/다이어프램(STOR·rigd·SSEIS·SWIND) 잔존도 원천 제거(빈 새 문서).
+     ⚠ doc/new가 단위를 리셋하므로 호출측에서 setUnit 재설정(actBuildFrame은 clear 직후 setUnit). */
+  await mapi('POST','/doc/new',{});
   log(tl('cleared'),'ok');
 }
 async function setUnit(force='N',dist='MM'){
@@ -1903,10 +1902,10 @@ async function putCombos(){
 
 async function actBuildFrame(p, clear=true){
   if(!S.connected) throw new Error(t('e_notconn'));
-  await setUnit('N','MM');
   if(p.core&&p.core.on && !(p.walls&&p.walls.length)) p.walls=[autoCore(p,p.core.thick)];
   const f=buildFrame(p);
-  if(clear) await clearModel();
+  if(clear) await clearModel();              // doc/new가 단위를 리셋하므로 setUnit은 그 다음
+  await setUnit('N','MM');
   await putMaterial(p.matName);
   await putSection(1, p.colName, p.colH, p.colB);
   await putSection(2, p.beamName, p.beamH, p.beamB);

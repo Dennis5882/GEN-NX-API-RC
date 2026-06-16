@@ -771,13 +771,10 @@ async function mapi(method, path, body){
 }
 
 async function clearModel(){
-  /* 의존성 순서로 삭제 — 하중/Story/다이어프램(노드·요소 참조)을 '먼저' 지워야
-     노드·요소 삭제 시 Gen이 "참조 중 삭제" 경고(항목별 알림음)를 띄우지 않고,
-     STOR/SSEIS/SWIND 잔존으로 다음 빌드가 겹치는 것도 막는다.
-     하중(SSEIS/SWIND/CNLD/BODF/FB*/STLD) → Story(STOR) → 다이어프램(rigd) → 경계(cons)
-     → 요소(elem) → 노드(node) → 속성(thik/sect/matl). lcom-gen(조합)은 하중케이스보다 먼저. */
-  for(const ep of ['SSEIS','SWIND','lcom-gen','CNLD','BODF','fbla','fbld','stld','STOR','rigd','cons','elem','node','thik','sect','matl'])
-    try{ await mapi('DELETE',ep); }catch(e){}
+  /* 전체 문서를 doc/new로 한 번에 초기화 — 항목별 DELETE의 알림음(뿅뿅)·"참조 중 삭제" 경고를
+     피하고, Story/다이어프램(STOR·rigd·SSEIS·SWIND) 잔존도 원천 제거(빈 새 문서).
+     ⚠ doc/new가 단위를 리셋하므로 호출측에서 setUnit 재설정(actBuildFrame은 clear 직후 setUnit). */
+  await mapi('POST','/doc/new',{});
   log(tl('cleared'),'ok');
 }
 async function setUnit(force='N',dist='MM'){
@@ -901,10 +898,10 @@ async function putCombos(){
 
 async function actBuildFrame(p, clear=true){
   if(!S.connected) throw new Error(t('e_notconn'));
-  await setUnit('N','MM');
   if(p.core&&p.core.on && !(p.walls&&p.walls.length)) p.walls=[autoCore(p,p.core.thick)];
   const f=buildFrame(p);
-  if(clear) await clearModel();
+  if(clear) await clearModel();              // doc/new가 단위를 리셋하므로 setUnit은 그 다음
+  await setUnit('N','MM');
   await putMaterial(p.matName);
   await putSection(1, p.colName, p.colH, p.colB);
   await putSection(2, p.beamName, p.beamH, p.beamB);

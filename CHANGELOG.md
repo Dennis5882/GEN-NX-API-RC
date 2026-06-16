@@ -1,6 +1,18 @@
 # Changelog — MIDAS RC Modeling Wizard
 
-## v2.12.4 — 2026-06-16 (clearModel 버그픽스: Story/하중 미삭제·삭제 경고음)
+## v2.12.5 — 2026-06-17 (clearModel을 doc/new로 — 삭제 알림음 제거)
+
+v2.12.4의 "삭제 순서 재배치"로도 **항목별 삭제 알림음(뿅뿅)이 남음**(라이브 확인) → 근본 해결: `clearModel`을 16개 항목별 DELETE 대신 **`doc/new`(문서 통째 초기화) 1회**로 교체.
+
+- **원인 재규명**: 소리는 삭제 '순서'가 아니라 **항목별 DELETE 자체**에 Gen이 매번 내는 알림음. 16콜 → 16번 소리.
+- **수정**: `clearModel()` = `POST /doc/new` 한 번. 항목별 삭제 0 → 소리 0. Story/다이어프램(STOR·rigd·SSEIS·SWIND) 잔존도 빈 새 문서라 원천 제거.
+- **부수 변경**: `doc/new`가 단위를 리셋하므로 `actBuildFrame`에서 `setUnit('N','MM')`을 **clearModel 직후**로 이동(기존엔 그 앞).
+- 적용: agent.html·standalone(v2.12.5) + v1.2.0 안정판.
+- **라이브 검증**: doc/new 1회 → node/STOR/rigd 잔존 0 → 재빌드 → doc/anal command complete. 3개 파일 compile-OK.
+
+---
+
+## v2.12.4 — 2026-06-16 (clearModel 버그픽스: Story/하중 미삭제·삭제 경고음 — 순서 재배치 시도)
 
 재모델링(2회차 빌드) 시 두 버그 수정. **안정판 v1.2.0에도 동일 반영**.
 
