@@ -49,7 +49,9 @@ PUT /db/STOR
 - **주의**: 부분 PUT은 "Wrong Field"(일부) + GUI에 `DTO_STOR.1.<FIELD> Data does not exist` 전수 표출 → **15필드 모두 필수**(부분 저장 불가로 보임).
 - **구모델 비호환 정황**: 구버전 .mgbx 해석 시 `SEIS_TORSIONAL_AMP_FACTOR_Y` 등 신필드 누락 오류 가능(이전 세션 사용자 보고와 일치).
 
-### 🌟 신규 노출 — `db/SEIS` (Seismic Load, 부분 도출 · 쓰기 미완성)
+### 🌟 신규 노출 — `db/SEIS` (Seismic Load) → ✅ **`db/SSEIS`로 정식 교체(레거시)**
+> **개발팀 확인(2026-06-16)**: 구 `db/SEIS`는 이번 출시에서 **`db/SSEIS`(Static Seismic)로 정식 교체**됨(가칭 `db/st_seis` 아님). 즉 아래 "Unknown Error"는 **버그가 아니라 대체 엔드포인트로 이관된 레거시**의 잔존 동작. 정상 경로는 `db/SSEIS` USER TYPE(아래 "🚨🚨 대정정" 절). → 레거시 `db/SEIS`는 문서에 deprecated + 대체 URI 안내만 권장.
+
 `GET /db/SEIS` → 200 (이전 미노출). GUI DTO 덤프로 **필수 필드 3개 도출**:
 ```
 DTO_SEIS.1.SEIS_LOAD_CODE     // 내진 코드 (enum/string)
@@ -66,6 +68,7 @@ DTO_SEIS.1.SCALE_FACTOR_Y
 **그동안 "정적 지진·풍 생성은 GUI 전용, REST 미노출 → 자체계산→`db/CNLD` 주입이 유일"이라 3중 확정(§C++·C+++·C+++++)했으나, v2.1에서 뒤집힘.**
 공식 API 매뉴얼이 **2026-06-15 갱신**(정기 업데이트 확인), Zendesk Help Center JSON API로 우회 취득(`/api/v2/help_center/ko/articles/<id>.json`, 브라우저 UA — 일반 포털은 403). 신규 등재(2026-06-12):
 - **`db/SSEIS` (Static Seismic Load)** · **`db/SWIND` (Static Wind Load)** · **`db/EPSE` (Seismic Earth Pressure)** — 모두 GET 200, full CRUD. 각 **KDS 코드판 + User Type**.
+- ✅ **개발팀 확인 지원코드(2026-06-16)**: **`db/SSEIS` = KDS2019 + USER TYPE**, **`db/SWIND`(v975~) = KDS2022 + USER TYPE**. **해외코드(US/대만 등)는 차기 출시 검토 — 현재 미지원.** → 대만 RC 도구가 쓸 수 있는 건 **USER TYPE 단일 경로**(KDS 코드모드는 무관). 자체계산 TWD 지진·풍 → SSEIS/SWIND USER TYPE 주입이 해외코드 확장 전까지 정석.
 - **★`db/SSEIS` User Type 라이브 실증(PUT 200 + 계산 프로파일 반환)**:
 ```json
 PUT /db/SSEIS
@@ -125,7 +128,7 @@ SSEIS를 실모델(2절점 base 고정, 1F@3000, 자중질량)에 PUT 후 `doc/a
 - **PASS(필드 유효 확정)**: unit/matl/sect/**thik**/node/**elem(BEAM+PLATE)**/stld/cons/cnld/**bodf(flat)**/styp/LTOM/EIGV/POSL/SPFC/**SPLC**/**STOR(15)**/**DCON(TWN-USD112)**/**MATD**/**BMLD** + 결과타입 BEAMFORCE·REACTIONG·EIGENVALUEMODE.
 - **PASS — `db/SPLC`** (값 주의, 버그 아님): `DIR` 유효값은 **`"XY"`/`"Z"`만**(단일축 X·Y는 제품상 미제공 — 제품매뉴얼 확인). `PMFT`는 주기배율 **기본 1.0**(0 거부 정상). GET이 보이는 bAUTO/bACCECC/bADDSIGN/iSIGNTYPE/DESC는 다이얼로그 정식 옵션. ※"X→Wrong Field" 메시지가 generic한 점만 개선 여지.
 - **CHECK — `db/NBOF`**: PUT 200이나 GET 미영속(no-op) → 추가 구조/전제 필요로 보임.
-- **FLAG — `db/SEIS`**: 필드명 인식되나 standalone PUT "Unknown Error"(ASCE7-22 Hazard Tool 선행 필요).
+- **해소 — `db/SEIS`**: standalone PUT "Unknown Error"는 버그 아님 → **`db/SSEIS`로 정식 교체된 레거시**(개발팀 확인 2026-06-16). 정상 경로는 db/SSEIS USER TYPE.
 - **제외(크래시 위험)**: post/TABLE 설계타입 · doc/new 반복. (※db/NMAS는 0616 재검증서 크래시 미재현 → 위 NMAS 절 참조)
 - **신규 라이브 최초확인**: `db/thik`·`db/elem PLATE`·`db/BMLD`·`db/MATD`(CNS560-18(RC)/SD420).
 
