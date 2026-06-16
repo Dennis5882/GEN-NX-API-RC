@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gen NX 대화형 모델링 에이전트 v2.12.3 (SSEIS + 층중량 교차검증)</title>
+<title>Gen NX 대화형 모델링 에이전트 v2.12.4 (SSEIS + 층중량 교차검증)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -335,7 +335,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.12.3</span><small data-i18n="subtitle">對話式結構建模</small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.12.4</span><small data-i18n="subtitle">對話式結構建模</small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <button data-l="ko" onclick="setLang('ko')">한국어</button>
@@ -771,7 +771,12 @@ async function mapi(method, path, body){
 }
 
 async function clearModel(){
-  for(const ep of ['lcom-gen','rigd','fbla','fbld','cons','CNLD','BODF','stld','elem','node','thik','sect','matl'])
+  /* 의존성 순서로 삭제 — 하중/Story/다이어프램(노드·요소 참조)을 '먼저' 지워야
+     노드·요소 삭제 시 Gen이 "참조 중 삭제" 경고(항목별 알림음)를 띄우지 않고,
+     STOR/SSEIS/SWIND 잔존으로 다음 빌드가 겹치는 것도 막는다.
+     하중(SSEIS/SWIND/CNLD/BODF/FB*/STLD) → Story(STOR) → 다이어프램(rigd) → 경계(cons)
+     → 요소(elem) → 노드(node) → 속성(thik/sect/matl). lcom-gen(조합)은 하중케이스보다 먼저. */
+  for(const ep of ['SSEIS','SWIND','lcom-gen','CNLD','BODF','fbla','fbld','stld','STOR','rigd','cons','elem','node','thik','sect','matl'])
     try{ await mapi('DELETE',ep); }catch(e){}
   log(tl('cleared'),'ok');
 }

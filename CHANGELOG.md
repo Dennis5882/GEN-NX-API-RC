@@ -1,5 +1,17 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.12.4 — 2026-06-16 (clearModel 버그픽스: Story/하중 미삭제·삭제 경고음)
+
+재모델링(2회차 빌드) 시 두 버그 수정. **안정판 v1.2.0에도 동일 반영**.
+
+- **증상**: ① 2회차 빌드 때 항목별 삭제 알림음(뿅뿅) 다발. ② 삭제 시 Story/다이어프램 정보가 남아 다음 빌드에서 다이어프램 겹침 알람.
+- **원인**: `clearModel`이 **`STOR`(Story Data)·`SSEIS`·`SWIND`를 삭제 목록에서 누락**, 또 하중/Story/다이어프램(노드·요소 참조)을 노드·요소보다 먼저 지우지 않아 Gen이 "참조 중 삭제" 경고를 항목마다 발생.
+- **수정**: 삭제를 **의존성 순서**로 — 하중(SSEIS·SWIND·lcom-gen·CNLD·BODF·FB*·STLD) → Story(STOR) → 다이어프램(rigd) → 경계(cons) → 요소(elem) → 노드(node) → 속성(thik·sect·matl). `STOR`/`SSEIS`/`SWIND` 추가.
+- 적용: `gen_nx_rc_agent.html`·`gen_nx_rc_agent_standalone.html`(v2.12.4) + `gen_nx_rc_agent_v1.2.0.html`(안정판).
+- **검증**: 3개 파일 compile-OK. ⚠ 라이브 재모델링 검증은 Gen NX 재연결 후 예정(작성 시 연결 끊김).
+
+---
+
 ## v1.2.0 (안정판/배포) — 2026-06-16 (모델링·하중·검증으로 안정판 갱신)
 
 기존 안정판 v1.1.9(M1.7 표준층 모델링만)를 현재 모델링 기능 수준으로 끌어올림. **배포 대상 교체**: `index.html` → `gen_nx_rc_agent_v1.2.0.html`(v1.1.9는 이력 보존). `shared/rc_engine.js` 공유(엔진 동일).
