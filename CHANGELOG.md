@@ -1,5 +1,18 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.12.2 — 2026-06-16 (M2-A6 활성화: 층중량 교차검증 → db/SSEIS PROFILE 기반)
+
+`ope/STORPROP`이 0612 베타에 없어(404) 대기 상태였던 **층중량 교차검증을 즉시 동작**시킴 —
+라이브로 확인된 **`db/SSEIS` GET PROFILE의 `STORY_WEIGHT`(실모델 층질량)** 로 데이터 출처를 교체.
+
+- **계기(라이브 0616 재검증)**: `db/SSEIS` GET PROFILE에 `STORY_WEIGHT`가 동봉됨을 확인(13층 모델 Roof 3337·2F 5505 kN). → ope/STORPROP(404) 우회 가능.
+- **엔진(`shared/rc_engine.js`)** — `sseisProfileToStoryProp(genSseis)` 추가(순수): SSEIS GET `PROFILE.{X_DIR}`를 ope/STORPROP 형태 `{STORYPROP:{DATA:[{STORY,WEIGHT,ELEV}]}}`로 변환(G.L. "-" 행 skip) → 기존 `storyWeightDiff` 그대로 재사용.
+- **에이전트(+standalone)** — `actStoryWeightVerify` 재배선: `setUnit('KN','MM')`(weight kN·level mm) → 등록 Story 회수(`db/STOR` level>0) → **최소 SSEIS PUT(1kN 프로브)→GET→DELETE**(QA 흔적 원복) → 어댑터 → `storyWeightDiff` → 표. `ope/STORPROP` 404 분기 제거.
+- **도구 설명** 갱신(db/SSEIS PROFILE 출처 명시). 전제: Gen Story Manager 등록 Story.
+- **검증**: 양 파일 compile-OK(py-mini-racer). 어댑터+diff 오프라인 실증(3행 파싱·G.L. 제외·matched 3·합계 정확). 라이브 데이터 경로(STORY_WEIGHT)는 0616 SSEIS 검증서 기확인.
+
+---
+
 ## v2.12.1 — 2026-06-16 (M2-A6: ope/STORPROP 층중량 교차검증 — 정보성)
 
 Story 작업 엔드포인트 매뉴얼 5종 확보 후, `ope/STORPROP`(Gen 실모델 층중량)을 자체 등가정적 지진중량과

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gen NX 대화형 모델링 에이전트 v2.12.1 (SSEIS + 층중량 교차검증)</title>
+<title>Gen NX 대화형 모델링 에이전트 v2.12.2 (SSEIS + 층중량 교차검증)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -335,7 +335,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.12.1</span><small data-i18n="subtitle">對話式結構建模</small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.12.2</span><small data-i18n="subtitle">對話式結構建模</small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <button data-l="ko" onclick="setLang('ko')">한국어</button>
@@ -918,6 +918,23 @@ function storyWeightDiff(selfStories, gen, tol){
   return {tol, matched, fails, worst, totalSelf:sSelf, totalGen:sGen, totalErr:rel(sSelf,sGen), rows:out};
 }
 
+/* db/SSEIS GET 응답의 PROFILE(STORY_WEIGHT 동봉)을 ope/STORPROP 형태로 변환.
+   ope/STORPROP이 0612 베타에 없어(404), 라이브로 작동하는 db/SSEIS GET PROFILE의 STORY_WEIGHT(실모델 층질량)로 대체 — 2026-06-16 확인.
+   genSseis: db/SSEIS GET ['1'] 객체(PROFILE.{X_DIR,Y_DIR,SRSS}). 단위는 모델 단위(force가 kN이면 STORY_WEIGHT kN).
+   반환: {STORYPROP:{DATA:[{STORY,WEIGHT,ELEV}]}} → storyWeightDiff에 그대로 투입 가능. */
+function sseisProfileToStoryProp(genSseis){
+  const g = (genSseis&&genSseis.SSEIS&&genSseis.SSEIS['1']) ? genSseis.SSEIS['1'] : genSseis || {};
+  const prof = g.PROFILE || {};
+  const rows = prof.X_DIR || prof.Y_DIR || prof.SRSS || [];
+  const data=[];
+  rows.forEach(r=>{
+    const w=_ssNum(r.STORY_WEIGHT), ev=_ssNum(r.STORY_LEVEL), nm=String(r.STORY_NAME!=null?r.STORY_NAME:'');
+    if(w==null) return;   // G.L. 행은 STORY_WEIGHT="-" → skip
+    data.push({STORY:nm, WEIGHT:w, ELEV:ev});
+  });
+  return {STORYPROP:{DATA:data}};
+}
+
 /* ── 지진 工址 프리셋 (대만 건축물내진설계규범 113년판, 表2-6b 一般震區) ──
    설계 수평스펙트럼가속도계수 SDS(=S_S^D), SD1(=S_1^D). 全區所有里 단위만 수록.
    ⚠ 臺北盆地(表2-6a, 臺北一/二/三區) 행정구는 미분구 설계스펙트럼 別表 필요 → 미수록.
@@ -1416,7 +1433,7 @@ if(typeof window!=='undefined'){
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,
-    sseisSelfProfile, sseisGenRows, sseisDiff, storyWeightDiff,
+    sseisSelfProfile, sseisGenRows, sseisDiff, storyWeightDiff, sseisProfileToStoryProp,
     WIND_EXPOSURE, windStoryForces, detectTypicalFloors,
     KGFCM2_TO_MPA, fcMPa, REBAR_FY, BAR_AREA, DEFAULT_REBAR, beamEffDepth,
     flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign,
@@ -1466,7 +1483,7 @@ const I18N = {
     model_hint:'모델명은 직접 수정 가능 (공급자가 최신 모델을 자주 갱신함).', save:'저장', close:'닫기',
     exec:'실행 ▶', cancel:'취소', edit_btn:'✎ 수정',
     test_need:'Base URL과 MAPI Key를 모두 입력하세요.', test_ing:'연결 테스트 중…',
-    test_ok:(prog,user)=>`✅ Gen NX 연결 성공 (제품: ${prog}${user?' · '+user:''})`,
+    test_ok:(prog,user)=>`✅ Gen NX 연결 성공 (제품: ${prog})`,
     test_keyfail:'❌ 키 미검증 또는 제품 미연결 — Gen NX 실행/Connect 상태를 확인하세요.',
     test_wrongprod:p=>`⚠️ 연결됨 — 그러나 제품이 "${p}"입니다. 이 도구는 Gen NX 전용이라 일부 기능(전단벽·풍 등)이 다르게 동작할 수 있습니다.`,
     test_http:c=>`❌ 연결 실패 (HTTP ${c})`, test_err:m=>`❌ ${m} — Gen NX 실행/Connect 상태 및 CORS를 확인하세요.`,
@@ -1534,7 +1551,7 @@ const I18N = {
     model_hint:'Model name is editable (providers update models often).', save:'Save', close:'Close',
     exec:'Run ▶', cancel:'Cancel', edit_btn:'✎ Edit',
     test_need:'Enter both Base URL and MAPI Key.', test_ing:'Testing connection…',
-    test_ok:(prog,user)=>`✅ Gen NX connected (product: ${prog}${user?' · '+user:''})`,
+    test_ok:(prog,user)=>`✅ Gen NX connected (product: ${prog})`,
     test_keyfail:'❌ Key not verified or product not connected — check Gen NX is running/Connect.',
     test_wrongprod:p=>`⚠️ Connected — but product is "${p}". This tool targets Gen NX; some features (shear wall, wind…) may differ.`,
     test_http:c=>`❌ Connection failed (HTTP ${c})`, test_err:m=>`❌ ${m} — Check Gen NX is running/Connect and CORS.`,
@@ -1602,7 +1619,7 @@ const I18N = {
     model_hint:'模型名稱可自行修改（供應商常更新最新模型）。', save:'儲存', close:'關閉',
     exec:'執行 ▶', cancel:'取消', edit_btn:'✎ 修改',
     test_need:'請輸入 Base URL 與 MAPI Key。', test_ing:'連線測試中…',
-    test_ok:(prog,user)=>`✅ Gen NX 連線成功 (產品: ${prog}${user?' · '+user:''})`,
+    test_ok:(prog,user)=>`✅ Gen NX 連線成功 (產品: ${prog})`,
     test_keyfail:'❌ 金鑰未驗證或產品未連線 — 請確認 Gen NX 執行／Connect 狀態。',
     test_wrongprod:p=>`⚠️ 已連線 — 但產品為「${p}」。本工具專為 Gen NX 設計，部分功能（剪力牆・風力等）可能不同。`,
     test_http:c=>`❌ 連線失敗 (HTTP ${c})`, test_err:m=>`❌ ${m} — 請確認 Gen NX 執行／Connect 狀態及 CORS。`,
@@ -2047,32 +2064,51 @@ function renderSseisReport(d, self){
 }
 
 /* ════════════════════════════════════════════════════════════
-   M2-A6 — ope/STORPROP 층중량 교차검증 (정보성)
-   Gen 실모델 층중량(ope/STORPROP) ↔ 자체 등가정적 지진중량(w0 추정) 비교.
+   M2-A6 — 층중량 교차검증 (정보성) · db/SSEIS PROFILE 기반
+   Gen 실모델 층중량 ↔ 자체 등가정적 지진중량(w0 추정) 비교.
+   ★0616: ope/STORPROP은 0612 베타에 없음(404) → 라이브로 작동하는 db/SSEIS GET PROFILE의
+   STORY_WEIGHT(실모델 층질량)로 대체 — 최소 SSEIS PUT→GET→DELETE(QA 흔적 제거).
    ⚠ 정의가 달라(추정 vs 실질량) 차이는 정상 — w0 가정 sanity-check + 보정 단서. 전제: 등록 Story 모델.
 ════════════════════════════════════════════════════════════ */
 async function actStoryWeightVerify(spec){
   if(!S.connected) throw new Error(t('e_notconn'));
   const p=spec||S.model.spec;
   if(!p||!S.model.nodes.length) throw new Error(t('e_nomodel_edit'));
-  await setUnit('N','MM');
+  await setUnit('KN','MM');                                          // STORY_WEIGHT를 kN, STORY_LEVEL을 mm로 회수
   const sp=p.seismic||{};
   const W=seismicStoryWeights(p,{w0:sp.w0,liveRatio:sp.liveRatio});   // kN, [1..stories]
   const elev=storyElevations(p);                                     // mm
   const selfStories=[]; for(let s=1;s<=p.stories;s++){ if((elev[s]||0)>0) selfStories.push({level:elev[s], weight:W[s]||0}); }
   if(!selfStories.length) throw new Error(S.lang==='ko'?'G.L. 위 층이 없습니다.':'No stories above G.L.');
+  // 1) 등록 Story 회수 (SSEIS가 참조). level>0만.
+  let reg=[];
+  try{ const sd=await mapi('GET','STOR'); const T=(sd&&sd.STOR)||{};
+    reg=Object.keys(T).map(k=>({name:T[k].STORY_NAME, level:+T[k].STORY_LEVEL||0})).filter(s=>s.level>0); }catch(e){}
+  if(!reg.length) throw new Error(S.lang==='ko'
+    ?'모델에 등록된 Story가 없습니다 — 층중량은 Gen Story Manager 등록 층에서 회수합니다(GUI Story 탭/Auto Generate 필요).'
+    :'No stories registered — story weights come from Gen Story Manager stories (need GUI Story tab / Auto Generate).');
+  // 2) 최소 SSEIS PUT(층력은 무의미·1kN)으로 PROFILE 산정 트리거 → STORY_WEIGHT 회수
+  const probe=reg.map(s=>({STORY_NAME:s.name, FORCE_X:1, FORCE_Y:0}));
   let gen;
-  try{ gen=await mapi('POST','/ope/STORPROP',{Argument:{FORCE_UNIT:'KN',LENGTH_UNIT:'MM',FORMAT:'Fixed',PLACE:4}}); }
-  catch(e){ if(/404/.test(e.message||'')) throw new Error(S.lang==='ko'
-      ?'ope/STORPROP가 이 빌드에 없습니다(404). 문서엔 있으나 v2.1 0612 베타엔 미탑재 — 차기 빌드에서 사용 가능.'
-      :'ope/STORPROP not available in this build (404) — documented but absent in the v2.1 0612 beta; available in a later build.'); throw e; }
-  const genResp=(gen&&gen.STORYPROP)?gen:((gen&&gen.Assign&&gen.Assign['1'])?gen.Assign['1']:gen);
+  try{
+    await mapi('PUT','SSEIS',{Assign:{1:{SEIS_CODE:'USER TYPE',SCALE_FACTOR_X:1.0,SCALE_FACTOR_Y:1.0,
+      SEISMIC_FORCE:probe, ACCIDENT_ECCEN_X:0, ACCIDENT_ECCEN_Y:0, ACCIDENT_TORSION:false, DESC:'QA-weight'}}});
+    gen=await mapi('GET','SSEIS');
+  }catch(e){
+    if(/Wrong Key|not a seismic-load story/i.test(e.message||'')) throw new Error(S.lang==='ko'
+      ?'SSEIS가 층명을 인식하지 못했습니다 — 등록 Story(G.L. 위)가 필요합니다.'
+      :'SSEIS did not recognize stories — needs registered seismic-load stories (above G.L.).');
+    throw e;
+  } finally {
+    try{ await mapi('DELETE','SSEIS'); }catch(_){}                    // QA 흔적 제거(원복)
+  }
+  const genResp=sseisProfileToStoryProp(gen);                         // PROFILE → {STORYPROP:{DATA}}
   const d=storyWeightDiff(selfStories, genResp, 0.10);
   if(!d.matched) throw new Error(S.lang==='ko'
-    ?'층중량을 매칭하지 못했습니다 — 등록 Story 모델(레벨 일치)이 필요합니다.'
-    :'No story weights matched — needs a model with registered stories (matching levels).');
+    ?'층중량을 매칭하지 못했습니다 — 등록 Story 레벨과 자체 표고가 일치해야 합니다.'
+    :'No story weights matched — registered story levels must match self elevations.');
   renderWeightReport(d);
-  return `Story weight check: ${d.matched} stories. Self ΣW=${Math.round(d.totalSelf)} kN vs Gen ΣW=${Math.round(d.totalGen)} kN (Δ${(d.totalErr*100).toFixed(1)}%). Informational — self uses w0 estimate; Gen is model-derived (use Gen weights to calibrate w0).`;
+  return `Story weight check (via db/SSEIS PROFILE): ${d.matched} stories. Self ΣW=${Math.round(d.totalSelf)} kN vs Gen ΣW=${Math.round(d.totalGen)} kN (Δ${(d.totalErr*100).toFixed(1)}%). Informational — self uses w0 estimate; Gen is model-derived (use Gen weights to calibrate w0).`;
 }
 
 /* 층중량 비교 표 로그 (정보성) */
@@ -2902,7 +2938,7 @@ const TOOLS=[
   {name:'add_bracing',description:'Add diagonal bracing in one building at given floors. Incremental edit — appends new elements.',
    input_schema:{type:'object',properties:{building:{type:'integer',description:'0-based building index'},floors:{type:'array',items:{type:'integer'}}},required:['building','floors']}},
   {name:'verify_seismic_sseis',description:'QA cross-check: feed the self-computed equivalent-static seismic story forces into Gen NX native db/SSEIS (USER TYPE) and compare the returned STORY_SHEAR / overturning moment / accidental torsion profile against our own. Read-back verification only — does NOT change the analysis loads (EX/EY via CNLD stay authoritative). Requires an existing model with seismic load enabled. Beta feature.',input_schema:{type:'object',properties:{}}},
-  {name:'verify_story_weight',description:'Informational QA: compare our estimated equivalent-static seismic story weights (w0 assumption) against Gen NX model-derived story weights via ope/STORPROP. Read-only. Differences are expected (estimate vs actual mass) — use to sanity-check / calibrate w0. Requires a model with registered stories.',input_schema:{type:'object',properties:{}}},
+  {name:'verify_story_weight',description:'Informational QA: compare our estimated equivalent-static seismic story weights (w0 assumption) against Gen NX model-derived story weights. Sources the real weights from db/SSEIS GET PROFILE (STORY_WEIGHT) via a minimal probe PUT→GET→DELETE (ope/STORPROP is absent in the 0612 beta). Differences are expected (estimate vs actual mass) — use to sanity-check / calibrate w0. Requires a model with stories registered in Gen Story Manager.',input_schema:{type:'object',properties:{}}},
   {name:'run_analysis',description:'Run static analysis and fetch reaction / displacement / beam-force result tables.',input_schema:{type:'object',properties:{}}},
   {name:'get_result',description:'Summarize a previously computed result.',input_schema:{type:'object',properties:{which:{type:'string',enum:['disp','react','force']}},required:['which']}},
   {name:'clear_model',description:'Delete all model data in Gen NX.',input_schema:{type:'object',properties:{}}},

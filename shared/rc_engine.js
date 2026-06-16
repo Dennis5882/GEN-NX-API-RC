@@ -448,6 +448,23 @@ function storyWeightDiff(selfStories, gen, tol){
   return {tol, matched, fails, worst, totalSelf:sSelf, totalGen:sGen, totalErr:rel(sSelf,sGen), rows:out};
 }
 
+/* db/SSEIS GET 응답의 PROFILE(STORY_WEIGHT 동봉)을 ope/STORPROP 형태로 변환.
+   ope/STORPROP이 0612 베타에 없어(404), 라이브로 작동하는 db/SSEIS GET PROFILE의 STORY_WEIGHT(실모델 층질량)로 대체 — 2026-06-16 확인.
+   genSseis: db/SSEIS GET ['1'] 객체(PROFILE.{X_DIR,Y_DIR,SRSS}). 단위는 모델 단위(force가 kN이면 STORY_WEIGHT kN).
+   반환: {STORYPROP:{DATA:[{STORY,WEIGHT,ELEV}]}} → storyWeightDiff에 그대로 투입 가능. */
+function sseisProfileToStoryProp(genSseis){
+  const g = (genSseis&&genSseis.SSEIS&&genSseis.SSEIS['1']) ? genSseis.SSEIS['1'] : genSseis || {};
+  const prof = g.PROFILE || {};
+  const rows = prof.X_DIR || prof.Y_DIR || prof.SRSS || [];
+  const data=[];
+  rows.forEach(r=>{
+    const w=_ssNum(r.STORY_WEIGHT), ev=_ssNum(r.STORY_LEVEL), nm=String(r.STORY_NAME!=null?r.STORY_NAME:'');
+    if(w==null) return;   // G.L. 행은 STORY_WEIGHT="-" → skip
+    data.push({STORY:nm, WEIGHT:w, ELEV:ev});
+  });
+  return {STORYPROP:{DATA:data}};
+}
+
 /* ── 지진 工址 프리셋 (대만 건축물내진설계규범 113년판, 表2-6b 一般震區) ──
    설계 수평스펙트럼가속도계수 SDS(=S_S^D), SD1(=S_1^D). 全區所有里 단위만 수록.
    ⚠ 臺北盆地(表2-6a, 臺北一/二/三區) 행정구는 미분구 설계스펙트럼 別表 필요 → 미수록.
@@ -946,7 +963,7 @@ if(typeof window!=='undefined'){
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,
-    sseisSelfProfile, sseisGenRows, sseisDiff, storyWeightDiff,
+    sseisSelfProfile, sseisGenRows, sseisDiff, storyWeightDiff, sseisProfileToStoryProp,
     WIND_EXPOSURE, windStoryForces, detectTypicalFloors,
     KGFCM2_TO_MPA, fcMPa, REBAR_FY, BAR_AREA, DEFAULT_REBAR, beamEffDepth,
     flexAs, flexAsMin, flexRhoMax, shearVc, stirrupSpacing, pickBars, rcBeamDesign,
