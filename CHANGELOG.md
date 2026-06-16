@@ -7,7 +7,8 @@ SSEIS(지진)와 대칭으로 **정적풍 층력 교차검증** 추가 — 자�
 - **엔진(`shared/rc_engine.js`)** — `swindSelfPressures(forces, regStories)` 추가(순수): 자체 풍력(kN)을 Gen이 force로 환산하도록 압력으로 역산(`WIND_FORCE = PRESS × 수직바닥폭 × tribH`, tribH=위층 절반+아래층(G.L.포함) 절반 — 라이브 규약). `sseisSelfProfile`/`sseisGenRows`/`sseisDiff`는 force→shear/OTM 누적이 코드무관이라 **그대로 재사용**.
 - **에이전트(+standalone)** — `actSwindVerify`: `windStoryForces`→등록Story 매핑→압력 역산→`db/SWIND` PUT(USER TYPE)→GET PROFILE→diff. `renderSwindReport`(전단·OTM 자체/Gen 표). `verify_swind` 도구 + dispatch + SYSTEM 힌트.
 - **전제**: SSEIS와 동일 — **Gen Story Manager 등록 층 필요**(GUI Auto Generate). API 빌드 모델(db/STOR+rigd)만으론 "Wrong Key"(라이브 재확인 0617). 그래픽 graceful 안내.
-- **검증**: 3개 파일 compile-OK. 라이브 — 2층 토이 force↔pressure 왕복(WIND_FORCE=10000 복원), 13층 GUI SWIND PROFILE(앞 세션) 다층 누적. **오프라인 체인 검증**: swindSelfPressures→sseisDiff, 합성 Gen 응답서 WIND_FORCE 왕복·shear/OTM matched 4·worst 0%·PASS. ⚠ GUI Story 모델 정의적 라이브 PASS 예정.
+- **검증**: 3개 파일 compile-OK. 오프라인 체인(swindSelfPressures→sseisDiff) WIND_FORCE 왕복·shear/OTM matched·worst 0%·PASS. **✅ GUI Story 13층 모델 라이브 정의검증(0617): STORY_SHEAR 13행(밑면 포함) 0.000% 오차, WIND_FORCE 왕복 전층 정확, 밑면전단 1,260,000 N.** SSEIS와 동일 정석 결과.
+- **v1.2.0 안정판 반영**: SSEIS·층중량과 함께 SWIND 교차검증도 안정판에 포함(엔진 공유, HTML 도구만 추가).
 
 ---
 
