@@ -94,6 +94,21 @@ SSEIS를 실모델(2절점 base 고정, 1F@3000, 자중질량)에 PUT 후 `doc/a
 - **해석 정리(수정)**: 앞 "정적 지진 생성이 완전히 열렸다"는 **과한 표현 → 정정**. 정확히는 **(a) 설계 횡력 "프로파일" 생성·회수 = API 노출(신규, 확정)**, **(b) 그 하중의 "구조해석 자동 적용" = 미확인**(층 강막/master node·`ope/STOR` Story Calculation 선행 또는 GUI 레이어 가능성). db/CNLD 주입 경로는 (b)가 규명되기 전까지 유효.
 - **프로젝트 활용**: (a)만으로도 가치 큼 — **사용자 층력 → Gen NX 네이티브 층전단/OTM/우발토션 산정**을 API로 받는 "계산 서비스"로 즉시 사용 가능(자체계산 교차검증). (b)는 후속 규명 과제(diaphragm+Story Calculation 빌드).
 
+#### ✅✅ SSEIS 교차검증 라이브 PASS + Story 등록 규명 (2026-06-16, GUI Story 모델)
+**GUI로 Story 등록된 실모델(13층 1F~Roof)** 에 자체 층력 PUT→GET diff → **STORY_SHEAR 13행(밑면 G.L. 포함) 0% 오차 PASS** (밑면전단 650/650, OTM 22520 검산 일치). **제품 v2.12.0(M2-A5)으로 반영**(엔진 `sseisSelfProfile/sseisDiff` + `verify_seismic_sseis` 도구).
+- **PROFILE 구조 확정**: `PROFILE.{X_DIR,Y_DIR,SRSS}`, 행 키 `STORY_NAME/STORY_WEIGHT/STORY_LEVEL/STORY_FORCE/STORY_SHEAR/OVERTURN_MOMENT/ACCIDENT_ECCENT/ACCIDENT_TORSION/INHERENT_TORSION/TOTAL_TORSION`(값 문자열), 마지막 `"G.L."` 행에 밑면 총합. **STORY_SHEAR(L)=해당 레벨보다 '위' 층력 합**(자기 제외), OTM(L)=Σ_{>L}F·(level−L), **ACCIDENT_TORSION=F×편심거리**(=비율×평면폭, STOR `SEIS_ACC_ECCENT` 거리).
+- **스키마 정정(라이브)**: SSEIS `ACCIDENT_ECCEN_X/Y`=정수 옵션 enum[0,1,2](비율 아님). `INHERENT_TORSION` optional→제거. `1F`(level 0=G.L.)는 "not a seismic-load story"로 제외.
+- **🔑 Story 등록 메커니즘 규명**: SSEIS `STORY_NAME`은 **Gen Story Manager 등록 층** 참조. **`db/STOR` 테이블 PUT·RIGD 다이어프램·`ope/STOR`(우발편심 계산)으로도 등록 안 됨**(순수 API 모델서 SSEIS `"Wrong Key"`). GUI **"Auto Generate Story Data"/Define Module**(Module "Base")만이 등록 — 그 API는 5개 Story 문서 어디에도 없음(개발팀 문의 대상). GUI 모델 `DELETE db/STOR`→경고 "Loads deleted due to changes in Story"로 db/STOR↔Story 직결 확인.
+
+#### 🆕 Story 작업 엔드포인트 패밀리 (매뉴얼 5종, 2026-06-16 확보)
+| URI | 메서드 | 기능 | 상태 |
+|---|---|---|---|
+| `db/STOR` | CRUD | Story Data 테이블(15필드) | 보유·검증 |
+| `ope/STOR` | POST | **Story Calc OPT** — 풍·지진 우발편심 자동산정(%→거리). `{SEIS_ECC:{INC,VALUE%},WIND_ECC:{INC,VALUE%}}`. db/STOR 선행 필수 | **라이브 OK**(편심계산), SSEIS 등록은 ✗ |
+| `ope/STORPROP` | POST | **Story Properties** — 층별 중량/표고/재하높이·폭 리포트. `{FORCE_UNIT,LENGTH_UNIT,FORMAT,PLACE}` | 문서(★우리 층중량 교차검증 활용가치) |
+| `ope/STORY_PARAM` | POST | Story Check Parameter(드리프트 검토 국가코드) | 문서 |
+| `ope/STORY_IRR_PARAM` | POST | Story Irregularity Check(비정형/연약층 파라미터) | 문서 |
+
 ### 📕 릴리즈 노트 대조 — STOR/SEIS는 **ASCE 7-22 내진하중 생성** 기능 (v2.1 핵심)
 `archive/MIDAS GEN NX 2026 (v2.1)_draft_rev8.pdf` (49p) 대조 결과:
 - **p33-34 "Seismic Load Standard: ASCE 7-22"**: ELF(등가횡력)+응답스펙트럼 생성, **ASCE Hazard Tool**에서 파라미터 회수→**SDS/SD1 자동계산**(§11.4.4), multi-period 스펙트럼(ASCE 7-22 신규) 지원.
