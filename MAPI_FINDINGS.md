@@ -102,6 +102,12 @@ SSEIS를 실모델(2절점 base 고정, 1F@3000, 자중질량)에 PUT 후 `doc/a
 - **스키마 정정(라이브)**: SSEIS `ACCIDENT_ECCEN_X/Y`=정수 옵션 enum[0,1,2](비율 아님). `INHERENT_TORSION` optional→제거. `1F`(level 0=G.L.)는 "not a seismic-load story"로 제외.
 - **🔑 Story 등록 메커니즘 규명**: SSEIS `STORY_NAME`은 **Gen Story Manager 등록 층** 참조. **`db/STOR` 테이블 PUT·RIGD 다이어프램·`ope/STOR`(우발편심 계산)으로도 등록 안 됨**(순수 API 모델서 SSEIS `"Wrong Key"`). GUI **"Auto Generate Story Data"/Define Module**(Module "Base")만이 등록 — 그 API는 5개 Story 문서 어디에도 없음(개발팀 문의 대상). GUI 모델 `DELETE db/STOR`→경고 "Loads deleted due to changes in Story"로 db/STOR↔Story 직결 확인.
 
+#### ✅✅ SWIND 풍 교차검증 라이브 PASS (2026-06-17, M2-A7) + build→verify 단절 재확인
+- **SWIND 교차검증 PASS**: GUI Story 13층 모델서 자체 풍 층력→압력 역산→`db/SWIND` USER TYPE PUT→GET PROFILE diff → **STORY_SHEAR 13행(밑면 포함) 0.000% 일치, WIND_FORCE 전층 정확 복원, 밑면전단 1,260,000 N**. 제품 v2.12.6(엔진 `swindSelfPressures` + `sseisSelfProfile/sseisDiff` 재사용, `verify_swind` 도구; v1.2.0 안정판 포함).
+  - **SWIND 규약(라이브 확정)**: `WIND_FORCE = PRESS × WIND_FLOOR_WIDTH(수직) × tribH`. **tribH(L) = 위층까지 절반 + 아래층(G.L. 0 포함)까지 절반**(최상층은 위 0). PROFILE 키 SSEIS와 동일(STORY_SHEAR/OVERTURN_MOMENT) → diff 코드 재사용. 압력 단위 N/mm²(force N).
+- **🔴 build→verify 단절 재확인(0617)**: **순수 API 빌드 모델**(node·elem·cons·**rigd 다이어프램**·db/STOR 15필드 완비)에서 SSEIS·SWIND USER TYPE이 **단일·다층 모두 "Wrong Key"**. 즉 db/STOR+rigd로도 Story 미등록 확정(이전 한 토이 SWIND 성공은 GUI 등록 잔재였음, 정정). **등록은 GUI Auto Generate Story Data 전용·API 부재** → 피드백 §3-6 최우선 기능요청. (SSEIS/SWIND/층중량 검증 3종 모두 GUI Story 모델 전용.)
+- **✅ 풀 빌드→해석 end-to-end 라이브(0617)**: 3층 2×2베이 RC 골조(자중+rigd+Story자동생성+EX/WX) 빌드→`doc/anal` → **반력 평형 정확**(EX ΣFX=-600kN, WX ΣFX=-420kN, DL ΣFZ=2,287,695N 자중). **배근 체인 end-to-end**: BEAMFORCE(945행, `(ST)` 접미사 필수)→보/기둥 엔벨로프→엔진 `rcBeamDesign/rcColumnDesign` → 합리적 배근(보 3-D19/스터럽 D10@260, 기둥 10-D22 ρ1.1% U0.445, over 없음). M1~M4 핵심 경로 라이브 통합 확인.
+
 #### 🆕 Story 작업 엔드포인트 패밀리 (매뉴얼 5종, 2026-06-16 확보)
 | URI | 메서드 | 기능 | 상태 |
 |---|---|---|---|
