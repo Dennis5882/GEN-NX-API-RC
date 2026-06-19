@@ -100,19 +100,27 @@ SSEIS를 실모델(2절점 base 고정, 1F@3000, 자중질량)에 PUT 후 `doc/a
 **GUI로 Story 등록된 실모델(13층 1F~Roof)** 에 자체 층력 PUT→GET diff → **STORY_SHEAR 13행(밑면 G.L. 포함) 0% 오차 PASS** (밑면전단 650/650, OTM 22520 검산 일치). **제품 v2.12.0(M2-A5)으로 반영**(엔진 `sseisSelfProfile/sseisDiff` + `verify_seismic_sseis` 도구).
 - **PROFILE 구조 확정**: `PROFILE.{X_DIR,Y_DIR,SRSS}`, 행 키 `STORY_NAME/STORY_WEIGHT/STORY_LEVEL/STORY_FORCE/STORY_SHEAR/OVERTURN_MOMENT/ACCIDENT_ECCENT/ACCIDENT_TORSION/INHERENT_TORSION/TOTAL_TORSION`(값 문자열), 마지막 `"G.L."` 행에 밑면 총합. **STORY_SHEAR(L)=해당 레벨보다 '위' 층력 합**(자기 제외), OTM(L)=Σ_{>L}F·(level−L), **ACCIDENT_TORSION=F×편심거리**(=비율×평면폭, STOR `SEIS_ACC_ECCENT` 거리).
 - **스키마 정정(라이브)**: SSEIS `ACCIDENT_ECCEN_X/Y`=정수 옵션 enum[0,1,2](비율 아님). `INHERENT_TORSION` optional→제거. `1F`(level 0=G.L.)는 "not a seismic-load story"로 제외.
-- **🔑 Story 등록 메커니즘 규명**: SSEIS `STORY_NAME`은 **Gen Story Manager 등록 층** 참조. **`db/STOR` 테이블 PUT·RIGD 다이어프램·`ope/STOR`(우발편심 계산)으로도 등록 안 됨**(순수 API 모델서 SSEIS `"Wrong Key"`). GUI **"Auto Generate Story Data"/Define Module**(Module "Base")만이 등록 — 그 API는 5개 Story 문서 어디에도 없음(개발팀 문의 대상). GUI 모델 `DELETE db/STOR`→경고 "Loads deleted due to changes in Story"로 db/STOR↔Story 직결 확인.
+- **🔑 Story 등록 메커니즘(0617 최종)**: SSEIS `STORY_NAME`은 **유효 건물 Story** 참조. 등록 경로는 GUI "Auto Generate Story Data" **또는** API **`db/STOR` PUT → `POST ope/STOR`**(아래 단절 해소절 참조). `db/STOR` PUT만으로는 미승격("Wrong Key"/"does not exist") — ope/STOR가 승격을 수행. GUI 모델 `DELETE db/STOR`→경고 "Loads deleted due to changes in Story"로 db/STOR↔Story 직결 확인.
 
 #### ✅✅ SWIND 풍 교차검증 라이브 PASS (2026-06-17, M2-A7) + build→verify 단절 재확인
 - **SWIND 교차검증 PASS**: GUI Story 13층 모델서 자체 풍 층력→압력 역산→`db/SWIND` USER TYPE PUT→GET PROFILE diff → **STORY_SHEAR 13행(밑면 포함) 0.000% 일치, WIND_FORCE 전층 정확 복원, 밑면전단 1,260,000 N**. 제품 v2.12.6(엔진 `swindSelfPressures` + `sseisSelfProfile/sseisDiff` 재사용, `verify_swind` 도구; v1.2.0 안정판 포함).
   - **SWIND 규약(라이브 확정)**: `WIND_FORCE = PRESS × WIND_FLOOR_WIDTH(수직) × tribH`. **tribH(L) = 위층까지 절반 + 아래층(G.L. 0 포함)까지 절반**(최상층은 위 0). PROFILE 키 SSEIS와 동일(STORY_SHEAR/OVERTURN_MOMENT) → diff 코드 재사용. 압력 단위 N/mm²(force N).
-- **🔴 build→verify 단절 재확인(0617)**: **순수 API 빌드 모델**(node·elem·cons·**rigd 다이어프램**·db/STOR 15필드 완비)에서 SSEIS·SWIND USER TYPE이 **단일·다층 모두 "Wrong Key"**. 즉 db/STOR+rigd로도 Story 미등록 확정(이전 한 토이 SWIND 성공은 GUI 등록 잔재였음, 정정). **등록은 GUI Auto Generate Story Data 전용·API 부재** → 피드백 §3-6 최우선 기능요청. (SSEIS/SWIND/층중량 검증 3종 모두 GUI Story 모델 전용.)
+- **🟢🟢 build→verify 단절 해소 확정(0617, `ope/STOR`)**: 앞서 "API로는 Story 등록 불가, GUI Auto Generate 전용"으로 본 결론은 **오류로 정정**. MIDAS 개발팀 제보로 확인된 **`POST ope/STOR`(Story Calc OPT)** 가 `db/STOR` 테이블을 **'유효 건물 Story'로 승격·등록**한다. 검증 체인(순수 API 토이 4층, 6×6베이 z=0/3/6/9 rigd, **2회 byte-identical 재현**):
+  1. `POST doc/new {}` (★body `{}` 필수 — 없으면 500 `"Cannot read ... 'Argument'"`)
+  2. 빌드 matl/sect/node/elem/cons/stld/BODF/rigd
+  3. `PUT db/STOR` (베이스 level-0 층 포함 전 스택: 1F/2F/3F/RF)
+  4. **`POST ope/STOR` `{Argument:{SEIS_ECC:{INC_SEIS_ECC:true,SEIS_ECC_VALUE:5},WIND_ECC:{INC_WIND_ECC:true,WIND_ECC_VALUE:15}}}`** → 승격+우발편심 산정. **★층 자동 리네임/정렬**(RF→`Roof`)
+  5. `GET db/STOR`로 정규 층명 회수
+  6. `PUT/GET db/SSEIS`·`db/SWIND` USER TYPE → **PROFILE 완전 산출**(STORY_SHEAR/WEIGHT/OTM/TORSION)
+  - **before/after 증명**: ope/STOR **전** PUT SSEIS = `"USER TYPE requires a building model with stories"` / `"story '4F' does not exist"`; ope/STOR **후** 정규명 PUT = **200 + PROFILE**. SWIND 동일 PASS(`WIND_FORCE = PRESS×LOAD_B×LOAD_H = 2×6×1.5 = 18.0`, Roof tribH=(9-6)/2=1.5).
+  - **제품 반영(v2.12.7 / v1.2.1)**: `putStoryCalc()` 추가, `actBuildFrame`의 `putStoryData` 직후 호출(3파일). **→ 피드백 §3-6 "Story 등록 API 부재" 헤드라인 요청 철회**, 개발팀 감사 회신. (SSEIS/SWIND/층중량 검증 3종 모두 GUI 없이 API 빌드 모델서 동작.)
 - **✅ 풀 빌드→해석 end-to-end 라이브(0617)**: 3층 2×2베이 RC 골조(자중+rigd+Story자동생성+EX/WX) 빌드→`doc/anal` → **반력 평형 정확**(EX ΣFX=-600kN, WX ΣFX=-420kN, DL ΣFZ=2,287,695N 자중). **배근 체인 end-to-end**: BEAMFORCE(945행, `(ST)` 접미사 필수)→보/기둥 엔벨로프→엔진 `rcBeamDesign/rcColumnDesign` → 합리적 배근(보 3-D19/스터럽 D10@260, 기둥 10-D22 ρ1.1% U0.445, over 없음). M1~M4 핵심 경로 라이브 통합 확인.
 
 #### 🆕 Story 작업 엔드포인트 패밀리 (매뉴얼 5종, 2026-06-16 확보)
 | URI | 메서드 | 기능 | 상태 |
 |---|---|---|---|
 | `db/STOR` | CRUD | Story Data 테이블(15필드) | 보유·검증 |
-| `ope/STOR` | POST | **Story Calc OPT** — 풍·지진 우발편심 자동산정(%→거리). `{SEIS_ECC:{INC,VALUE%},WIND_ECC:{INC,VALUE%}}`. db/STOR 선행 필수 | **라이브 OK**(편심계산), SSEIS 등록은 ✗ |
+| `ope/STOR` | POST | **Story Calc OPT** — db/STOR 테이블을 **유효 건물 Story로 승격·등록** + 풍·지진 우발편심 자동산정(%→거리). `{Argument:{SEIS_ECC:{INC,VALUE%},WIND_ECC:{INC,VALUE%}}}`. db/STOR 선행 필수, 층 자동 리네임 | **★라이브 OK — 등록 O**(SSEIS/SWIND 단절 해소, 0617) |
 | `ope/STORPROP` | POST | **Story Properties** — 층별 중량/표고/재하높이·폭 리포트. `{FORCE_UNIT,LENGTH_UNIT,FORMAT,PLACE}` | 문서(★우리 층중량 교차검증 활용가치) |
 | `ope/STORY_PARAM` | POST | Story Check Parameter(드리프트 검토 국가코드) | 문서 |
 | `ope/STORY_IRR_PARAM` | POST | Story Irregularity Check(비정형/연약층 파라미터) | 문서 |

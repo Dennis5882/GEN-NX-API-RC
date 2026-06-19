@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gen NX 대화형 모델링 에이전트 v2.12.6 (SSEIS + 층중량 교차검증)</title>
+<title>Gen NX 대화형 모델링 에이전트 v2.12.7 (ope/STOR Story 등록 — API 빌드 검증 단절 해소)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -335,7 +335,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.12.6</span><small data-i18n="subtitle">對話式結構建模</small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v2.12.7</span><small data-i18n="subtitle">對話式結構建模</small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <button data-l="ko" onclick="setLang('ko')">한국어</button>
@@ -1954,7 +1954,7 @@ async function actBuildFrame(p, clear=true){
   if(Object.keys(_dia).length){ await mapi('PUT','rigd',{Assign:_dia});
     log('\u25b8 '+(S.lang==='ko'?'강성 다이어프램':S.lang==='en'?'Rigid diaphragm':'剛性樓板')+' <b>'+Object.keys(_dia).length+'</b>','ok'); }
   /* M2-A8: Story 정보(db/STOR) 자동 생성 — 표준층 모델 기본 ON(p.storyData!==false) */
-  if(p.storyData!==false){ try{ await putStoryData(p, f); }catch(e){
+  if(p.storyData!==false){ try{ await putStoryData(p, f); await putStoryCalc(); }catch(e){
     log('⚠ '+(S.lang==='ko'?'Story 정보 생성 건너뜀: ':'Story data skipped: ')+(e.message||e),'err'); } }
   Object.assign(S.model,{spec:p, colSect:p.colName, beamSect:p.beamName,
     nodes:f.nodes, cols:f.cols, beams:f.beams, links:f.links, walls:f.walls||[],
@@ -2023,6 +2023,17 @@ async function putStoryData(p, f){
   await mapi('PUT','STOR',{Assign:a});
   log('▸ '+(S.lang==='ko'?'Story 정보(db/STOR)':S.lang==='en'?'Story data (db/STOR)':'樓層資料(db/STOR)')+' <b>'+n+'</b> '+
       (S.lang==='ko'?'(지반 1F + 층; 다이어프램은 rigd)':S.lang==='en'?'(G.L. 1F + floors; diaphragm via rigd)':'(地盤 1F + 樓層)'),'ok');
+}
+
+/* M2-A9 (0617): ope/STOR(Story Calc OPT) — db/STOR 테이블을 '유효 건물 Story'로 승격·등록.
+   ★이게 있어야 순수 API 빌드 모델에서도 SSEIS/SWIND/층중량 교차검증이 동작한다(GUI "Auto Generate Story Data" 불필요, 라이브 2회 재현 0617).
+   우발편심 자동산정 포함(지진 5%·풍 15% → 거리). db/STOR 선행 필수(없으면 "no valid story information").
+   ⚠ ope/STOR가 층을 자동 리네임/정렬(예 RF→"Roof")하므로, 이후 verify는 반드시 GET db/STOR의 정규 층명을 사용. */
+async function putStoryCalc(){
+  await mapi('POST','/ope/STOR',{Argument:{
+    SEIS_ECC:{INC_SEIS_ECC:true, SEIS_ECC_VALUE:5},
+    WIND_ECC:{INC_WIND_ECC:true, WIND_ECC_VALUE:15}}});
+  log('▸ '+(S.lang==='ko'?'Story 등록·우발편심 산정(ope/STOR Calc OPT)':S.lang==='en'?'Story register + accidental eccen. (ope/STOR)':'樓層登錄(ope/STOR)')+' ✓','ok');
 }
 
 /* SSEIS 교차검증 실행. spec 미지정 시 현재 모델 스펙 사용.

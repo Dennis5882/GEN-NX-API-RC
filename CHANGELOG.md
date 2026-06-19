@@ -1,5 +1,17 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v2.12.7 / v1.2.1 — 2026-06-17 (★ ope/STOR Story 등록 — API 빌드 ↔ 검증 단절 해소)
+
+**프로젝트 최대 블로커 해소.** 그동안 순수 API 빌드 모델(db/STOR + rigd)은 SSEIS/SWIND/층중량 검증에서 "Wrong Key"(Story 미등록)였고, GUI "Auto Generate Story Data"가 유일 경로로 알려져 있었다. MIDAS 개발팀 제보로 확인된 **`ope/STOR`(Story Calc OPT, POST)** 가 그 단절을 메운다.
+
+- **메커니즘**: `db/STOR` PUT(베이스 level-0 층 포함 전 스택) → **`POST ope/STOR`** 가 테이블을 **'유효 건물 Story'로 승격·재계산**(우발편심 자동산정 지진 5%·풍 15% 포함) → 이후 `db/SSEIS`/`db/SWIND` USER TYPE PUT/GET이 **PROFILE 완전 산출**(STORY_SHEAR/WEIGHT/OTM/TORSION). **GUI 단계 불필요.**
+- **제품 반영**: `putStoryCalc()`(= `POST ope/STOR {Argument:{SEIS_ECC,WIND_ECC}}`) 추가, `actBuildFrame`의 `putStoryData` 직후 호출. agent.html(v2.12.7)·standalone·v1.2.1 안정판 3파일.
+- **주의**: ope/STOR가 층을 자동 리네임/정렬(예 `RF`→`Roof`)하므로 이후 verify는 `GET db/STOR` 정규 층명 사용(기존 verify 코드가 이미 GET 함).
+- **라이브 검증(0617)**: 토이 4층(6×6 베이, z=0/3/6/9, rigd) 순수 API 빌드 → 단절 해소 **2회 byte-identical 재현**. before/after 증명: ope/STOR 전 PUT SSEIS = `"requires a building model with stories"`/`"story does not exist"`; ope/STOR 후 정규명 PUT = 200 + PROFILE. SWIND도 동일 PASS(`WIND_FORCE = 2×6×1.5 = 18.0`, Roof tribH=(9-6)/2).
+- **영향**: 베타 피드백 §3-6 "Story 등록 API 부재(헤드라인 요청)" → **철회**(이미 ope/STOR로 가능). `doc/new`는 body `{}` 필수(없으면 500)도 확인.
+
+---
+
 ## v2.12.6 — 2026-06-17 (M2-A7: db/SWIND 풍 교차검증)
 
 SSEIS(지진)와 대칭으로 **정적풍 층력 교차검증** 추가 — 자체계산 풍 층력 ↔ Gen 네이티브 `db/SWIND`(USER TYPE) STORY_SHEAR/OTM diff.
