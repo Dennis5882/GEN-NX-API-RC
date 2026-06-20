@@ -248,21 +248,26 @@ db/SWIND PUT → 200 + PROFILE
 
 전체 호출 순서:
 ```
-PUT db/NMAS (선택) → PUT db/LTOM → PUT db/EIGV → PUT db/SPFC → PUT db/SPLC → POST doc/anal
+PUT db/styp (자중→질량) → PUT db/LTOM → PUT db/EIGV
+PUT db/SPFC → PUT db/SPLC → POST doc/anal
 → POST post/TABLE(EIGENVALUEMODE) → T₁ 회수
 ```
+※ db/NMAS는 선택적 절점질량 보완 수단 (db/styp+LTOM이 권장 기본 경로)
 
 ---
 
 #### B-1. `db/NMAS` — Nodal Mass
 
+- 분류: 절점 질량 직접 입력 / 상태: ✅ v2.1 graceful (구버전 크래시 해소)
+- 중요도: 높음 (특수 질량 보정용) / 권장 대체: `db/styp + db/LTOM`
+
 ```json
 PUT /db/NMAS
 { "Assign": {
   "<node_id>": {
-    "mX": 1000.0,   // 병진 질량 X
-    "mY": 1000.0,   // 병진 질량 Y
-    "mZ": 1000.0,   // 병진 질량 Z
+    "mX":  1000.0,  // 병진 질량 X (단위계 일치 필수)
+    "mY":  1000.0,  // 병진 질량 Y
+    "mZ":  1000.0,  // 병진 질량 Z
     "rmX": 0.0,     // 회전 질량 X
     "rmY": 0.0,     // 회전 질량 Y
     "rmZ": 0.0      // 회전 질량 Z
@@ -273,38 +278,61 @@ PUT /db/NMAS
 **빌드별 크래시 이력**
 | 빌드 | 결과 |
 |---|---|
-| v2.1 이전 | PUT 직후 Gen NX 하드크래시 (3/3 재현). "_restore.mgbx" 생성 |
-| **v2.1 (현재)** | **5종 테스트 모두 graceful·세션 생존** (공식예제/존재X절점/필수누락/극값/타입위반, 0616) |
+| v2.1 이전 | PUT 직후 Gen NX 하드크래시 3/3 재현. `_restore.mgbx` 생성 |
+| **v2.1 (현재)** | 5종 테스트 모두 graceful·세션 생존 (공식예제/존재X절점/필수누락/극값/타입위반, 0616) |
 
-- **대체 경로 (권장)**: `db/styp {bSELFWEIGHT:true, MASS:1, SMASS:1, GRAV:9806.65}` + `db/LTOM` → 자중→질량 자동변환
-- ⚠️ 주의: 존재하지 않는 절점에 "Unknown Error" (불투명 에러). `mX` Required이나 누락 수용 (문서↔동작 불일치)
+**실측 주의**
+- 존재하지 않는 절점 → `"Unknown Error"` (불투명, 절점 존재 여부 선확인 필요)
+- `mX` Required이나 누락 수용 (문서↔동작 불일치)
+- 공식 SDK `NodalMass.get()/delete()`에 `return` 누락 버그 존재 (SDK 직접 사용 시 주의)
+
+**대체 경로 (일반 RC 모델 권장)**
+```json
+PUT /db/styp { "STYP":0, "MASS":1, "bSELFWEIGHT":true, "SMASS":1, "GRAV":9806.65 }
+PUT /db/LTOM { "DIR":"XY", "bNODAL":false, "bBEAM":false, "bFLOOR":true, ... }
+```
+→ 자중 + 하중을 질량으로 자동변환. 절점 ID 지정 불필요.
 
 ---
 
 #### B-2. `db/LTOM` — Load to Mass
 
+- 분류: 하중→질량 변환 / 상태: ✅ 실측 성공
+- 중요도: 높음 / ★ off-diagonal 질량 생성 → db/EIGV TYPE 선택에 직접 영향
+
 ```json
 PUT /db/LTOM
 {
-  "DIR":    "XY",   // "XY"(수평, off-diagonal) | "Z"(수직, diagonal)
-  "bNODAL": false,  // 절점하중 포함
-  "bBEAM":  false,  // 보 분포하중 포함
-  "bFLOOR": true,   // 층 하중(슬래브) 포함
-  "bPRES":  false,  // 면압 포함
-  "GRAV":   9806.65,// 중력가속도 (단위계 일치 필수, N-mm 기준)
+  "DIR":    "XY",    // ★ "XY"(수평, off-diagonal) | "Z"(수직, diagonal)
+  "bNODAL": false,   // 절점하중 포함
+  "bBEAM":  false,   // 보 분포하중 포함
+  "bFLOOR": true,    // 층 하중(슬래브) 포함
+  "bPRES":  false,   // 면압 포함
+  "GRAV":   9806.65, // 중력가속도 (단위계 일치 필수, N-mm: 9806.65)
   "vLC": [{ "LCNAME": "DL", "FACTOR": 1.0 }]
 }
 ```
 
 **★ off-diagonal mass → Lanczos 필수 (라이브 확정, 0614)**
-- `DIR:"XY"` → off-diagonal 질량 행렬 생성
-- `db/EIGV TYPE:"EIGEN"(Subspace)` 사용 시 → `"Analysis is not allowed"` 오류
-- **해결**: `db/EIGV TYPE:"LANCZOS"` → `doc/anal "command complete"` 성공
-- 참고: `DIR:"Z"`만 쓰면 diagonal → EIGEN도 가능, 단 수평 동적응답 정확도 저하
+
+| DIR | 질량 행렬 | EIGV TYPE 필요 | 수평 동적응답 |
+|---|---|---|---|
+| `"XY"` | off-diagonal | **LANCZOS 필수** | 정확 |
+| `"Z"` | diagonal | EIGEN 가능 | 부정확 (수평 미반영) |
+
+- `DIR:"XY"` + `TYPE:"EIGEN"` → `"Analysis is not allowed"` 오류 (라이브 확인)
+- `DIR:"XY"` + `TYPE:"LANCZOS"` → `doc/anal "command complete"` 성공 (라이브 확인)
+
+**실무 판단**
+- 수평 지진/풍 동적해석 시 `DIR:"XY"` 필수 → EIGV를 반드시 LANCZOS로
+- GRAV 단위 주의: db/SPFC의 GRAV와 동일 기준 유지
 
 ---
 
 #### B-3. `db/EIGV` — Eigenvalue Analysis Control
+
+- 분류: 고유치 해석 설정 / 상태: ✅ 실측 성공
+- 중요도: 높음 / ★ LTOM(DIR:XY) 사용 시 TYPE:"LANCZOS" 필수
 
 ```json
 PUT /db/EIGV
@@ -321,34 +349,52 @@ PUT /db/EIGV
 }}}
 ```
 
-**주기 회수 방법 (★ EIGENVALUEMODE, 정정 완료)**
+**★ 주기(T₁) 회수 방법 — EIGENVALUEMODE (정정 완료, 0614)**
 ```
 POST /post/TABLE {"Argument":{"TABLE_TYPE":"EIGENVALUEMODE"}}
-→ response.SUB_TABLES[0]["EIGENVALUE ANALYSIS"]["DATA"][0][3]  // → T₁(sec)
+→ SUB_TABLES[0]["EIGENVALUE ANALYSIS"]["DATA"][i]
    HEAD: ["ModeNo","Frequency(rad/sec)","Frequency(cycle/sec)","Period(sec)","Tolerance"]
+   T₁ = DATA[0][3]  (ModeNo=1의 Period(sec))
 ```
-- ⚠️ `PARTICIPATIONVECTORMODE` ≠ 주기 (모드형상 전용, SUB_TABLES 없음)
+
+| TABLE_TYPE | SUB_TABLES | 주기 포함 |
+|---|---|---|
+| `EIGENVALUEMODE` | ✅ 5종 (EIGENVALUE ANALYSIS + 참여질량 등) | ✅ |
+| `PARTICIPATIONVECTORMODE` | ❌ 없음 | ❌ (모드형상만) |
+
 - 라이브 검증: 459절점 RC빌딩 T₁=1.1214s 정상 파싱 (0614)
+- 참여질량비도 SUB_TABLES에 동봉 (`MODAL PARTICIPATION MASSES`) → 향후 활용 가능
+
+**RITZ 방법 (참고)**
+```json
+"TYPE": "RITZ",
+"bINCNL": false,
+"iGNUM": 10,
+"vRITZ": [{"KIND":"GROUND","GROUND":"ACCX","iNOG":30}]
+```
 
 ---
 
 #### B-4. `db/SPFC` — Response Spectrum Function
 
+- 분류: 응답스펙트럼 함수 정의 / 상태: ✅ 실측 201 성공 (0613)
+- 중요도: 높음 / 대만 포함 국가별 스펙트럼 직접 정의 가능
+
 ```json
 PUT /db/SPFC
 { "Assign": { "1": {
   "NAME":    "TW-Sa",
-  "iTYPE":   1,                       // 1=가속도 스펙트럼
-  "iMETHOD": 1,                       // 1=선형 보간
+  "iTYPE":   1,                        // 1=가속도 스펙트럼
+  "iMETHOD": 1,                        // 1=선형 보간
   "SCALE":   1.0,
-  "GRAV":    9806.65,                 // ★ 단위계 일치 필수 (아래 표 참조)
-  "DRATIO":  0.05,                    // 감쇠비
+  "GRAV":    9806.65,                  // ★ 단위계 일치 필수 (아래 표)
+  "DRATIO":  0.05,                     // 감쇠비 (iGRAV/DAMPRATIO 오추측 — GRAV/DRATIO가 정답)
   "DESC":    "User-defined spectrum",
-  "STR":     { "SPEC_CODE": "USER" }, // ★ USER 타입 명시 (공식 플러그인 확인)
+  "STR":     { "SPEC_CODE": "USER" },  // ★ USER 타입 명시. 없으면 국가코드 기본 동작
   "aFUNC": [
-    { "PERIOD": 0.0, "VALUE": 0.4 },
-    { "PERIOD": 0.2, "VALUE": 1.0 },
-    { "PERIOD": 1.0, "VALUE": 0.5 }
+    { "PERIOD": 0.0, "VALUE": 0.40 },
+    { "PERIOD": 0.2, "VALUE": 1.00 },
+    { "PERIOD": 1.0, "VALUE": 0.50 }
   ]
 }}}
 ```
@@ -356,51 +402,57 @@ PUT /db/SPFC
 **★ GRAV 단위 규칙**
 | 단위계 | GRAV 값 |
 |---|---|
-| N, mm | 9806.65 |
-| kN, m | 9.80665 |
+| N, mm | **9806.65** |
+| kN, m | **9.80665** |
 | N, m | 9.80665 |
 | kN, mm | 0.00980665 |
 
+**실무 판단**
+- `STR:{SPEC_CODE:"USER"}` 공식 플러그인 RS-generator에서 확인 (0614)
 - 국가별 페이지: User / Korea / US / Eurocode / China / Japan / India / **Taiwan** / Other
-- 라이브 201 확인 (0613). `GRAV/DRATIO` 필드명 주의 (추측한 `iGRAV/DAMPRATIO`는 틀림)
+- `aFUNCNAME`으로 db/SPLC에서 참조 (필드명 "FUNCTION" 아님)
 
 ---
 
 #### B-5. `db/SPLC` — Response Spectrum Load Case
 
+- 분류: 응답스펙트럼 하중케이스 / 상태: ✅ 실측 201 성공 (0615)
+- 중요도: 높음 / SPFC 함수를 해석 케이스로 연결하는 링크
+
 ```json
 PUT /db/SPLC
 { "Assign": { "1": {
-  "NAME":       "RSX",
-  "DIR":        "XY",       // ★ "XY"(수평) | "Z"(수직)만 유효. "X"/"Y" 단일축 → "Wrong Field" (제품 미제공)
-  "ANGLE":      0,
-  "SCALE":      1.0,
-  "PMFT":       1.0,        // 주기 배율. 기본 1.0, 0은 무의미→거부
-  "bDAMP":      false,
-  "INTERP":     "LOG",
-  "COMTYPE":    "CQC",      // "CQC" | "SRSS"
-  "bADDSIGN":   false,
-  "iSIGNTYPE":  0,
-  "bMODE":      false,      // true면 aUSEMODE(모드 목록) 필요
-  "aFUNCNAME":  ["TW-Sa"]   // ★ db/SPFC NAME 참조 ("FUNCTION" 아님)
+  "NAME":      "RSX",
+  "DIR":       "XY",      // ★ "XY"(수평)/"Z"(수직)만 유효. "X"/"Y" 단일축 → "Wrong Field" (제품 미지원)
+  "ANGLE":     0,
+  "SCALE":     1.0,
+  "PMFT":      1.0,       // 주기 배율. 기본 1.0, 0 거부 (무의미한 값)
+  "bDAMP":     false,
+  "INTERP":    "LOG",
+  "COMTYPE":   "CQC",     // "CQC" | "SRSS"
+  "bADDSIGN":  false,
+  "iSIGNTYPE": 0,
+  "bMODE":     false,     // true면 aUSEMODE(모드 번호 목록) 필요
+  "aFUNCNAME": ["TW-Sa"]  // ★ db/SPFC의 NAME 참조
 }}}
 ```
 
-**SPFC↔SPLC 관계 및 체인**
+**SPFC↔SPLC↔EIGV 체인**
 ```
-db/SPFC (함수 정의)
-  ↓ aFUNCNAME 참조
-db/SPLC (하중케이스 정의)
-  ↓
-db/EIGV (고유치 방법 설정)
-  ↓
-POST doc/anal → 응답스펙트럼 해석 완료
-  ↓
-POST post/TABLE(TABLE_TYPE:"...") → 결과 회수
+PUT db/SPFC  (스펙트럼 함수 정의 — NAME: "TW-Sa")
+     ↓ aFUNCNAME으로 참조
+PUT db/SPLC  (하중케이스 정의)
+     ↓
+PUT db/EIGV  (고유치 방법: LANCZOS)
+     ↓
+POST doc/anal  → 응답스펙트럼 해석 완료
+     ↓
+POST post/TABLE (EIGENVALUEMODE → T₁, REACTIONG → 반력)
 ```
 
-- DIR "X"/"Y" → "Wrong Field"는 버그 아님 (수평은 X-Y 결합만 제품 지원)
-- 라이브 201 확인 (0615)
+**DIR 제약 (버그 아님)**
+- `"X"/"Y"` → `"Wrong Field"`: 수평방향은 X-Y 결합만 지원 (제품 설계상)
+- GET에 보이는 `bAUTO`/`bACCECC`/`bADDSIGN`/`iSIGNTYPE`/`DESC`는 다이얼로그 정식 옵션
 
 ---
 
@@ -408,67 +460,95 @@ POST post/TABLE(TABLE_TYPE:"...") → 결과 회수
 
 ---
 
-#### C-1. `post/TABLE` — TABLE_TYPE별 상태 표준화
+#### C-1. `post/TABLE` — 결과 회수
+
+- 분류: 해석 결과 테이블 회수 / 상태: ✅ 주요 타입 실측 성공
+- 중요도: 매우 높음 / 147개 TABLE_TYPE이 단일 엔드포인트 공유
 
 ```json
 POST /post/TABLE
 { "Argument": {
-  "TABLE_NAME":       "TABLE",
-  "TABLE_TYPE":       "BEAMFORCE",          // 필수. 아래 상태표 참조
-  "UNIT":             {"FORCE":"KN","DIST":"MM"},
-  "STYLES":           {"FORMAT":"Fixed","PLACE":3},
-  "COMPONENTS":       ["Elem","Load","Part","Axial"],  // 생략 = 전체 컬럼
-  "NODE_ELEMS":       {"TO":"1to100"},
-  "LOAD_CASE_NAMES":  ["DL(ST)"]            // 접미사 규약 아래 참조
+  "TABLE_NAME":      "TABLE",
+  "TABLE_TYPE":      "BEAMFORCE",       // 필수. 아래 상태표 참조
+  "UNIT":            {"FORCE":"KN","DIST":"MM"},  // 모델 단위 변환 없이 원하는 단위로 직접 수령
+  "STYLES":          {"FORMAT":"Fixed","PLACE":3},
+  "COMPONENTS":      ["Elem","Load","Part","Axial"],  // 생략/[] = 전체 컬럼
+  "NODE_ELEMS":      {"TO":"1to100"},   // KEYS[] | TO | STRUCTURE_GROUP_NAME
+  "LOAD_CASE_NAMES": ["DL(ST)"]        // 케이스명 + 접미사 규약 아래 참조
 }}
 ```
 
 **케이스명 접미사 규약**
-| 해석 종류 | 접미사 |
-|---|---|
-| 정적 | `(ST)` |
-| 하중조합 | `(CB)` |
-| 응답스펙트럼 | `(RS)` |
-| 이동하중 | `(MV:all/max/min)` |
-| 침하 | `(SM:...)` |
-| 시공단계 | `(CS)` |
+| 해석 종류 | 접미사 | 예시 |
+|---|---|---|
+| 정적 | `(ST)` | `DL(ST)` |
+| 하중조합 | `(CB)` | `COMB1(CB)` |
+| 응답스펙트럼 | `(RS)` | `RSX(RS)` |
+| 이동하중 | `(MV:all/max/min)` | `LL(MV:max)` |
+| 침하 | `(SM:...)` | |
+| 시공단계 | `(CS)` | |
 
-**TABLE_TYPE 상태 (라이브 + SDK 소스 확인)**
+**TABLE_TYPE 상태 표준화 (라이브 + SDK 소스 확인)**
 | TABLE_TYPE | HTTP | 상태 | 비고 |
 |---|---|---|---|
-| `BEAMFORCE` | 200 | ✅ | HEAD: Elem/Load/Part/Axial/Shear-y/z/Torsion/Moment-y/z. Part=I,1/4,2/4,3/4,J |
-| `REACTIONG` | 200 | ✅ | HEAD: Node/Load/FX/FY/FZ/MX/MY/MZ. ⚠️ `REACTION`/`REACTIONFORCE`는 무효 |
-| `EIGENVALUEMODE` | 200 | ✅ | SUB_TABLES 5종. 주기 회수 경로 (B-3 참조) |
-| `PARTICIPATIONVECTORMODE` | 200 | ✅ | 모드형상만. SUB_TABLES 없음 |
-| `BEAMDESIGNFORCES` | 200 | ⚠️ `{"message":""}` | SDK 미포함. RC 설계결과 = GUI 전용 |
-| `OVERTURNINGMOMENT` | 200 | ❌ `error creating utbl` | Story 계열 전체 미노출 |
-| `STORYSHEAR` / `STORYDRIFT` / `STORYMASS` | 200 | ❌ `error creating utbl` | 동일 |
-| `CONCCOLUMNCHECK` 등 설계계 | 200 | ❌ `error creating utbl` | RC 설계결과 post/TABLE 불가 확정 |
+| `BEAMFORCE` | 200 | ✅ | HEAD: Elem/Load/Part/Axial/Shear-y/z/Torsion/Moment-y/z. Part=I·1/4·2/4·3/4·J |
+| `REACTIONG` | 200 | ✅ | HEAD: Node/Load/FX~MZ. ⚠️ `REACTION`/`REACTIONFORCE` 무효 |
+| `EIGENVALUEMODE` | 200 | ✅ | SUB_TABLES 5종 포함. T₁ 회수 경로 (B-3 참조) |
+| `PARTICIPATIONVECTORMODE` | 200 | ✅ | 모드형상. SUB_TABLES 없음 (주기 없음) |
+| `BEAMDESIGNFORCES` | 200 | ⚠️ `{"message":""}` | SDK 미포함. RC 설계결과 = GUI 전용 확정 |
+| `OVERTURNINGMOMENT` | 200 | ❌ error creating utbl | Story 계열 전체 미노출 |
+| `STORYSHEAR`/`STORYDRIFT`/`STORYMASS` | 200 | ❌ error creating utbl | 동일. db/SSEIS PROFILE로 대체 |
+| `CONCCOLUMNCHECK` 등 설계계 | 200 | ❌ error creating utbl | RC 설계결과 post/TABLE 불가 3중 확정 |
+
+**실무 판단**
+- Story 계열(STORYSHEAR 등) 미노출 → `GET db/SSEIS`/`db/SWIND` PROFILE로 대체
+- RC 설계결과 → post/TABLE 불가 (SDK 소스 + 공식 플러그인 + 라이브 3중 확정)
+- `UNIT` 옵션으로 모델 단위 변환 없이 원하는 단위 직접 수령 가능 (실용적)
 
 ---
 
 #### C-2. `/mapikey/verify` — Health Check / 크래시 판별
 
+- 분류: 연결 상태 확인 / 상태: ✅ 항상 사용 가능
+- 중요도: 매우 높음 / 배치 호출 전 필수 선행 점검
+
 ```
 GET https://moa-engineers.midasit.com:443/mapikey/verify
-    ↑ /gen 없는 base URL 사용. .../gen/mapikey/verify → 404
+    ↑ /gen 제거한 base URL. .../gen/mapikey/verify → 404
 ```
 
 **응답 스키마**
 ```json
-{ "user": "sjj0507@midasit.com", "program": "gen", "connectionID": "...", "keyVerified": true, "status": "connected" }
+{
+  "user":         "sjj0507@midasit.com",
+  "program":      "gen",
+  "connectionID": "hU4OMIWBRG",
+  "keyVerified":  true,
+  "status":       "connected"
+}
 ```
 
 **판별 시그니처 (라이브 확정)**
 | 응답 | 의미 | 조치 |
 |---|---|---|
-| `status:"connected"` + `keyVerified:true` | 정상 | 진행 |
-| HTTP 404 + `"client does not exist"` | ★ 제품 프로세스 종료 (WebSocket 끊김) | 제품 재시작 |
-| `status:"disconnected"` | 제품 미연결 | 재시작 |
-| HTTP 404 (base URL 오류) | URL에 `/gen` 포함됨 | URL 수정 |
+| `status:"connected"` + `keyVerified:true` | 정상 | 배치 진행 |
+| HTTP 404 + `"client does not exist"` | ★ 제품 프로세스 종료 (WebSocket 끊김). AWS 서버는 생존 | 제품 재시작 |
+| `status:"disconnected"` | 제품 미연결 | 제품 재시작 |
+| HTTP 404 (URL 오류) | URL에 `/gen` 포함됨 | `/gen` 제거 |
 
-- `user` 필드 = `verify` 이메일 → M7 사용자 집계 가능 (단 v2.12.7부터 연결 메시지는 "제품:gen"만 노출로 축소)
-- 배치 호출 전 + 예외 발생 시 alive() 패턴으로 서버 vs 제품 장애 구분 가능
+**실무 활용 패턴**
+```js
+async function alive(tag) {
+  const { status } = await call('GET', '/mapikey/verify', null, BASE_URL_WITHOUT_GEN);
+  if (status !== 'connected') throw new Error(`disconnected at [${tag}]`);
+}
+// 배치 시작 전, 예외 catch 후 원인 구분에 사용
+```
+
+**부가 정보**
+- `user` 필드(이메일) → M7 사용자 집계 활용 가능
+- v2.12.7부터 연결 메시지는 `"제품:gen"` 표기만 (이메일 노출 축소)
+- `db/unit` 등으로 떠보는 것보다 이 엔드포인트가 서버/제품 장애 구분에 적합
 
 ---
 
