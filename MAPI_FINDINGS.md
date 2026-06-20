@@ -172,35 +172,74 @@ db/SSEIS PUT → 200 + PROFILE
 
 ---
 
-#### A-4. `db/SWIND` — Static Wind (USER TYPE)
+#### A-4. `db/SWIND` — Static Wind Load (USER TYPE)
+
+- 분류: 정적 풍하중 / 상태: ✅ 실측 성공 / ⚠️ 전제조건: db/STOR + ope/STOR 선행 필수
+- 대체 관계: `db/CNLD`·`db/BMLD` 우회보다 Story 기반 풍하중 주입 경로로 우선 검토
 
 ```json
 PUT /db/SWIND
-{
-  "WIND_CODE": "USER TYPE",
+{ "Assign": { "1": {
+  "WIND_CODE": "USER TYPE",     // KDS2022 또는 USER TYPE. 대만은 USER TYPE 단일 경로
   "STORY_WIND_PRESSURE": [
     { "STORY_NAME": "2F",   "PRESS_X": 0.0012, "PRESS_Y": 0.0012 },  // N/mm²
     { "STORY_NAME": "3F",   "PRESS_X": 0.0015, "PRESS_Y": 0.0015 },
     { "STORY_NAME": "Roof", "PRESS_X": 0.0018, "PRESS_Y": 0.0018 }
   ]
-}
+}}}
 ```
 
-**WIND_FORCE 계산 규칙 (★ 라이브 검증, N-mm 단위)**
+**실측 출력/거동 — PUT 성공 후 GET은 단순 echo가 아니라 계산된 PROFILE 반환**
+
+```
+GET /db/SWIND → X_DIR / Y_DIR / SRSS 3방향 프로파일
+```
+
+| 반환 필드 | 의미 | 실무 활용 |
+|---|---|---|
+| `WIND_FORCE` | 층별 풍력 (PRESS × WIDTH × tribH) | ★ 자체 계산값과 검산 |
+| `STORY_SHEAR` | 층 누적 전단 (밑면전단 = 최하층값) | 밑면전단 검증에 직접 활용 |
+| `OVERTURN_MOMENT` | 전도모멘트 | 풍력 × 높이 검산 가능 |
+
+→ `/db/SWIND`는 단순 저장 API가 아니라 **층별 풍압 기반 풍력·전단·전도모멘트 계산 결과를 회수하는 API**.
+  `db/CNLD`·`db/BMLD` 절점/부재 하중 우회보다 Story 의미론이 살아 있어 우수.
+
+**★ WIND_FORCE 계산 규칙 (라이브 검증, N-mm 단위)**
 ```
 WIND_FORCE = PRESS(N/mm²) × WIND_FLOOR_WIDTH(mm) × tribH(mm)
 
 tribH(i) = (level[i+1] - level[i]) / 2  +  (level[i] - level[i-1]) / 2
-           ↑ 위층까지 절반                   ↑ 아래층(G.L.=0 포함)까지 절반
+            ↑ 위층까지 절반                   ↑ 아래층(G.L.=0 포함)까지 절반
 최상층(Roof): 위 없음 → tribH = (Roof표고 - 아래층표고) / 2
-1F(G.L.):   풍하중 미적용 (level-0)
+1F(G.L.):    풍하중 미적용
 ```
 예) z=0/3/6/9m, PRESS=2 N/mm², WIDTH=6000mm
-- 2F: tribH=(6-0)/2+(3-0)/2 → 틀림, 정확히는 (6-3)/2+(3-0)/2 = 1.5+1.5 = 3000mm → WIND_FORCE = 2×6000×3000 = 36,000,000 N
-- Roof: tribH=(9-6)/2 = 1500mm → WIND_FORCE = 2×6000×1500 = 18,000,000 N ← 라이브 18.0 확인 (단위 kN일 때)
+- 3F: tribH = (9-6)/2 + (6-3)/2 = 1.5+1.5 = 3,000mm → WIND_FORCE = 2×6,000×3,000 = 36,000,000 N
+- Roof: tribH = (9-6)/2 = 1,500mm → WIND_FORCE = 2×6,000×1,500 = 18,000,000 N ✅ 라이브 18.0 (kN 단위) 확인
 
-**PROFILE 구조**: SSEIS와 동일 (WIND_FORCE / STORY_SHEAR / OVERTURN_MOMENT)
-- 교차검증 PASS: 13층 STORY_SHEAR 전층 0% 오차, 밑면전단 1,260,000 N 확인 (0617)
+**전제조건 (필수 흐름)**
+```
+db/STOR (층 데이터 + WIND_FLOOR_WIDTH_X/Y·WIND_CENTER_X/Y 포함)
+  ↓
+ope/STOR (Story 승격·풍 우발편심 자동산정)
+  ↓
+db/SWIND PUT → 200 + PROFILE
+```
+- Story 없거나 WIND_FLOOR_WIDTH = 0이면 WIND_FORCE = 0 (모델 완성도 의존)
+
+**`db/BMLD`·`db/CNLD`와 차이**
+| 항목 | `/db/SWIND` | `db/BMLD`/`db/CNLD` |
+|---|---|---|
+| 입력 기준 | Story 이름 | 부재/절점 ID |
+| 풍력 분포 계산 | ✅ 자동 (PRESS×WIDTH×tribH) | 수동 계산 후 주입 |
+| PROFILE 회수 | ✅ WIND_FORCE/SHEAR/OTM | 없음 |
+| Story 의미론 | ✅ 유지 | 없음 |
+
+**권장 표기**
+- 공식 문서: 있음 / 실측 성공: 있음 / 운영 가치: 매우 높음
+- 대체 경로: db/BMLD, db/CNLD (Story 정보 없을 때 우회용)
+- 프로젝트 적용성: 매우 높음 (자체 계산 층별 풍압 → Gen NX 네이티브 풍하중 주입 핵심 경로)
+- db/SSEIS와 쌍으로 관리 (정적 횡하중 체인 A)
 - 지원 코드: KDS2022 + USER TYPE (v975~, 대만은 USER TYPE 단일 경로)
 
 ---
