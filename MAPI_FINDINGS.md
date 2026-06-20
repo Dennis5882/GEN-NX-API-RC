@@ -24,6 +24,415 @@ MIDAS Open API는 제품과 앱이 직접 통신하지 않는 **웹 중개 구�
 
 ---
 
+## ★ 핵심 엔드포인트 레퍼런스 — Top 10 (실측·검증 기반)
+
+> 실측 PASS = 라이브 PUT→GET·PROFILE 직접 확인. 스키마는 gen_nx_rc_agent.html / rc_engine.js에 그대로 반영됨.
+
+---
+
+### A. 정적 횡하중 체인 — `db/STOR → ope/STOR → db/SSEIS → db/SWIND`
+
+전체 호출 순서:
+```
+POST doc/new {} → 모델 빌드 → PUT db/STOR → POST ope/STOR → GET db/STOR(정규층명) → PUT db/SSEIS / db/SWIND
+```
+
+---
+
+#### A-1. `db/STOR` — Story Data (15 Required 필드)
+
+```json
+PUT /db/STOR
+{ "Assign": {
+  "1": {
+    "STORY_NAME":               "1F",     // 층명. level-0(G.L.) = "1F" 필수
+    "STORY_LEVEL":              0.0,      // 표고 (mm)
+    "bFLOOR_DIAPHRAGM":         false,    // 층 다이어프램 여부
+    "WIND_FLOOR_WIDTH_X":       6000,     // 풍 수직투영 폭 X (mm)
+    "WIND_FLOOR_WIDTH_Y":       6000,     // 풍 수직투영 폭 Y (mm)
+    "WIND_CENTER_X":            3000,     // 풍 하중 중심 X
+    "WIND_CENTER_Y":            3000,     // 풍 하중 중심 Y
+    "WIND_ECCENT_X":            0,        // 풍 우발편심 X (mm) — ope/STOR가 자동산정
+    "WIND_ECCENT_Y":            0,
+    "SEIS_ACC_ECCENT_X":        0,        // 지진 우발편심 X (mm) — ope/STOR가 자동산정
+    "SEIS_ACC_ECCENT_Y":        0,
+    "SEIS_INHERENT_ECCENT_X":   0,        // 지진 고유편심 X
+    "SEIS_INHERENT_ECCENT_Y":   0,
+    "SEIS_TORSIONAL_AMP_FACTOR_X": 1.0,  // ASCE 7-22 ELF 비틀림 증폭 Ax
+    "SEIS_TORSIONAL_AMP_FACTOR_Y": 1.0   // ★ v2.1 신필드 (구버전 모델 해석 시 'Data does not exist' 가능)
+  }
+}}
+```
+
+**실측·주의 사항**
+- `level-0 (1F@0)` 반드시 포함 — ope/STOR 승격의 기준점. 없으면 "no valid story information".
+- **SSEIS/SWIND 전제**: db/STOR PUT만으로는 미승격(SSEIS PUT → "story '2F' does not exist"). ope/STOR 후에야 유효.
+- **층명 정규화**: ope/STOR 호출 시 `RF → "Roof"` 자동 리네임 + 층 재정렬. 이후 SSEIS/SWIND에는 `GET db/STOR`의 정규명 사용.
+- 슬래브/rigid/z좌표 자동인식 없음 — db/STOR 행이 전제조건 (4-구성 실측 확인, 0617).
+
+---
+
+#### A-2. `ope/STOR` — Story Calc OPT (db/STOR 승격 + 우발편심 자동산정)
+
+```json
+POST /ope/STOR
+{ "Argument": {
+  "SEIS_ECC": { "INC_SEIS_ECC": true, "SEIS_ECC_VALUE": 5  },  // 지진 우발편심 %
+  "WIND_ECC": { "INC_WIND_ECC": true, "WIND_ECC_VALUE": 15 }   // 풍 우발편심 %
+}}
+```
+
+**역할 및 승격 메커니즘**
+- db/STOR 행 → 유효 건물 층(valid story)으로 승격·등록
+- 편심 자동산정: `SEIS_ECC_VALUE% × WIND_FLOOR_WIDTH → SEIS_ACC_ECCENT(mm)`
+  - 예) 5% × 36,000mm = 1,800mm, 15% × 36,000mm = 5,400mm
+- 층 자동 리네임·정렬: RF → "Roof"
+
+**전/후 증명 (라이브, 0617)**
+| 시점 | PUT db/SSEIS 결과 |
+|---|---|
+| **before** ope/STOR | `"USER TYPE requires a building model with stories"` / `"story '4F' does not exist"` |
+| **after** ope/STOR | **200 + PROFILE** (STORY_SHEAR/WEIGHT/OTM/TORSION 완전 산출) |
+
+- **db/STOR 선행 필수**: ope/STOR 단독 호출 → "There is no valid story information" (슬래브/rigid 유무 무관)
+- 2회 byte-identical 재현 확정 (6×6베이, z=0/3/6/9, rigd, 0617)
+
+---
+
+#### A-3. `db/SSEIS` — Static Seismic (USER TYPE)
+
+- 분류: 정적 지진 하중 / 상태: ✅ 실측 성공 / ⚠️ 전제조건: db/STOR + ope/STOR 선행 필수
+- 대체 관계: `/db/SEIS`와 혼동 주의 — v2.1 정적지진 정답 경로는 `/db/SSEIS`
+
+```json
+PUT /db/SSEIS
+{ "Assign": { "1": {
+  "SEIS_CODE":       "USER TYPE",  // KDS2019 또는 USER TYPE. 대만은 USER TYPE 단일 경로
+  "SCALE_FACTOR_X":  1.0,
+  "SCALE_FACTOR_Y":  1.0,
+  "SEISMIC_FORCE": [               // ★ STORY_FORCE 아님 — SEISMIC_FORCE 정확한 필드명
+    { "STORY_NAME": "2F",   "FORCE_X": 3000, "FORCE_Y": 0 },
+    { "STORY_NAME": "3F",   "FORCE_X": 5000, "FORCE_Y": 0 },
+    { "STORY_NAME": "Roof", "FORCE_X": 2000, "FORCE_Y": 0 }
+  ],
+  "ACCIDENT_ECCEN_X":  0,          // 0=없음, 1=+X방향, 2=-X방향 (enum, 비율/거리 아님)
+  "ACCIDENT_ECCEN_Y":  0,
+  "ACCIDENT_TORSION":  false,      // 우발비틀림 포함 여부 (bool)
+  "INHERENT_TORSION":  false,      // optional — 필요시만. 라이브 정정: 제거해도 무관
+  "DESC":              ""
+}}}
+```
+
+**실측 출력/거동 — PUT 성공 후 GET은 단순 echo가 아니라 계산된 PROFILE 반환**
+
+```
+GET /db/SSEIS → X_DIR / Y_DIR / SRSS 3방향 프로파일
+```
+
+| 반환 필드 | 의미 | 실무 활용 |
+|---|---|---|
+| `STORY_FORCE` | 입력 층력 그대로 | 입력 검증 |
+| `STORY_SHEAR` | 층 누적 전단 (밑면전단 = 최하층값) | ★ 밑면전단 검증에 직접 활용 |
+| `OVERTURN_MOMENT` | 전도모멘트 | 층력 × 높이 검산 가능 |
+| `ACCIDENT_TORSION` | 우발편심 반영 비틀림 (SEIS_ACC_ECCENT × 층력) | 우발편심 반영 여부 확인 |
+| `STORY_WEIGHT` | ★ 층 질량 | ope/STORPROP 없이도 층중량 교차검증 가능 |
+| `STORY_LEVEL` | 층 표고 | |
+
+→ `/db/SSEIS`는 단순 저장 API가 아니라 **층력 기반 정적지진 프로파일 계산 결과를 회수하는 API**.
+  `/db/CNLD` 절점하중 우회보다 훨씬 의미 있는 경로 (Story 기반 의미론 유지).
+
+**전제조건 (필수 흐름)**
+```
+db/STOR (층 데이터 정의)
+  ↓
+ope/STOR (Story 승격·등록)    ← ★ 이 단계가 없으면 아래가 실패
+  ↓
+db/SSEIS PUT → 200 + PROFILE
+```
+- db/STOR만으로는 부족 — ope/STOR 전에는 `"USER TYPE requires a building model with stories"` / `"story '<name>' does not exist"` 오류
+
+**해석 투입 방식 (실측, 0616)**
+- `doc/anal` 후 `REACTIONG`의 **DL 케이스 ΣFX = SSEIS 밑면전단값**으로 합산
+- ⚠️ 전용 케이스 미생성: LCNAME 필드 없음 → 첫 정적케이스(DL)로 유입 — 피드백 Q1' (LCNAME 지정 요청)
+- SSEIS DELETE 후 재해석 → DL ΣFX = 0 (역증명 확인)
+- 교차검증 PASS: 13층 실모델 STORY_SHEAR 전층 0% 오차 (0616)
+
+**`/db/SEIS`와 차이**
+| 항목 | `/db/SSEIS` | `/db/SEIS` |
+|---|---|---|
+| PUT 결과 | ✅ 200 + PROFILE | ❌ "Unknown Error" |
+| USER TYPE | ✅ 동작 | 미동작 |
+| 공식 상태 | v2.1 정식 경로 | 레거시 (ASCE 7-22 Hazard 계열 추정) |
+| 개발팀 확인 | ✅ db/SSEIS로 정식 교체 확인 (0616) | deprecated |
+
+**권장 표기**
+- 공식 문서: 있음 / 실측 성공: 있음 / 운영 가치: 매우 높음
+- 레거시 대체: `/db/SEIS` 주의 / 프로젝트 적용성: 매우 높음 (TWD-USD112 자체계산 층력 주입 최우선 경로)
+- 지원 코드: KDS2019 + USER TYPE (해외코드 차기 검토, 대만은 USER TYPE 단일 경로)
+
+---
+
+#### A-4. `db/SWIND` — Static Wind (USER TYPE)
+
+```json
+PUT /db/SWIND
+{
+  "WIND_CODE": "USER TYPE",
+  "STORY_WIND_PRESSURE": [
+    { "STORY_NAME": "2F",   "PRESS_X": 0.0012, "PRESS_Y": 0.0012 },  // N/mm²
+    { "STORY_NAME": "3F",   "PRESS_X": 0.0015, "PRESS_Y": 0.0015 },
+    { "STORY_NAME": "Roof", "PRESS_X": 0.0018, "PRESS_Y": 0.0018 }
+  ]
+}
+```
+
+**WIND_FORCE 계산 규칙 (★ 라이브 검증, N-mm 단위)**
+```
+WIND_FORCE = PRESS(N/mm²) × WIND_FLOOR_WIDTH(mm) × tribH(mm)
+
+tribH(i) = (level[i+1] - level[i]) / 2  +  (level[i] - level[i-1]) / 2
+           ↑ 위층까지 절반                   ↑ 아래층(G.L.=0 포함)까지 절반
+최상층(Roof): 위 없음 → tribH = (Roof표고 - 아래층표고) / 2
+1F(G.L.):   풍하중 미적용 (level-0)
+```
+예) z=0/3/6/9m, PRESS=2 N/mm², WIDTH=6000mm
+- 2F: tribH=(6-0)/2+(3-0)/2 → 틀림, 정확히는 (6-3)/2+(3-0)/2 = 1.5+1.5 = 3000mm → WIND_FORCE = 2×6000×3000 = 36,000,000 N
+- Roof: tribH=(9-6)/2 = 1500mm → WIND_FORCE = 2×6000×1500 = 18,000,000 N ← 라이브 18.0 확인 (단위 kN일 때)
+
+**PROFILE 구조**: SSEIS와 동일 (WIND_FORCE / STORY_SHEAR / OVERTURN_MOMENT)
+- 교차검증 PASS: 13층 STORY_SHEAR 전층 0% 오차, 밑면전단 1,260,000 N 확인 (0617)
+- 지원 코드: KDS2022 + USER TYPE (v975~, 대만은 USER TYPE 단일 경로)
+
+---
+
+### B. 동적해석 체인 — `db/NMAS → db/LTOM → db/EIGV → db/SPFC → db/SPLC`
+
+전체 호출 순서:
+```
+PUT db/NMAS (선택) → PUT db/LTOM → PUT db/EIGV → PUT db/SPFC → PUT db/SPLC → POST doc/anal
+→ POST post/TABLE(EIGENVALUEMODE) → T₁ 회수
+```
+
+---
+
+#### B-1. `db/NMAS` — Nodal Mass
+
+```json
+PUT /db/NMAS
+{ "Assign": {
+  "<node_id>": {
+    "mX": 1000.0,   // 병진 질량 X
+    "mY": 1000.0,   // 병진 질량 Y
+    "mZ": 1000.0,   // 병진 질량 Z
+    "rmX": 0.0,     // 회전 질량 X
+    "rmY": 0.0,     // 회전 질량 Y
+    "rmZ": 0.0      // 회전 질량 Z
+  }
+}}
+```
+
+**빌드별 크래시 이력**
+| 빌드 | 결과 |
+|---|---|
+| v2.1 이전 | PUT 직후 Gen NX 하드크래시 (3/3 재현). "_restore.mgbx" 생성 |
+| **v2.1 (현재)** | **5종 테스트 모두 graceful·세션 생존** (공식예제/존재X절점/필수누락/극값/타입위반, 0616) |
+
+- **대체 경로 (권장)**: `db/styp {bSELFWEIGHT:true, MASS:1, SMASS:1, GRAV:9806.65}` + `db/LTOM` → 자중→질량 자동변환
+- ⚠️ 주의: 존재하지 않는 절점에 "Unknown Error" (불투명 에러). `mX` Required이나 누락 수용 (문서↔동작 불일치)
+
+---
+
+#### B-2. `db/LTOM` — Load to Mass
+
+```json
+PUT /db/LTOM
+{
+  "DIR":    "XY",   // "XY"(수평, off-diagonal) | "Z"(수직, diagonal)
+  "bNODAL": false,  // 절점하중 포함
+  "bBEAM":  false,  // 보 분포하중 포함
+  "bFLOOR": true,   // 층 하중(슬래브) 포함
+  "bPRES":  false,  // 면압 포함
+  "GRAV":   9806.65,// 중력가속도 (단위계 일치 필수, N-mm 기준)
+  "vLC": [{ "LCNAME": "DL", "FACTOR": 1.0 }]
+}
+```
+
+**★ off-diagonal mass → Lanczos 필수 (라이브 확정, 0614)**
+- `DIR:"XY"` → off-diagonal 질량 행렬 생성
+- `db/EIGV TYPE:"EIGEN"(Subspace)` 사용 시 → `"Analysis is not allowed"` 오류
+- **해결**: `db/EIGV TYPE:"LANCZOS"` → `doc/anal "command complete"` 성공
+- 참고: `DIR:"Z"`만 쓰면 diagonal → EIGEN도 가능, 단 수평 동적응답 정확도 저하
+
+---
+
+#### B-3. `db/EIGV` — Eigenvalue Analysis Control
+
+```json
+PUT /db/EIGV
+{ "Assign": { "1": {
+  "TYPE":    "LANCZOS",  // ★ LTOM(DIR:XY) 시 필수. "EIGEN"|"LANCZOS"|"RITZ"
+  "iFREQ":   100,        // 추출 모드 수
+  "iITER":   20,
+  "iDIM":    1,
+  "TOL":     1e-10,
+  "bMINMAX": false,
+  "FRMIN":   0,
+  "FRMAX":   1600,
+  "bSTRUM":  false
+}}}
+```
+
+**주기 회수 방법 (★ EIGENVALUEMODE, 정정 완료)**
+```
+POST /post/TABLE {"Argument":{"TABLE_TYPE":"EIGENVALUEMODE"}}
+→ response.SUB_TABLES[0]["EIGENVALUE ANALYSIS"]["DATA"][0][3]  // → T₁(sec)
+   HEAD: ["ModeNo","Frequency(rad/sec)","Frequency(cycle/sec)","Period(sec)","Tolerance"]
+```
+- ⚠️ `PARTICIPATIONVECTORMODE` ≠ 주기 (모드형상 전용, SUB_TABLES 없음)
+- 라이브 검증: 459절점 RC빌딩 T₁=1.1214s 정상 파싱 (0614)
+
+---
+
+#### B-4. `db/SPFC` — Response Spectrum Function
+
+```json
+PUT /db/SPFC
+{ "Assign": { "1": {
+  "NAME":    "TW-Sa",
+  "iTYPE":   1,                       // 1=가속도 스펙트럼
+  "iMETHOD": 1,                       // 1=선형 보간
+  "SCALE":   1.0,
+  "GRAV":    9806.65,                 // ★ 단위계 일치 필수 (아래 표 참조)
+  "DRATIO":  0.05,                    // 감쇠비
+  "DESC":    "User-defined spectrum",
+  "STR":     { "SPEC_CODE": "USER" }, // ★ USER 타입 명시 (공식 플러그인 확인)
+  "aFUNC": [
+    { "PERIOD": 0.0, "VALUE": 0.4 },
+    { "PERIOD": 0.2, "VALUE": 1.0 },
+    { "PERIOD": 1.0, "VALUE": 0.5 }
+  ]
+}}}
+```
+
+**★ GRAV 단위 규칙**
+| 단위계 | GRAV 값 |
+|---|---|
+| N, mm | 9806.65 |
+| kN, m | 9.80665 |
+| N, m | 9.80665 |
+| kN, mm | 0.00980665 |
+
+- 국가별 페이지: User / Korea / US / Eurocode / China / Japan / India / **Taiwan** / Other
+- 라이브 201 확인 (0613). `GRAV/DRATIO` 필드명 주의 (추측한 `iGRAV/DAMPRATIO`는 틀림)
+
+---
+
+#### B-5. `db/SPLC` — Response Spectrum Load Case
+
+```json
+PUT /db/SPLC
+{ "Assign": { "1": {
+  "NAME":       "RSX",
+  "DIR":        "XY",       // ★ "XY"(수평) | "Z"(수직)만 유효. "X"/"Y" 단일축 → "Wrong Field" (제품 미제공)
+  "ANGLE":      0,
+  "SCALE":      1.0,
+  "PMFT":       1.0,        // 주기 배율. 기본 1.0, 0은 무의미→거부
+  "bDAMP":      false,
+  "INTERP":     "LOG",
+  "COMTYPE":    "CQC",      // "CQC" | "SRSS"
+  "bADDSIGN":   false,
+  "iSIGNTYPE":  0,
+  "bMODE":      false,      // true면 aUSEMODE(모드 목록) 필요
+  "aFUNCNAME":  ["TW-Sa"]   // ★ db/SPFC NAME 참조 ("FUNCTION" 아님)
+}}}
+```
+
+**SPFC↔SPLC 관계 및 체인**
+```
+db/SPFC (함수 정의)
+  ↓ aFUNCNAME 참조
+db/SPLC (하중케이스 정의)
+  ↓
+db/EIGV (고유치 방법 설정)
+  ↓
+POST doc/anal → 응답스펙트럼 해석 완료
+  ↓
+POST post/TABLE(TABLE_TYPE:"...") → 결과 회수
+```
+
+- DIR "X"/"Y" → "Wrong Field"는 버그 아님 (수평은 X-Y 결합만 제품 지원)
+- 라이브 201 확인 (0615)
+
+---
+
+### C. 결과/운영 체인 — `post/TABLE · /mapikey/verify`
+
+---
+
+#### C-1. `post/TABLE` — TABLE_TYPE별 상태 표준화
+
+```json
+POST /post/TABLE
+{ "Argument": {
+  "TABLE_NAME":       "TABLE",
+  "TABLE_TYPE":       "BEAMFORCE",          // 필수. 아래 상태표 참조
+  "UNIT":             {"FORCE":"KN","DIST":"MM"},
+  "STYLES":           {"FORMAT":"Fixed","PLACE":3},
+  "COMPONENTS":       ["Elem","Load","Part","Axial"],  // 생략 = 전체 컬럼
+  "NODE_ELEMS":       {"TO":"1to100"},
+  "LOAD_CASE_NAMES":  ["DL(ST)"]            // 접미사 규약 아래 참조
+}}
+```
+
+**케이스명 접미사 규약**
+| 해석 종류 | 접미사 |
+|---|---|
+| 정적 | `(ST)` |
+| 하중조합 | `(CB)` |
+| 응답스펙트럼 | `(RS)` |
+| 이동하중 | `(MV:all/max/min)` |
+| 침하 | `(SM:...)` |
+| 시공단계 | `(CS)` |
+
+**TABLE_TYPE 상태 (라이브 + SDK 소스 확인)**
+| TABLE_TYPE | HTTP | 상태 | 비고 |
+|---|---|---|---|
+| `BEAMFORCE` | 200 | ✅ | HEAD: Elem/Load/Part/Axial/Shear-y/z/Torsion/Moment-y/z. Part=I,1/4,2/4,3/4,J |
+| `REACTIONG` | 200 | ✅ | HEAD: Node/Load/FX/FY/FZ/MX/MY/MZ. ⚠️ `REACTION`/`REACTIONFORCE`는 무효 |
+| `EIGENVALUEMODE` | 200 | ✅ | SUB_TABLES 5종. 주기 회수 경로 (B-3 참조) |
+| `PARTICIPATIONVECTORMODE` | 200 | ✅ | 모드형상만. SUB_TABLES 없음 |
+| `BEAMDESIGNFORCES` | 200 | ⚠️ `{"message":""}` | SDK 미포함. RC 설계결과 = GUI 전용 |
+| `OVERTURNINGMOMENT` | 200 | ❌ `error creating utbl` | Story 계열 전체 미노출 |
+| `STORYSHEAR` / `STORYDRIFT` / `STORYMASS` | 200 | ❌ `error creating utbl` | 동일 |
+| `CONCCOLUMNCHECK` 등 설계계 | 200 | ❌ `error creating utbl` | RC 설계결과 post/TABLE 불가 확정 |
+
+---
+
+#### C-2. `/mapikey/verify` — Health Check / 크래시 판별
+
+```
+GET https://moa-engineers.midasit.com:443/mapikey/verify
+    ↑ /gen 없는 base URL 사용. .../gen/mapikey/verify → 404
+```
+
+**응답 스키마**
+```json
+{ "user": "sjj0507@midasit.com", "program": "gen", "connectionID": "...", "keyVerified": true, "status": "connected" }
+```
+
+**판별 시그니처 (라이브 확정)**
+| 응답 | 의미 | 조치 |
+|---|---|---|
+| `status:"connected"` + `keyVerified:true` | 정상 | 진행 |
+| HTTP 404 + `"client does not exist"` | ★ 제품 프로세스 종료 (WebSocket 끊김) | 제품 재시작 |
+| `status:"disconnected"` | 제품 미연결 | 재시작 |
+| HTTP 404 (base URL 오류) | URL에 `/gen` 포함됨 | URL 수정 |
+
+- `user` 필드 = `verify` 이메일 → M7 사용자 집계 가능 (단 v2.12.7부터 연결 메시지는 "제품:gen"만 노출로 축소)
+- 배치 호출 전 + 예외 발생 시 alive() 패턴으로 서버 vs 제품 장애 구분 가능
+
+---
+
 ## 🆕 신버전 회귀검증 (2026-06-15 / 대상: **Gen NX 2026 v2.1 베타 (2026-06-12 빌드)**, 단위 N·mm)
 
 전체 빌드→해석→결과회수 end-to-end를 신버전에서 재실행 (모델 DELETE 후 클린 재빌드로 2회 재현). **종합: 회귀 0건, 신규 노출 2건(db/STOR·db/SEIS). BODF·autoSavePath "이상" 2건은 모두 자가 오류로 판명·철회.**
