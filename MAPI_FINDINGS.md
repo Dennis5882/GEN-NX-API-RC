@@ -72,8 +72,23 @@ PUT /db/STOR
 
 ---
 
-#### A-2. `ope/STOR` — Story Calc OPT (db/STOR 승격 + 우발편심 자동산정)
+#### A-2. `ope/STOR` — Story Calc OPT / Story 승격 엔드포인트
 
+- 분류: Story 운영 / Story 계산 / **Story 승격**
+- 상태: ✅ 실측 성공 / 📖 공식 문서 확인 / ⚠️ 강한 전제조건 있음
+- 중요도: **매우 높음**
+- 관련: `db/STOR` · `db/SSEIS` · `db/SWIND`
+
+**1. 공식 문서 기준**
+- 엔드포인트 `POST /ope/STOR`, 목적: Story 계산 옵션 수행, 입력 래퍼 `Argument`
+- 문서만 보면 보조 연산처럼 보이나, 실측상 역할은 훨씬 크다.
+
+**2. 실측 결론**
+- `ope/STOR`는 단순 옵션 계산이 아니라 **`db/STOR`에 입력된 Story 데이터를 실제 "유효 Story"로 승격시키는 핵심 엔드포인트**다.
+- `db/STOR` PUT만으로는 층명이 존재해도 `db/SSEIS`/`db/SWIND` 같은 Story 의존 API가 동작하지 않을 수 있다.
+- 호출 전후로 `"story does not exist"` / `"requires a building model with stories"` 오류 발생 여부가 갈렸다.
+
+**3. 확인된 입력 핵심 구조**
 ```json
 POST /ope/STOR
 { "Argument": {
@@ -82,27 +97,53 @@ POST /ope/STOR
 }}
 ```
 
-**역할 및 승격 메커니즘**
-- db/STOR 행 → 유효 건물 층(valid story)으로 승격·등록
-- 편심 자동산정: `SEIS_ECC_VALUE% × WIND_FLOOR_WIDTH → SEIS_ACC_ECCENT(mm)`
+**4. 실측에서 확인한 실제 역할**
+- db/STOR에 넣은 Story가 실제 Story 체계로 등록됨
+- 층 이름 정규화 가능 (예: `RF → Roof`) + 층 재정렬
+- `db/SSEIS`의 USER TYPE 입력이 성공 가능 상태로 전환
+- `db/SWIND`도 Story 기반 계산 가능해짐
+- 우발편심 값 계산/반영 흐름과 연결 (`SEIS_ECC_VALUE% × WIND_FLOOR_WIDTH → SEIS_ACC_ECCENT(mm)`)
   - 예) 5% × 36,000mm = 1,800mm, 15% × 36,000mm = 5,400mm
-- 층 자동 리네임·정렬: RF → "Roof"
+- 즉 `ope/STOR` = **Story 계산 옵션 + Story 활성화/등록 트리거** (실측상 가장 정확한 해석)
 
-**전/후 증명 (라이브, 0617)**
-| 시점 | PUT db/SSEIS 결과 |
+**5. 필수 전제조건 — 호출 순서**
+1. 모델 형상/절점/요소 존재 (`level-0 (1F@0)` 포함 — 승격 기준점, 없으면 "no valid story information")
+2. `PUT db/STOR` (Story 데이터)
+3. `POST ope/STOR`
+4. `PUT db/SSEIS` 또는 `PUT db/SWIND`
+- ope/STOR를 먼저 호출하거나 db/STOR 없이 호출하면 Story 등록 효과를 얻지 못한다.
+
+**6. ⚠️ 역할 한정 — ope/STOR는 "Calc"이지 "Story 등록"이 아님 (0624 재검증 정정)**
+- ope/STOR가 하는 일: **우발편심 자동산정 + STORY_LEVEL 재계산(노드 좌표 기준) + 층명 정규화/정렬(RF→Roof)**.
+- ope/STOR가 **하지 못하는 일**: `db/SSEIS`/`db/SWIND` USER TYPE이 요구하는 **"유효 건물 Story 등록"(Story Manager Module)**. 이건 **GUI "Auto Generate Story Data" 전용**.
+- ❌ **이전 0617 "ope/STOR로 build→verify 단절 해소" 결론은 0624 재검증서 반증됨** (동일 빌드 06/12 — 회귀 아닌 오진). 상세: `GEN_NX_NEXTBUILD_REVERIFY.md` S1, 메모리 `gen-nx-build-version`.
+
+**7. db/STOR와의 차이**
+| | 역할 |
 |---|---|
-| **before** ope/STOR | `"USER TYPE requires a building model with stories"` / `"story '4F' does not exist"` |
-| **after** ope/STOR | **200 + PROFILE** (STORY_SHEAR/WEIGHT/OTM/TORSION 완전 산출) |
+| `db/STOR` | Story 데이터를 **정의**(DB 성격): 층명·레벨·풍/지진 파라미터 저장 (STORY_LEVEL은 PUT 무시·ope/STOR가 노드서 재계산) |
+| `ope/STOR` | 정의를 바탕으로 **편심·레벨·리네임 계산**(Calc). ⚠ Story Manager **등록은 안 함** — SSEIS/SWIND 활성화는 GUI Auto Generate 필요 |
 
-- **db/STOR 선행 필수**: ope/STOR 단독 호출 → "There is no valid story information" (슬래브/rigid 유무 무관)
-- 2회 byte-identical 재현 확정 (6×6베이, z=0/3/6/9, rigd, 0617)
+**8. ⚠️ 전/후 라이브 재검증 결과 (0624, 동일 빌드 06/12)**
+| 조건 | PUT db/SSEIS 결과 |
+|---|---|
+| 순수 API 토이 + `db/STOR` + **`ope/STOR`** (fresh build, 모든 변수 충족) | ❌ **"Wrong Key"** — 미등록 |
+| 위 모델 + **GUI "Auto Generate Story Data" 1회** | ✅ **200 + 완전 PROFILE** |
+| GUI 등록 13층 실모델 (ope/STOR 없이도) | ✅ 200 + PROFILE (수계산 100% 일치) |
+- 통제변수 전부 소거: 공식 매뉴얼 스키마 일치·정규 층명·N-MM 레벨정렬·다이어프램·바닥 PLATE — 그래도 ope/STOR만으론 실패.
+- (0617의 "2회 byte-identical 재현"은 GUI 등록 모델 잔재/정규명 미사용 등 confound로 추정.)
+
+**9. 권장 표기**
+- 공식 문서: 있음 / 실측: ope/STOR 자체 200 / 운영 가치: 보조(편심·레벨·리네임)
+- 전제조건: **db/STOR 선행 필수** / ⚠ **SSEIS·SWIND 활성화엔 GUI Auto Generate 별도 필수** (ope/STOR 불충분)
 
 ---
 
 #### A-3. `db/SSEIS` — Static Seismic (USER TYPE)
 
-- 분류: 정적 지진 하중 / 상태: ✅ 실측 성공 / ⚠️ 전제조건: db/STOR + ope/STOR 선행 필수
+- 분류: 정적 지진 하중 / 상태: ✅ 실측 성공(GUI 등록 모델) / 🔴 **전제조건: GUI "Auto Generate Story Data" 등록 필수** (ope/STOR 불충분, 0624 재검증)
 - 대체 관계: `/db/SEIS`와 혼동 주의 — v2.1 정적지진 정답 경로는 `/db/SSEIS`
+- **2모드**: `SEIS_CODE`가 `"KDS(41-17-00:2019)"`면 `PARAMETERS{SEIS_ZONE,EPA,SITE_CLASS,SEIS_USE_GROUP,IMPORTANCE_FACTOR,PERIOD_METHOD,RESPONSE_MOD_FACTOR_X/Y}`(규범 자동산정, 한국 전용), `"USER TYPE"`이면 아래 `SEISMIC_FORCE[]`(수동, 대만/해외 경로)
 
 ```json
 PUT /db/SSEIS
@@ -141,15 +182,17 @@ GET /db/SSEIS → X_DIR / Y_DIR / SRSS 3방향 프로파일
 → `/db/SSEIS`는 단순 저장 API가 아니라 **층력 기반 정적지진 프로파일 계산 결과를 회수하는 API**.
   `/db/CNLD` 절점하중 우회보다 훨씬 의미 있는 경로 (Story 기반 의미론 유지).
 
-**전제조건 (필수 흐름)**
+**🔴 전제조건 (필수 흐름 — 0624 재검증 정정)**
 ```
-db/STOR (층 데이터 정의)
+db/STOR (층 데이터) + 모델 형상
   ↓
-ope/STOR (Story 승격·등록)    ← ★ 이 단계가 없으면 아래가 실패
+GUI "Auto Generate Story Data"  ← ★ Story Manager(Module "Base") 등록. 이게 없으면 SSEIS PUT="Wrong Key"
   ↓
 db/SSEIS PUT → 200 + PROFILE
 ```
-- db/STOR만으로는 부족 — ope/STOR 전에는 `"USER TYPE requires a building model with stories"` / `"story '<name>' does not exist"` 오류
+- ⚠ **`ope/STOR`(Story Calc)만으로는 등록 안 됨** — 순수 API 빌드 + ope/STOR 후에도 `"Wrong Key"`(0624, fresh build·통제변수 전부 소거 재현). 등록은 **GUI Auto Generate 전용**.
+- "Wrong Key" = 유효 건물 Story 미등록 신호(스키마 정상인데도 발생). 진짜명·가짜명·빈배열 동일 거부로 확인.
+- **API 빌드→API 검증 단절은 현재 빌드(06/12)서 미해소.** (0617 "해소" 기록은 동일 빌드 오진 — `GEN_NX_NEXTBUILD_REVERIFY.md` S1 참조.)
 
 **해석 투입 방식 (실측, 0616)**
 - `doc/anal` 후 `REACTIONG`의 **DL 케이스 ΣFX = SSEIS 밑면전단값**으로 합산
@@ -174,20 +217,25 @@ db/SSEIS PUT → 200 + PROFILE
 
 #### A-4. `db/SWIND` — Static Wind Load (USER TYPE)
 
-- 분류: 정적 풍하중 / 상태: ✅ 실측 성공 / ⚠️ 전제조건: db/STOR + ope/STOR 선행 필수
+- 분류: 정적 풍하중 / 상태: ✅ 실측 성공(GUI 등록 모델) / 🔴 **전제조건: GUI "Auto Generate Story Data" 등록 필수** (ope/STOR 불충분, 0624)
 - 대체 관계: `db/CNLD`·`db/BMLD` 우회보다 Story 기반 풍하중 주입 경로로 우선 검토
+- **2모드**: `WIND_CODE`가 `"KDS(41-12:2022)"`면 `PARAMETERS{INPUT_METHOD,…}`(규범 자동, 한국 전용), `"USER TYPE"`이면 아래 `STORY_WIND_PRESSURE[]`(수동, 대만/해외 경로)
 
 ```json
 PUT /db/SWIND
 { "Assign": { "1": {
-  "WIND_CODE": "USER TYPE",     // KDS2022 또는 USER TYPE. 대만은 USER TYPE 단일 경로
-  "STORY_WIND_PRESSURE": [
+  "WIND_CODE": "USER TYPE",     // KDS(41-12:2022) 또는 USER TYPE. 대만은 USER TYPE 단일 경로
+  "SCALE_FACTOR_X": 1.0,        // 🔴 required (0624 정정 — 누락 시 "Wrong Field")
+  "SCALE_FACTOR_Y": 1.0,        // 🔴 required
+  "STORY_WIND_PRESSURE": [      // 원소 required: STORY_NAME, PRESS_X, PRESS_Y
     { "STORY_NAME": "2F",   "PRESS_X": 0.0012, "PRESS_Y": 0.0012 },  // N/mm²
     { "STORY_NAME": "3F",   "PRESS_X": 0.0015, "PRESS_Y": 0.0015 },
     { "STORY_NAME": "Roof", "PRESS_X": 0.0018, "PRESS_Y": 0.0018 }
   ]
+  // optional: DESC, WIND_ECCEN_X/Y(enum 0/1/2, default 2)
 }}}
 ```
+> **공식 매뉴얼 required = `WIND_CODE, SCALE_FACTOR_X, SCALE_FACTOR_Y, STORY_WIND_PRESSURE`.** 이전 본 문서는 SCALE_FACTOR 누락 → 라이브 "Wrong Field"였음(0624 정정).
 
 **실측 출력/거동 — PUT 성공 후 GET은 단순 echo가 아니라 계산된 PROFILE 반환**
 
@@ -213,19 +261,21 @@ tribH(i) = (level[i+1] - level[i]) / 2  +  (level[i] - level[i-1]) / 2
 최상층(Roof): 위 없음 → tribH = (Roof표고 - 아래층표고) / 2
 1F(G.L.):    풍하중 미적용
 ```
-예) z=0/3/6/9m, PRESS=2 N/mm², WIDTH=6000mm
-- 3F: tribH = (9-6)/2 + (6-3)/2 = 1.5+1.5 = 3,000mm → WIND_FORCE = 2×6,000×3,000 = 36,000,000 N
-- Roof: tribH = (9-6)/2 = 1,500mm → WIND_FORCE = 2×6,000×1,500 = 18,000,000 N ✅ 라이브 18.0 (kN 단위) 확인
+예) z=0/3/6/9m, PRESS=0.002 N/mm² (=2 kN/m²), WIDTH=6000mm
+- 3F: tribH = (9-6)/2 + (6-3)/2 = 1.5+1.5 = 3,000mm → WIND_FORCE = 0.002×6,000×3,000 = 36,000 N = 36.0 kN
+- Roof: tribH = (9-6)/2 = 1,500mm → WIND_FORCE = 0.002×6,000×1,500 = 18,000 N = 18.0 kN ✅ 라이브(kN-m: 2×6×1.5=18.0 kN)와 일치
 
-**전제조건 (필수 흐름)**
+**🔴 전제조건 (필수 흐름 — 0624 정정)**
 ```
-db/STOR (층 데이터 + WIND_FLOOR_WIDTH_X/Y·WIND_CENTER_X/Y 포함)
+db/STOR (층 + WIND_FLOOR_WIDTH_X/Y·WIND_CENTER_X/Y) + 모델 형상
   ↓
-ope/STOR (Story 승격·풍 우발편심 자동산정)
+GUI "Auto Generate Story Data"  ← ★ 등록 필수 (없으면 PUT="Wrong Key")
   ↓
-db/SWIND PUT → 200 + PROFILE
+db/SWIND PUT (SCALE_FACTOR 포함) → 200 + PROFILE
 ```
+- ⚠ **`ope/STOR`만으로는 미등록** — SSEIS와 동일하게 GUI Auto Generate 필요 (0624 재검증).
 - Story 없거나 WIND_FLOOR_WIDTH = 0이면 WIND_FORCE = 0 (모델 완성도 의존)
+- **0624 라이브 검산(등록 모델)**: `WIND_FORCE = PRESSURE × LOADED_B × LOADED_H` — Roof `0.0018×6000×1500=16,200 N`, 3F `0.0015×6000×3000=27,000 N` 정확 일치(GET PROFILE의 LOADED_H/LOADED_B 동봉).
 
 **`db/BMLD`·`db/CNLD`와 차이**
 | 항목 | `/db/SWIND` | `db/BMLD`/`db/CNLD` |
@@ -496,12 +546,17 @@ POST /post/TABLE
 | `EIGENVALUEMODE` | 200 | ✅ | SUB_TABLES 5종 포함. T₁ 회수 경로 (B-3 참조) |
 | `PARTICIPATIONVECTORMODE` | 200 | ✅ | 모드형상. SUB_TABLES 없음 (주기 없음) |
 | `BEAMDESIGNFORCES` | 200 | ⚠️ `{"message":""}` | SDK 미포함. RC 설계결과 = GUI 전용 확정 |
-| `OVERTURNINGMOMENT` | 200 | ❌ error creating utbl | Story 계열 전체 미노출 |
-| `STORYSHEAR`/`STORYDRIFT`/`STORYMASS` | 200 | ❌ error creating utbl | 동일. db/SSEIS PROFILE로 대체 |
+| **`STORY_MASS`** | 200 | ✅ **(0624 정정)** | 층별 질량(X-DIR/Y-DIR/Rotational). 해석 불필요. ★언더바 O |
+| **`STORYWEIGHT`** | 200 | ✅ **(0624 정정)** | 층별 요소자중(Truss/Beam/Plate/Wall/Sum). 해석 불필요. ★**언더바 X** |
+| `OVERTURNING_MOMENT` | 200 | ⚠️ "no analysis result" | 인식됨 — **해석 후 회수 가능**(미노출 아님). ★언더바 O |
+| `STORY_SHEAR`/`STORY_DRIFT`/`STORY_DISPLACEMENT`/`STORY_LOAD_SUMMARY_X·_Y` | 200 | ⚠️ error creating utbl | 해석결과/완전 건물층 필요 (정명·조건 충족 시 회수 추정) |
 | `CONCCOLUMNCHECK` 등 설계계 | 200 | ❌ error creating utbl | RC 설계결과 post/TABLE 불가 3중 확정 |
 
+> **🔴 0624 정정 — "error creating utbl" = 미지원 아님, 소스(해석결과/완전 건물층) 부재.** TABLE_TYPE **정명(언더바 규칙 표마다 제각각)** 으로 호출하면 STORY_MASS·STORYWEIGHT는 ✅. 이전 `STORYMASS`/`STORY_WEIGHT` 등 잘못된 이름으로 ❌ 판정했던 것 정정. (피드백 §3-5 "Story 표 전부 미노출"도 동일 정정.)
+
 **실무 판단**
-- Story 계열(STORYSHEAR 등) 미노출 → `GET db/SSEIS`/`db/SWIND` PROFILE로 대체
+- Story 결과표 — **정확한 TABLE_TYPE 이름** 사용 필수(STORY_MASS·STORYWEIGHT 즉시 ✅; SHEAR/DRIFT/OTM은 해석 후).
+- 밑면전단/OTM 검증은 `GET db/SSEIS`/`db/SWIND` PROFILE이 여전히 편리(등록 모델, 해석 불필요).
 - RC 설계결과 → post/TABLE 불가 (SDK 소스 + 공식 플러그인 + 라이브 3중 확정)
 - `UNIT` 옵션으로 모델 단위 변환 없이 원하는 단위 직접 수령 가능 (실용적)
 
