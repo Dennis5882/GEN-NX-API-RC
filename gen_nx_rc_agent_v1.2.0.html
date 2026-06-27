@@ -950,6 +950,10 @@ async function actBuildFrame(p, clear=true){
   await applyLateral(p, f);
   await putCombos();
   renderModelState(); draw3D();
+  /* 모델링 종료: GEN NX 화면을 ISO 뷰로 회전 — 전체 모델 한눈에. (라이브 확정: H=30,V=15)
+     view/ANGLE 실패가 모델링을 깨지 않도록 격리. */
+  try{ await mapi('POST','/view/ANGLE',{Argument:{HORIZONTAL:30,VERTICAL:15}});
+    log('▸ '+L3('뷰 ISO 정렬','ISO view','ISO 視角'),'ok'); }catch(e){}
   return f;
 }
 
