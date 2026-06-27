@@ -487,10 +487,10 @@ const S = {
    값이 함수면 인자를 받아 문자열을 만든다. t(key,...args) 로 호출.
 ════════════════════════════════════════════════════════════ */
 /* I18N · LOGS 사전 → shared/i18n.js (window.I18N / window.LOGS) */
-function t(key,...args){ const v=I18N[S.lang][key]; return typeof v==='function'?v(...args):v; }
+function t(key,...args){ const d=I18N[S.lang]||I18N.en; let v=d[key]; if(v===undefined) v=I18N.en[key]; return typeof v==='function'?v(...args):v; }
 
 /* 활동 로그 메시지 (3개 언어) */
-function tl(key,...args){ const v=LOGS[S.lang][key]; return typeof v==='function'?v(...args):v; }
+function tl(key,...args){ const d=LOGS[S.lang]||LOGS.en; let v=d[key]; if(v===undefined) v=LOGS.en[key]; return typeof v==='function'?v(...args):v; }
 
 /* ════════════════════════════════════════════════════════════
    UI HELPERS
@@ -1164,7 +1164,7 @@ async function actAnalyze(){
 /* DEFAULT_SPEC · MATERIALS · BUILDING_TYPES · TYPE_KEYWORDS ·
    detectBuildingType → shared/rc_engine.js */
 /* 건물유형 필드의 현재 언어 값 */
-function bt(typeKey, field){ const o=BUILDING_TYPES[typeKey][field]; return (o&&typeof o==='object')?o[S.lang]:o; }
+function bt(typeKey, field){ const o=BUILDING_TYPES[typeKey][field]; return (o&&typeof o==='object')?(o[S.lang]!==undefined?o[S.lang]:o.en):o; }
 
 function num(re,txt){ const m=txt.match(re); return m?parseFloat(m[1].replace(/,/g,'')):null; }
 
@@ -2109,7 +2109,7 @@ function setProvider(p){
   S.provider=p; const cfg=PROVIDERS[p];
   document.querySelectorAll('#provSeg button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
   $('keyLabel').textContent=cfg.keyLabel; $('provKey').placeholder=cfg.ph;
-  $('keyHint').innerHTML=cfg.hint[S.lang];
+  $('keyHint').innerHTML=cfg.hint[S.lang]||cfg.hint.en;
   $('modelList').innerHTML=cfg.models.map(m=>`<option value="${m}">`).join('');
   $('provModel').value=cfg.def;
   S.conv=[];

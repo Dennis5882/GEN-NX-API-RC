@@ -1,7 +1,15 @@
 /* ════════════════════════════════════════════════════════════
    shared/i18n.js — 다국어 사전 (UI: window.I18N · 로그: window.LOGS)
    classic script 로 로드 → 전역 노출. index.html 의 t()/tl() 가 참조.
-   값이 함수면 인자를 받아 문자열 생성. 언어 추가 = 각 객체에 <lang>:{...} 추가.
+   값이 함수면 인자를 받아 문자열 생성(예: massSrc, dynNote). 배열/객체값도 가능(예: hdr_*, role, use).
+
+   ── 언어 추가 레시피 (예: 일본어 'ja') ──
+   1) window.I18N 에 ja:{...} 추가 (아래 ko 블록의 모든 키 번역).  ← 가장 큰 작업
+   2) window.LOGS 에 ja:{...} 추가 (로그 메시지).
+   3) index.html: 언어버튼 <button data-l="ja" onclick="setLang('ja')">日本語</button> 추가.
+   4) (선택) shared/rc_engine.js 의 BUILDING_TYPES label/desc 에 ja: 키, index.html cfg.hint 에 ja: 키.
+   ※ 키가 빠지면 t()/tl()/bt()/cfg.hint 모두 영어(en)로 자동 폴백 → 부분 번역도 동작.
+   ※ documentElement.lang 매핑(zh→zh-Hant)만 로직이라 별도. _li 같은 언어인덱스 헬퍼 없음.
 ════════════════════════════════════════════════════════════ */
 window.I18N = {
   ko:{
