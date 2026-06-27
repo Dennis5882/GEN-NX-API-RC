@@ -558,7 +558,7 @@ async function putMaterial(name){
   const body={TYPE:'CONC',NAME:shown,DAMP_RAT:0.05,PARAM:[{P_TYPE:1,STANDARD:'CNS560(RC)',DB:shown}]};
   await mapi('PUT','matl',{Assign:{1:body}});
   S.model.matl=shown;
-  log('\u25b8 '+(S.lang==='ko'?'재료':S.lang==='en'?'Material':'材料')+' <b>'+shown+'</b> ('+std+')','ok');
+  log('\u25b8 '+(t('material'))+' <b>'+shown+'</b> ('+std+')','ok');
 }
 async function putSection(id,name,H,B){
   await mapi('PUT','sect',{Assign:{[id]:{SECTTYPE:'DBUSER',SECT_NAME:name,
@@ -651,7 +651,7 @@ async function applyFloorLoads(p,f){
     fbla[ai++]={FLOOR_LOAD_TYPE_NAME:g.use,FLOOR_DIST_TYPE:2,DIR:'GZ',NODES:corners,GROUP_NAME:''};
   }
   await mapi('PUT','fbla',{Assign:fbla});
-  log('▸ '+(S.lang==='ko'?'바닥하중':S.lang==='en'?'Floor loads':'樓板載重')+' <b>'+(ai-1)+'</b> ('+uses.join(', ')+')','ok');
+  log('▸ '+(t('floor_loads'))+' <b>'+(ai-1)+'</b> ('+uses.join(', ')+')','ok');
 }
 
 /* taiwanCombos (TWD-USD112) → shared/rc_engine.js */
@@ -662,7 +662,7 @@ async function putCombos(){
     vCOMB:cb.terms.map(([lc,f])=>({ANAL:'ST',LCNAME:lc,FACTOR:f}))});
   await mapi('PUT','lcom-gen',{Assign:a});
   S.model.combos=combos.map(c=>c.name);
-  log('\u25b8 '+(S.lang==='ko'?'하중조합 (TWD-USD112)':S.lang==='en'?'Load combos (TWD-USD112)':'載重組合 (TWD-USD112)')+' <b>'+combos.length+'</b>','ok');
+  log('\u25b8 '+(t('load_combos_twd_usd112'))+' <b>'+combos.length+'</b>','ok');
 }
 
 async function actBuildFrame(p, clear=true){
@@ -692,7 +692,7 @@ async function actBuildFrame(p, clear=true){
     f.walls.forEach(w=>{ const id=++eid; wa[id]={TYPE:'PLATE',MATL:1,SECT:thmap[w.thick],NODE:w.nodes,STYPE:1,ANGLE:0};
       recs.push({id,type:'wall',sect:thmap[w.thick],b:w.building,iz:w.story,nodes:w.nodes}); });
     await mapi('PUT','elem',{Assign:wa});
-    log('▸ '+(S.lang==='ko'?'전단벽 코어':S.lang==='en'?'Shear-wall core':'剪力牆核心')+' <b>'+f.walls.length+'</b> ('+f.wallThks.map(t=>t+'mm').join(', ')+')','ok');
+    log('▸ '+(t('shear_wall_core'))+' <b>'+f.walls.length+'</b> ('+f.wallThks.map(t=>t+'mm').join(', ')+')','ok');
   }
   await putBoundary(f.baseNodes,'1111110');
   await putLoadCase(1,'DL','D');
@@ -704,10 +704,10 @@ async function actBuildFrame(p, clear=true){
     const ns=f.floorGroups[k];
     if(ns.length>=3){ _dia[ns[0]]={ITEMS:[{ID:_rid++,GROUP_NAME:'',DOF:110001,S_NODE:ns.slice(1)}]}; } }
   if(Object.keys(_dia).length){ await mapi('PUT','rigd',{Assign:_dia});
-    log('\u25b8 '+(S.lang==='ko'?'강성 다이어프램':S.lang==='en'?'Rigid diaphragm':'剛性樓板')+' <b>'+Object.keys(_dia).length+'</b>','ok'); }
+    log('\u25b8 '+(t('rigid_diaphragm'))+' <b>'+Object.keys(_dia).length+'</b>','ok'); }
   /* M2-A8: Story 정보(db/STOR) 자동 생성 — 표준층 모델 기본 ON(p.storyData!==false) */
   if(p.storyData!==false){ try{ await putStoryData(p, f); await putStoryCalc(); }catch(e){
-    log('⚠ '+(S.lang==='ko'?'Story 정보 생성 건너뜀: ':'Story data skipped: ')+(e.message||e),'err'); } }
+    log('⚠ '+(t('story_data_skipped'))+(e.message||e),'err'); } }
   Object.assign(S.model,{spec:p, colSect:p.colName, beamSect:p.beamName,
     nodes:f.nodes, cols:f.cols, beams:f.beams, links:f.links, walls:f.walls||[],
     elemRecs:recs, nextEid:eid+1, nextSect:3, nextLC:2,
@@ -720,7 +720,7 @@ async function actBuildFrame(p, clear=true){
   /* 모델링 종료: GEN NX 화면을 ISO 뷰로 회전 — 전체 모델 한눈에. (라이브 확정: H=30,V=15)
      view/ANGLE 실패가 모델링을 깨지 않도록 격리. */
   try{ await mapi('POST','/view/ANGLE',{Argument:{HORIZONTAL:30,VERTICAL:15}});
-    log('▸ '+L3('뷰 ISO 정렬','ISO view','ISO 視角'),'ok'); }catch(e){}
+    log('▸ '+t('iso_view'),'ok'); }catch(e){}
   return f;
 }
 
@@ -743,7 +743,7 @@ async function applyLateral(p, f){
     for(const k in (f.floorGroups||{})){ const iz=+k.split('_')[1]; const ns=f.floorGroups[k];
       const F=(r.forces[iz-1]?r.forces[iz-1].F:0)*1000; if(!F||!ns.length) continue; const per=F/ns.length;
       ns.forEach(nid=>{ push(nid,{LCNAME:'EX',FX:per,FY:0}); push(nid,{LCNAME:'EY',FX:0,FY:per}); }); }
-    log('▸ '+(S.lang==='ko'?'지진 等效靜力':S.lang==='en'?'Seismic (static)':'地震等效靜力')+
+    log('▸ '+(t('seismic_static'))+
       ` <b>V=${Math.round(r.V)} kN</b> · T=${r.T.toFixed(2)}s · Cs=${r.Cs.toFixed(3)} (EX·EY)`,'ok');
   }
   if(useW){
@@ -755,7 +755,7 @@ async function applyLateral(p, f){
       const Fx=(r.forcesX[iz-1]?r.forcesX[iz-1].F:0)*1000/ns.length;
       const Fy=(r.forcesY[iz-1]?r.forcesY[iz-1].F:0)*1000/ns.length;
       ns.forEach(nid=>{ push(nid,{LCNAME:'WX',FX:Fx,FY:0}); push(nid,{LCNAME:'WY',FX:0,FY:Fy}); }); }
-    log('▸ '+(S.lang==='ko'?'풍하중':S.lang==='en'?'Wind':'風力')+
+    log('▸ '+(t('wind'))+
       ` <b>Vx=${Math.round(r.Vx)} · Vy=${Math.round(r.Vy)} kN</b> (WX·WY)`,'ok');
   }
   S.model.nextLC=no;
@@ -778,8 +778,8 @@ async function putStoryData(p, f){
   const a=buildStoryData(p, f);
   const n=Object.keys(a).length;
   await mapi('PUT','STOR',{Assign:a});
-  log('▸ '+(S.lang==='ko'?'Story 정보(db/STOR)':S.lang==='en'?'Story data (db/STOR)':'樓層資料(db/STOR)')+' <b>'+n+'</b> '+
-      (S.lang==='ko'?'(지반 1F + 층; 다이어프램은 rigd)':S.lang==='en'?'(G.L. 1F + floors; diaphragm via rigd)':'(地盤 1F + 樓層)'),'ok');
+  log('▸ '+(t('story_data_db_stor'))+' <b>'+n+'</b> '+
+      (t('g_l_1f_floors_diaphragm_vi')),'ok');
 }
 
 /* M2-A9 (0617): ope/STOR(Story Calc OPT) — db/STOR 테이블을 '유효 건물 Story'로 승격·등록.
@@ -790,7 +790,7 @@ async function putStoryCalc(){
   await mapi('POST','/ope/STOR',{Argument:{
     SEIS_ECC:{INC_SEIS_ECC:true, SEIS_ECC_VALUE:5},
     WIND_ECC:{INC_WIND_ECC:true, WIND_ECC_VALUE:15}}});
-  log('▸ '+(S.lang==='ko'?'Story 등록·우발편심 산정(ope/STOR Calc OPT)':S.lang==='en'?'Story register + accidental eccen. (ope/STOR)':'樓層登錄(ope/STOR)')+' ✓','ok');
+  log('▸ '+(t('story_register_accidental_'))+' ✓','ok');
 }
 
 /* SSEIS 교차검증 실행. spec 미지정 시 현재 모델 스펙 사용.
@@ -801,24 +801,20 @@ async function actSseisVerify(spec){
   const p=spec||S.model.spec;
   if(!p||!S.model.nodes.length) throw new Error(t('e_nomodel_edit'));
   const sp=p.seismic;
-  if(!(sp&&sp.on)) throw new Error(S.lang==='ko'?'지진하중이 켜진 모델이 필요합니다(EX/EY).':S.lang==='en'?'Need a model with seismic load on (EX/EY).':'需要已啟用地震載重的模型(EX/EY)。');
+  if(!(sp&&sp.on)) throw new Error(t('need_a_model_with_seismic_'));
   await setUnit('N','MM');
   const r=seismicStoryForces(p,{SDS:sp.SDS,SD1:sp.SD1,T0:sp.T0,I:sp.I,R:sp.R,w0:sp.w0,liveRatio:sp.liveRatio,Cs:sp.Cs,V:sp.V});
   // 1) 등록 Story 회수 (SSEIS가 참조하는 레지스트리). level>0(지진층)만.
   let reg=[];
   try{ const sd=await mapi('GET','STOR'); const T=(sd&&sd.STOR)||{};
     reg=Object.keys(T).map(k=>({name:T[k].STORY_NAME, level:+T[k].STORY_LEVEL||0})).filter(s=>s.level>0); }catch(e){}
-  if(!reg.length) throw new Error(S.lang==='ko'
-    ?'모델에 등록된 Story가 없습니다. SSEIS는 Gen Story Manager 등록 층을 참조하므로, GUI의 Story 탭에서 Story 정의(또는 Auto Generate Story Data)된 모델이 필요합니다(라이브 확인 0616).'
-    :'No stories registered. SSEIS references Gen Story Manager stories — define them in the GUI Story tab (or Auto Generate) first (live-confirmed 0616).');
+  if(!reg.length) throw new Error(t('err_sseis_nostory'));
   // 2) 자체 층력을 등록 층 레벨에 최근접 매핑(tol 1mm) → 실제 등록 층명 사용
   const mapped=[];
   (r.forces||[]).forEach(f=>{ const lv=+f.h||0; if(lv<=0) return;
     let best=null,bd=1e9; reg.forEach(s=>{ const d=Math.abs(s.level-lv); if(d<bd){bd=d;best=s;} });
     if(best&&bd<=1) mapped.push({story:best.name, name:best.name, h:lv, F:f.F}); });
-  if(!mapped.length) throw new Error(S.lang==='ko'
-    ?'자체계산 층 레벨이 등록 Story 레벨과 일치하지 않습니다(단위·표고 확인).'
-    :'Computed story levels do not match registered story levels (check units/elevations).');
+  if(!mapped.length) throw new Error(t('err_level_mismatch'));
   // 3) db/SSEIS USER TYPE PUT (등록 층명으로). ACCIDENT_ECCEN은 정수 옵션 enum[0,1,2]; 비율은 STOR가 보유.
   const seisForce=mapped.map(m=>({STORY_NAME:m.name, FORCE_X:(+m.F||0)*1000, FORCE_Y:0}));
   try{
@@ -827,12 +823,10 @@ async function actSseisVerify(spec){
       SEISMIC_FORCE:seisForce, ACCIDENT_ECCEN_X:1, ACCIDENT_ECCEN_Y:1, ACCIDENT_TORSION:true, DESC:'QA-verify'
     }}});
   }catch(e){
-    if(/Wrong Key|not a seismic-load story/i.test(e.message||'')) throw new Error(S.lang==='ko'
-      ?'SSEIS가 일부 층명을 인식하지 못했습니다 — 지진층(G.L. 위)·등록 Story명과 일치해야 합니다.'
-      :'SSEIS did not recognize some story names — must be seismic-load stories (above G.L.) matching registered names.');
+    if(/Wrong Key|not a seismic-load story/i.test(e.message||'')) throw new Error(t('err_sseis_names'));
     throw e;
   }
-  log('▸ db/SSEIS USER TYPE PUT <b>'+seisForce.length+'</b> '+(S.lang==='ko'?'층력(등록 Story명)':S.lang==='en'?'forces (registered stories)':'層力(已登錄樓層)'),'ok');
+  log('▸ db/SSEIS USER TYPE PUT <b>'+seisForce.length+'</b> '+(t('forces_registered_stories')),'ok');
   // 4) GET → 네이티브 프로파일 회수
   const gen=await mapi('GET','SSEIS');
   const genResp=(gen&&gen.SSEIS&&gen.SSEIS['1'])?gen.SSEIS['1']:((gen&&gen.Assign&&gen.Assign['1'])?gen.Assign['1']:gen);
@@ -844,7 +838,7 @@ async function actSseisVerify(spec){
   renderSseisReport(d, self);
   const pct=(d.worstShear*100).toFixed(1);
   if(!d.matched){
-    log('⚠ SSEIS '+(S.lang==='ko'?'프로파일을 매칭하지 못했습니다(응답 형식 확인 필요)':'no PROFILE rows matched (check response shape)'),'err');
+    log('⚠ SSEIS '+(t('no_profile_rows_matched_ch')),'err');
     return 'SSEIS verify: GET returned but no PROFILE story rows matched. Inspect log.';
   }
   return `SSEIS cross-check (X-dir): ${d.matched} rows matched (incl. base), worst STORY_SHEAR diff ${pct}% (tol ${(tol*100).toFixed(0)}%) → ${d.pass?'PASS ✓ self-computed seismic matches Gen native profile':'MISMATCH — review story-force mapping'}.`;
@@ -854,9 +848,7 @@ async function actSseisVerify(spec){
 function renderSseisReport(d, self){
   const f0=x=>x==null?'–':(Math.abs(x)>=1e6?(x/1e6).toFixed(2)+'e6':Math.round(x));
   const pe=c=>c==null?'<span style="opacity:.4">–</span>':`<b style="color:${c.ok?'var(--green,#3c3)':'var(--red,#e55)'}">${(c.err*100).toFixed(1)}%</b>`;
-  const hdr=S.lang==='ko'?['층','STORY_SHEAR 자체/Gen','OTM','우발토션']
-        :S.lang==='en'?['Story','STORY_SHEAR self/Gen','OTM','Acc.Torsion']
-        :['樓層','STORY_SHEAR 自/Gen','OTM','偶發扭矩'];
+  const hdr=t('hdr_shear');
   let html='<table style="font-size:11px;border-collapse:collapse;margin:4px 0"><tr>'+
     hdr.map(h=>`<th style="text-align:left;padding:1px 8px 1px 0;border-bottom:1px solid #555">${h}</th>`).join('')+'</tr>';
   d.rows.forEach(rw=>{ html+=`<tr><td style="padding:1px 8px 1px 0">${rw.name}</td>`+
@@ -865,8 +857,8 @@ function renderSseisReport(d, self){
     `<td style="padding:1px 8px 1px 0">${rw.torsion&&rw.torsion.gen!=null?'<span style="opacity:.7">Gen '+f0(rw.torsion.gen)+'</span>':'–'}</td></tr>`; });
   html+='</table>';
   const tag=d.pass?'ok':'err';
-  log((S.lang==='ko'?'🔬 SSEIS 교차검증 (X방향)':S.lang==='en'?'🔬 SSEIS cross-check (X-dir)':'🔬 SSEIS 交叉驗證 (X向)')+
-      ` — ${d.pass?'PASS ✓':'MISMATCH ✗'} (${S.lang==='ko'?'최대 전단오차':'worst shear err'} ${(d.worstShear*100).toFixed(1)}%)`+html, tag);
+  log((t('sseis_cross_check_x_dir'))+
+      ` — ${d.pass?'PASS ✓':'MISMATCH ✗'} (${t('worst_shear_err')} ${(d.worstShear*100).toFixed(1)}%)`+html, tag);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -878,37 +870,31 @@ async function actSwindVerify(spec){
   const p=spec||S.model.spec;
   if(!p||!S.model.nodes.length) throw new Error(t('e_nomodel_edit'));
   const wp=p.wind;
-  if(!(wp&&wp.on)) throw new Error(S.lang==='ko'?'풍하중이 켜진 모델이 필요합니다(WX/WY).':S.lang==='en'?'Need a model with wind load on (WX/WY).':'需要已啟用風載重的模型(WX/WY)。');
+  if(!(wp&&wp.on)) throw new Error(t('need_a_model_with_wind_loa'));
   await setUnit('N','MM');
   const r=windStoryForces(p,{V10:wp.V10,exposure:wp.exposure,G:wp.G,Cf:wp.Cf,I:wp.I});
   let regAll=[];
   try{ const sd=await mapi('GET','STOR'); const T=(sd&&sd.STOR)||{};
     regAll=Object.keys(T).map(k=>({name:T[k].STORY_NAME, level:+T[k].STORY_LEVEL||0, width:+T[k].WIND_FLOOR_WIDTH_Y||0})); }catch(e){}
   const reg=regAll.filter(s=>s.level>0);
-  if(!reg.length) throw new Error(S.lang==='ko'
-    ?'모델에 등록된 Story가 없습니다. SWIND도 Gen Story Manager 등록 층을 참조하므로 GUI Story 탭/Auto Generate 모델이 필요합니다.'
-    :'No stories registered. SWIND references Gen Story Manager stories — use a GUI Story-tab / Auto Generate model.');
+  if(!reg.length) throw new Error(t('err_swind_nostory'));
   const mapped=[];
   (r.forcesX||[]).forEach(f=>{ const lv=+f.h||0; if(lv<=0) return;
     let best=null,bd=1e9; reg.forEach(s=>{ const d=Math.abs(s.level-lv); if(d<bd){bd=d;best=s;} });
     if(best&&bd<=1) mapped.push({story:best.name, name:best.name, h:lv, F:f.F}); });
-  if(!mapped.length) throw new Error(S.lang==='ko'
-    ?'자체계산 층 레벨이 등록 Story 레벨과 일치하지 않습니다(단위·표고 확인).'
-    :'Computed story levels do not match registered story levels (check units/elevations).');
+  if(!mapped.length) throw new Error(t('err_level_mismatch'));
   const pr=swindSelfPressures(mapped, regAll);
-  if(!pr.press.length) throw new Error(S.lang==='ko'?'압력 환산 실패 — STOR 바닥폭·층 표고를 확인하세요.':'Pressure conversion failed — check STOR floor widths / levels.');
+  if(!pr.press.length) throw new Error(t('pressure_conversion_failed'));
   try{
     await mapi('PUT','SWIND',{Assign:{1:{
       WIND_CODE:'USER TYPE', SCALE_FACTOR_X:1.0, SCALE_FACTOR_Y:1.0,
       STORY_WIND_PRESSURE:pr.press.map(x=>({STORY_NAME:x.STORY_NAME, PRESS_X:x.PRESS, PRESS_Y:0})), DESC:'QA-verify'
     }}});
   }catch(e){
-    if(/Wrong Key|requires a building/i.test(e.message||'')) throw new Error(S.lang==='ko'
-      ?'SWIND가 층명을 인식하지 못했습니다 — Gen Story Manager 등록 층(GUI Auto Generate)이 필요합니다.'
-      :'SWIND did not recognize stories — needs Gen Story Manager stories (GUI Auto Generate).');
+    if(/Wrong Key|requires a building/i.test(e.message||'')) throw new Error(t('err_swind_names'));
     throw e;
   }
-  log('▸ db/SWIND USER TYPE PUT <b>'+pr.press.length+'</b> '+(S.lang==='ko'?'층(압력 역산)':S.lang==='en'?'stories (pressure from forces)':'層(壓力換算)'),'ok');
+  log('▸ db/SWIND USER TYPE PUT <b>'+pr.press.length+'</b> '+(t('stories_pressure_from_forc')),'ok');
   const gen=await mapi('GET','SWIND');
   const genResp=(gen&&gen.SWIND&&gen.SWIND['1'])?gen.SWIND['1']:((gen&&gen.Assign&&gen.Assign['1'])?gen.Assign['1']:gen);
   const self=sseisSelfProfile(mapped, 0);
@@ -918,7 +904,7 @@ async function actSwindVerify(spec){
   renderSwindReport(d, self, genResp);
   const pct=(d.worstShear*100).toFixed(1);
   if(!d.matched){
-    log('⚠ SWIND '+(S.lang==='ko'?'프로파일을 매칭하지 못했습니다':'no PROFILE rows matched'),'err');
+    log('⚠ SWIND '+(t('no_profile_rows_matched')),'err');
     return 'SWIND verify: GET returned but no PROFILE story rows matched. Inspect log.';
   }
   return `SWIND cross-check (X-dir): ${d.matched} rows matched (incl. base), worst STORY_SHEAR diff ${pct}% (tol ${(tol*100).toFixed(0)}%) → ${d.pass?'PASS ✓ self-computed wind matches Gen native profile':'MISMATCH — review pressure conversion'}.`;
@@ -927,9 +913,7 @@ async function actSwindVerify(spec){
 function renderSwindReport(d, self, gen){
   const f0=x=>x==null?'–':(Math.abs(x)>=1e6?(x/1e6).toFixed(2)+'e6':Math.round(x));
   const pe=c=>c==null?'<span style="opacity:.4">–</span>':`<b style="color:${c.ok?'var(--green,#3c3)':'var(--red,#e55)'}">${(c.err*100).toFixed(1)}%</b>`;
-  const hdr=S.lang==='ko'?['층','STORY_SHEAR 자체/Gen','OTM 자체/Gen']
-        :S.lang==='en'?['Story','STORY_SHEAR self/Gen','OTM self/Gen']
-        :['樓層','STORY_SHEAR 自/Gen','OTM 自/Gen'];
+  const hdr=t('hdr_shear_otm');
   let html='<table style="font-size:11px;border-collapse:collapse;margin:4px 0"><tr>'+
     hdr.map(h=>`<th style="text-align:left;padding:1px 8px 1px 0;border-bottom:1px solid #555">${h}</th>`).join('')+'</tr>';
   d.rows.forEach(rw=>{ html+=`<tr><td style="padding:1px 8px 1px 0">${rw.name}</td>`+
@@ -937,8 +921,8 @@ function renderSwindReport(d, self, gen){
     `<td style="padding:1px 8px 1px 0">${rw.otm?f0(rw.otm.self)+'/'+f0(rw.otm.gen)+' '+pe(rw.otm):'–'}</td></tr>`; });
   html+='</table>';
   const tag=d.pass?'ok':'err';
-  log((S.lang==='ko'?'🌬 SWIND 교차검증 (X방향, 풍)':S.lang==='en'?'🌬 SWIND cross-check (X-dir, wind)':'🌬 SWIND 交叉驗證 (X向, 風)')+
-      ` — ${d.pass?'PASS ✓':'MISMATCH ✗'} (${S.lang==='ko'?'최대 전단오차':'worst shear err'} ${(d.worstShear*100).toFixed(1)}%)`+html, tag);
+  log((t('swind_cross_check_x_dir_wi'))+
+      ` — ${d.pass?'PASS ✓':'MISMATCH ✗'} (${t('worst_shear_err')} ${(d.worstShear*100).toFixed(1)}%)`+html, tag);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -957,14 +941,12 @@ async function actStoryWeightVerify(spec){
   const W=seismicStoryWeights(p,{w0:sp.w0,liveRatio:sp.liveRatio});   // kN, [1..stories]
   const elev=storyElevations(p);                                     // mm
   const selfStories=[]; for(let s=1;s<=p.stories;s++){ if((elev[s]||0)>0) selfStories.push({level:elev[s], weight:W[s]||0}); }
-  if(!selfStories.length) throw new Error(S.lang==='ko'?'G.L. 위 층이 없습니다.':'No stories above G.L.');
+  if(!selfStories.length) throw new Error(t('no_stories_above_g_l'));
   // 1) 등록 Story 회수 (SSEIS가 참조). level>0만.
   let reg=[];
   try{ const sd=await mapi('GET','STOR'); const T=(sd&&sd.STOR)||{};
     reg=Object.keys(T).map(k=>({name:T[k].STORY_NAME, level:+T[k].STORY_LEVEL||0})).filter(s=>s.level>0); }catch(e){}
-  if(!reg.length) throw new Error(S.lang==='ko'
-    ?'모델에 등록된 Story가 없습니다 — 층중량은 Gen Story Manager 등록 층에서 회수합니다(GUI Story 탭/Auto Generate 필요).'
-    :'No stories registered — story weights come from Gen Story Manager stories (need GUI Story tab / Auto Generate).');
+  if(!reg.length) throw new Error(t('err_weight_nostory'));
   // 2) 최소 SSEIS PUT(층력은 무의미·1kN)으로 PROFILE 산정 트리거 → STORY_WEIGHT 회수
   const probe=reg.map(s=>({STORY_NAME:s.name, FORCE_X:1, FORCE_Y:0}));
   let gen;
@@ -973,18 +955,14 @@ async function actStoryWeightVerify(spec){
       SEISMIC_FORCE:probe, ACCIDENT_ECCEN_X:0, ACCIDENT_ECCEN_Y:0, ACCIDENT_TORSION:false, DESC:'QA-weight'}}});
     gen=await mapi('GET','SSEIS');
   }catch(e){
-    if(/Wrong Key|not a seismic-load story/i.test(e.message||'')) throw new Error(S.lang==='ko'
-      ?'SSEIS가 층명을 인식하지 못했습니다 — 등록 Story(G.L. 위)가 필요합니다.'
-      :'SSEIS did not recognize stories — needs registered seismic-load stories (above G.L.).');
+    if(/Wrong Key|not a seismic-load story/i.test(e.message||'')) throw new Error(t('err_sseis_names2'));
     throw e;
   } finally {
     try{ await mapi('DELETE','SSEIS'); }catch(_){}                    // QA 흔적 제거(원복)
   }
   const genResp=sseisProfileToStoryProp(gen);                         // PROFILE → {STORYPROP:{DATA}}
   const d=storyWeightDiff(selfStories, genResp, 0.10);
-  if(!d.matched) throw new Error(S.lang==='ko'
-    ?'층중량을 매칭하지 못했습니다 — 등록 Story 레벨과 자체 표고가 일치해야 합니다.'
-    :'No story weights matched — registered story levels must match self elevations.');
+  if(!d.matched) throw new Error(t('err_weight_mismatch'));
   renderWeightReport(d);
   return `Story weight check (via db/SSEIS PROFILE): ${d.matched} stories. Self ΣW=${Math.round(d.totalSelf)} kN vs Gen ΣW=${Math.round(d.totalGen)} kN (Δ${(d.totalErr*100).toFixed(1)}%). Informational — self uses w0 estimate; Gen is model-derived (use Gen weights to calibrate w0).`;
 }
@@ -993,14 +971,14 @@ async function actStoryWeightVerify(spec){
 function renderWeightReport(d){
   const f0=x=>x==null?'–':Math.round(x);
   const pe=c=>`<b style="color:${c.ok?'var(--green,#3c3)':'var(--amber,#d90)'}">${(c.err*100).toFixed(1)}%</b>`;
-  const hdr=S.lang==='ko'?['층','자체 W(kN)','Gen W(kN)','Δ']:S.lang==='en'?['Story','self W(kN)','Gen W(kN)','Δ']:['樓層','自重 W(kN)','Gen W(kN)','Δ'];
+  const hdr=t('hdr_weight');
   let html='<table style="font-size:11px;border-collapse:collapse;margin:4px 0"><tr>'+
     hdr.map(h=>`<th style="text-align:left;padding:1px 8px 1px 0;border-bottom:1px solid #555">${h}</th>`).join('')+'</tr>';
   d.rows.forEach(rw=>{ html+=`<tr><td style="padding:1px 8px 1px 0">${rw.name}</td>`+
     `<td style="padding:1px 8px 1px 0">${f0(rw.self)}</td><td style="padding:1px 8px 1px 0">${f0(rw.gen)}</td>`+
     `<td style="padding:1px 8px 1px 0">${pe(rw)}</td></tr>`; });
   html+=`<tr><td style="padding:2px 8px 1px 0;border-top:1px solid #555"><b>Σ</b></td><td style="border-top:1px solid #555">${f0(d.totalSelf)}</td><td style="border-top:1px solid #555">${f0(d.totalGen)}</td><td style="border-top:1px solid #555"><b>${(d.totalErr*100).toFixed(1)}%</b></td></tr></table>`;
-  log((S.lang==='ko'?'⚖ 층중량 비교 (자체 추정 vs Gen 실모델, 정보성)':S.lang==='en'?'⚖ Story weight check (self estimate vs Gen model — informational)':'⚖ 樓層重量比較（自估 vs Gen，參考）')+
+  log((t('story_weight_check_self_es'))+
       ` — ΣΔ ${(d.totalErr*100).toFixed(1)}%`+html, 'ok');
 }
 
@@ -1072,21 +1050,21 @@ async function actDynamic(opt={}){
   const vLC=[{LCNAME:'DL',FACTOR:1.0}];
   (S.model.loadCases||[]).forEach(l=>{ if(l.type==='L'||l.type==='LR') vLC.push({LCNAME:l.name,FACTOR:liveF}); });
   await mapi('PUT','ltom',{Assign:{1:{DIR:'XY',bNODAL:true,bBEAM:true,bFLOOR:true,GRAV:9.806,vLC}}});
-  log('▸ '+L3('질량원: 자중 + (DL×1.0, 활하중×'+liveF+')','Mass: self-weight + (DL×1.0, live×'+liveF+')','質量源: 自重 + (DL×1.0, 活載×'+liveF+')'),'ok');
+  log('▸ '+t('massSrc',liveF),'ok');
   /* 2) 고유치 해석 제어 (Subspace), 모드수 = clamp(층수×3, 6..30) */
   const modes=Math.min(Math.max(stories*3,6),30);
   await mapi('PUT','eigv',{Assign:{1:eigvPayload(modes)}});
-  log('▸ '+L3('고유치 설정','Eigenvalue setup','特徵值設定')+` (${modes} modes)`,'ok');
+  log('▸ '+t('eigenvalue_setup')+` (${modes} modes)`,'ok');
   /* 3) (옵션) 응답스펙트럼: 대만 설계스펙트럼(SDS/SD1) → SPFC, RSX·RSY → SPLC(CQC) */
   let ds=null;
   if(doRS){
     ds=twDesignSpectrum({SDS:sp.SDS,SD1:sp.SD1,T0:sp.T0});
     if(!(sp.SDS>0)||!ds.func.length){
-      log('▸ '+L3('SDS/SD1 없음 — 응답스펙트럼 생략','no SDS/SD1 — RS skipped','無SDS/SD1 — 略過反應譜'),'warn'); ds=null;
+      log('▸ '+t('no_sds_sd1_rs_skipped'),'warn'); ds=null;
     } else {
       await mapi('PUT','spfc',{Assign:{1:{NAME:'TW-RS',iTYPE:1,iMETHOD:0,SCALE:1,GRAV:9.806,DRATIO:0.05,DESC:'TWD design spectrum',STR:{SPEC_CODE:'USER'},aFUNC:ds.func}}});
       await mapi('PUT','splc',{Assign:{1:splcPayload('RSX','X','TW-RS'),2:splcPayload('RSY','Y','TW-RS')}});
-      log('▸ '+L3('응답스펙트럼(대만) RSX·RSY','Response spectrum (TW) RSX·RSY','反應譜(臺灣) RSX·RSY')+` · T0=${ds.T0}s Ts=${ds.Ts}s`,'ok');
+      log('▸ '+t('response_spectrum_tw_rsx_r')+` · T0=${ds.T0}s Ts=${ds.Ts}s`,'ok');
     }
   }
   /* 4) 해석 실행 — 동적해석은 라이선스/시트에 따라 막힐 수 있음("Analysis is not allowed").
@@ -1097,8 +1075,8 @@ async function actDynamic(opt={}){
   const analRes=await mapi('POST','/doc/anal',{});
   const analMsg=String((analRes&&analRes.message)||'');
   const notAllowed=/not allowed|not permitted|허용되지|許可/i.test(analMsg);
-  if(notAllowed) log('▸ '+L3('해석 실행 거부: ','analysis refused: ','分析被拒: ')+analMsg+
-    L3(' (고유치는 Lanczos 사용 — off-diagonal 질량 시 Subspace 불가)',' (eigen uses Lanczos — Subspace invalid with off-diagonal mass)',' (特徵值用 Lanczos — off-diagonal 質量時 Subspace 不可)'),'err');
+  if(notAllowed) log('▸ '+t('analysis_refused')+analMsg+
+    t('eigen_uses_lanczos_subspac'),'err');
   else log(tl('analDone'),'ok');
   /* 5) 주기 회수 — EIGENVALUEMODE 응답의 SUB_TABLES["EIGENVALUE ANALYSIS"](Period(sec)) 파싱.
        ※ 라이브 확인(2026-06-14): PARTICIPATIONVECTORMODE는 모드형상만(SUB_TABLES 없음),
@@ -1107,7 +1085,7 @@ async function actDynamic(opt={}){
   try{
     const resp=await mapi('POST','/post/table',{Argument:{TABLE_NAME:'EV',TABLE_TYPE:'EIGENVALUEMODE',UNIT:{FORCE:'KN',DIST:'M'}}});
     modal=pickModalPeriods(resp);
-  }catch(e){ log('▸ '+L3('주기 회수 실패: ','period retrieval failed: ','週期擷取失敗: ')+e.message,'warn'); }
+  }catch(e){ log('▸ '+t('period_retrieval_failed')+e.message,'warn'); }
   /* 6) 지진 Cs 재산정 (실주기 T₁ 피드백) */
   let fb=null;
   if(modal.T1 && sp.SDS>0){
@@ -1120,32 +1098,24 @@ async function actDynamic(opt={}){
   }
   renderModelState&&renderModelState();
   /* ── 보고 메시지 ── */
-  let msg=L3('🌀 동적해석 (고유치'+(ds?' + 응답스펙트럼':'')+')',
-             '🌀 Dynamic analysis (eigenvalue'+(ds?' + response spectrum':'')+')',
-             '🌀 動力分析 (特徵值'+(ds?' + 反應譜':'')+')');
+  let msg=t('dynTitle',ds);
   if(modal.T1){
-    msg+='<br>'+L3('1차 모드 주기','1st mode period','一次模態週期')+` <b>T₁=${modal.T1.toFixed(3)}s</b>`;
-    if(modal.modes.length>1) msg+=` · ${modal.modes.length} ${L3('모드','modes','模態')}`;
+    msg+='<br>'+t('1st_mode_period')+` <b>T₁=${modal.T1.toFixed(3)}s</b>`;
+    if(modal.modes.length>1) msg+=` · ${modal.modes.length} ${t('modes')}`;
   } else if(notAllowed){
-    msg+='<br>'+L3('⚠ 해석 실행이 거부됨 — 설정(질량·고유치·응답스펙트럼)은 정상 생성됨. 고유치는 Lanczos를 사용합니다.',
-                   '⚠ Analysis was refused — setup (mass·eigen·RS) created OK. Eigen uses Lanczos.',
-                   '⚠ 分析被拒 — 設定(質量·特徵值·反應譜)已建立。特徵值採 Lanczos。');
+    msg+='<br>'+t('analysis_was_refused_setup');
   } else {
-    msg+='<br>'+L3('✓ 해석 실행됨. 단, EIGENVALUEMODE 주기 테이블을 회수하지 못함 — 고유치 결과가 없거나 모델 미해석 상태일 수 있음(해석 후 재시도).',
-                   '✓ Analysis ran, but the EIGENVALUEMODE period table was not retrieved — no eigen results yet or model not analyzed (retry after analysis).',
-                   '✓ 分析已執行，但未擷取 EIGENVALUEMODE 週期表 — 可能尚無特徵值結果或模型未分析(分析後重試)。');
+    msg+='<br>'+t('analysis_ran_but_the_eigen');
   }
   if(fb){
-    msg+='<br>'+L3('지진 Cs 재산정 (경험식 Ta → 해석 T₁)','Seismic Cs update (empirical Ta → modal T₁)','地震 Cs 重算 (經驗式 Ta → 解析 T₁)');
+    msg+='<br>'+t('seismic_cs_update_empirica');
     if(fb.Ta) msg+=`<br>　Ta=${fb.Ta.toFixed(3)}s → T₁=${fb.Tdyn.toFixed(3)}s`;
     if(fb.CsOld!=null) msg+=` · Cs ${fb.CsOld.toFixed(3)}→<b>${fb.Cs.toFixed(3)}</b>`;
     if(fb.Vold!=null) msg+=` · V ${Math.round(fb.Vold)}→<b>${Math.round(fb.V)}</b>kN`;
   }
-  if(ds) msg+='<br>'+L3('설계스펙트럼','Design spectrum','設計反應譜')+` SDS=${ds.SDS} SD1=${ds.SD1} (T0=${ds.T0}s, Ts=${ds.Ts}s)`;
+  if(ds) msg+='<br>'+t('design_spectrum')+` SDS=${ds.SDS} SD1=${ds.SD1} (T0=${ds.T0}s, Ts=${ds.Ts}s)`;
   msg+=`<br><span style="color:var(--dim);font-size:.85em">`+
-    L3('질량=자중+(DL+활하중×'+liveF+'). 고유치 Subspace. 응답스펙트럼 CQC·전체모드. 대만 설계스펙트럼은 SDS/SD1 기반 ASCE-7 형상(규범 Cs식과 정합).',
-       'Mass=self-wt+(DL+live×'+liveF+'). Subspace eigen. RS=CQC, all modes. TW design spectrum is ASCE-7 shape from SDS/SD1 (consistent with code Cs).',
-       '質量=自重+(DL+活載×'+liveF+')。特徵值 Subspace。反應譜 CQC·全模態。臺灣設計反應譜採 SDS/SD1 之 ASCE-7 形狀(與規範 Cs 一致)。')+`</span>`;
+    t('dynNote',liveF)+`</span>`;
   return msg;
 }
 async function actAddBracing(building, floors){
@@ -1307,7 +1277,7 @@ function planSummary(p){
     t('ps_cb',p.colName,p.beamName)+
     (p.buildings>=2?t('ps_link',p.connectFloor,p.gap):'')+
     t('ps_mat',p.matName)+
-    `<div style="margin-top:7px;font-size:.8em;color:var(--cyan);line-height:1.5">▤ ${L3('표준층 구성','Floor make-up','標準層構成')}: ${floorCompoLine(p)}</div>`+
+    `<div style="margin-top:7px;font-size:.8em;color:var(--cyan);line-height:1.5">▤ ${t('floor_make_up')}: ${floorCompoLine(p)}</div>`+
     tip+`</div>`;
 }
 
@@ -1326,9 +1296,7 @@ function planEditor(p){
   const F=(k2,val,unit,text)=>`<div class="pe-f"><label>${PE[k2]}</label>`+
     `<div class="pe-in"><input type="${text?'text':'number'}" data-k="${k2}" value="${text?fmt(val):val}" onchange="previewFromEditor(this)">`+
     `${unit?`<span class="pe-u">${unit}</span>`:''}</div></div>`;
-  const spanHint = S.lang==='ko'?'스팬에 <b>3000,4000,3000</b> 처럼 콤마로 입력하면 跨마다 다른 간격이 됩니다 (跨數 자동 반영).'
-                 : S.lang==='en'?'Enter spans like <b>3000,4000,3000</b> for variable bays (bay count auto-syncs).'
-                 : '跨距可輸入 <b>3000,4000,3000</b> 等逗號值做不等跨（跨數自動同步）。';
+  const spanHint = t('spanHint');
   return `<div class="plan-editor">${head}`+
     `<div class="pe-grid">`+
       F('buildings',p.buildings)+
@@ -1344,7 +1312,7 @@ function planEditor(p){
     seismicEditorHTML(p)+
     windEditorHTML(p)+
     coreEditorHTML(p)+
-    `<div class="pe-tip">${L3('표준층 표에서 역할·층범위·층고·용도·다이어프램을 직접 편집 → 층수·높이가 표를 따름.','Edit role/range/height/use/diaphragm in the table → stories & heights follow the table.','於標準層表編輯 類型/範圍/層高/用途/剛性樓板 → 樓層數與高度依表為準。')}</div>`+
+    `<div class="pe-tip">${t('edit_role_range_height_use')}</div>`+
     `<div class="pe-tip" style="margin-top:4px">${spanHint}</div>`+
   `</div>`;
 }
@@ -1432,15 +1400,15 @@ function fgTableHTML(p){
   /* 표는 건물 입면처럼 위(지붕)→아래(지하) 순서로 표시 → reverse */
   const rows=specToGroupRows(p).slice().reverse().map(fgRow).join('');
   return `<div style="margin-top:14px">
-    <div style="font-size:.7rem;color:var(--amber);font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';letter-spacing:.5px;margin-bottom:6px">${L3('표준층 / 특수층 구성 (위=지붕 → 아래=지하)','Floor stack (top = roof → bottom = basement)','樓層堆疊（上=屋頂 → 下=地下）')}</div>
+    <div style="font-size:.7rem;color:var(--amber);font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';letter-spacing:.5px;margin-bottom:6px">${t('floor_stack_top_roof_botto')}</div>
     <table class="fgtable" style="width:100%"><thead><tr>
-      <th>${L3('역할','Role','類型')}</th><th>${L3('시작','From','起')}</th><th>${L3('끝','To','迄')}</th><th>${L3('층고','Ht','層高')}</th><th>${L3('용도','Use','用途')}</th><th>${L3('다이어프램','Diaph.','剛性樓板')}</th><th>${L3('추가/삭제','Add/Del','增/刪')}</th>
+      <th>${t('role')}</th><th>${t('from')}</th><th>${t('to')}</th><th>${t('ht')}</th><th>${t('use')}</th><th>${t('diaph')}</th><th>${t('add_del')}</th>
     </tr></thead><tbody>${rows}</tbody></table>
-    <div class="pe-tip">${L3('각 행의 ↑(위층) / ↓(아래층)로 그 위·아래에 층을 끼워 넣고, ×로 삭제. 번호는 자동 정렬됩니다.','Use ↑ (above) / ↓ (below) on a row to insert a floor there, × to delete. Numbers auto-renumber.','以各列的 ↑（上層）／↓（下層）於其上下插入樓層，× 刪除。編號自動重排。')}</div>
+    <div class="pe-tip">${t('use_above_below_on_a_row_t')}</div>
     <label style="display:flex;align-items:center;gap:7px;margin-top:8px;font-size:.82rem;cursor:pointer">
       <input type="checkbox" data-story="on" ${p.storyData===false?'':'checked'}>
-      <span>${L3('Story 정보 자동 생성 (db/STOR — 지반 1F + 층)','Auto-create Story data (db/STOR — G.L. 1F + floors)','自動建立樓層資料 (db/STOR)')}</span></label>
-    <div class="pe-tip" style="opacity:.75">${L3('표준층 표고로 Story Data 테이블을 채웁니다(다이어프램은 강성 다이어프램 rigd가 담당 — Story 표는 false로 두어 DOF 중복 방지). ※Story Manager(Module) 등록은 GUI Auto Generate 별도 — SSEIS/층중량 검증은 등록 후 동작.','Fills the Story Data table from typical-floor elevations (rigid diaphragm is handled by db/rigd — Story flag is false to avoid duplicate DOF). Note: Story Manager (Module) registration is a separate GUI step — SSEIS/weight checks need that.','以標準層高填入樓層資料表（剛性樓板由 rigd 處理）。Story Manager 登錄需 GUI Auto Generate。')}</div>
+      <span>${t('auto_create_story_data_db_')}</span></label>
+    <div class="pe-tip" style="opacity:.75">${t('fills_the_story_data_table')}</div>
   </div>`;
 }
 
@@ -1449,38 +1417,38 @@ function seismicEditorHTML(p){
   const s=p.seismic||{};
   const I0=(p.bldgType==='hospital'||p.bldgType==='school')?1.25:1.0;
   const zones=(typeof SEISMIC_ZONES!=='undefined')?SEISMIC_ZONES:[];
-  const opts=`<option value="">${L3('직접입력','Manual','直接輸入')}</option>`+
+  const opts=`<option value="">${t('manual')}</option>`+
     zones.map((z,i)=>`<option value="${i}">${z.city} ${z.dist} · SDS ${z.SDS}</option>`).join('');
   const sf=(k,lbl,val,unit)=>`<div class="pe-f"><label>${lbl}</label><div class="pe-in"><input data-s="${k}" type="number" step="any" value="${val}">${unit?`<span class="pe-u">${unit}</span>`:''}</div></div>`;
   return `<div style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;color:var(--cyan);font-weight:600">
-      <input type="checkbox" data-s="on" ${s.on?'checked':''} onchange="previewFromEditor(this)"> 🌐 ${L3('내진 等效靜力 적용 (TWD 耐震)','Apply equivalent-static seismic (TWD)','套用等效靜力地震 (TWD)')}</label>
+      <input type="checkbox" data-s="on" ${s.on?'checked':''} onchange="previewFromEditor(this)"> 🌐 ${t('apply_equivalent_static_se')}</label>
     <div class="pe-grid" style="margin-top:10px">
-      <div class="pe-f pe-full"><label>${L3('지역(工址) 프리셋','Site preset','工址預設')}</label><div class="pe-in">
+      <div class="pe-f pe-full"><label>${t('site_preset')}</label><div class="pe-in">
         <select data-s="region" onchange="fgSeisPreset(this)">${opts}</select></div></div>
       ${sf('SDS','SDS (Sas)', s.SDS!=null?s.SDS:0.6)}${sf('SD1','SD1 (Sa1)', s.SD1!=null?s.SD1:0.35)}
-      ${sf('T0',L3('T0 (盆地)','T0 (basin)','T0 (盆地)'), s.T0!=null?s.T0:'', 's')}${sf('I','I '+L3('用途','use','用途'), s.I!=null?s.I:I0)}
-      ${sf('R','R '+L3('系統','sys','系統'), s.R!=null?s.R:4.5)}${sf('w0',L3('자중 w0','dead w0','自重 w0'), s.w0!=null?s.w0:12,'kN/㎡')}
-      ${sf('liveRatio',L3('활하중비','live%','活載比'), s.liveRatio!=null?s.liveRatio:0.25)}${sf('Cs','Cs '+L3('(직접)','(ovr)','(直接)'), s.Cs!=null?s.Cs:'')}
-      ${sf('V',L3('V 직접','V direct','V 直接'), s.V!=null?s.V:'','kN')}
+      ${sf('T0',t('t0_basin'), s.T0!=null?s.T0:'', 's')}${sf('I','I '+t('use_2'), s.I!=null?s.I:I0)}
+      ${sf('R','R '+t('sys'), s.R!=null?s.R:4.5)}${sf('w0',t('dead_w0'), s.w0!=null?s.w0:12,'kN/㎡')}
+      ${sf('liveRatio',t('live'), s.liveRatio!=null?s.liveRatio:0.25)}${sf('Cs','Cs '+t('ovr'), s.Cs!=null?s.Cs:'')}
+      ${sf('V',t('v_direct'), s.V!=null?s.V:'','kN')}
     </div>
-    <div class="pe-tip"><a href="https://seaport.ncree.org/sederes/" target="_blank" rel="noopener" style="color:var(--cyan);font-weight:600">↗ Sederes</a> ${L3('에서 부지 SDS/SD1(또는 T0) 조회 후 입력. 盆地는 T0 입력 시 SD1 자동 환산.','— look up site SDS/SD1 (or T0). Basin: enter T0 → SD1 auto.','查詢工址 SDS/SD1（或 T0）後輸入。盆地輸入 T0 自動換算 SD1。')}</div>
+    <div class="pe-tip"><a href="https://seaport.ncree.org/sederes/" target="_blank" rel="noopener" style="color:var(--cyan);font-weight:600">↗ Sederes</a> ${t('look_up_site_sds_sd1_or_t0')}</div>
   </div>`;
 }
 /* M2-A2: 풍하중 입력(편집 카드, 간이 정적풍 + 직접입력) */
 function windEditorHTML(p){
   const w=p.wind||{};
   const wf=(k,lbl,val,unit)=>`<div class="pe-f"><label>${lbl}</label><div class="pe-in"><input data-w="${k}" type="number" step="any" value="${val}">${unit?`<span class="pe-u">${unit}</span>`:''}</div></div>`;
-  const exp=['A','B','C'].map(e=>`<option value="${e}"${(w.exposure||'B')===e?' selected':''}>${e} ${L3(e==='A'?'도심':e==='B'?'교외':'개활',e==='A'?'urban':e==='B'?'suburb':'open',e==='A'?'市區':e==='B'?'郊區':'開闊')}</option>`).join('');
+  const exp=['A','B','C'].map(e=>`<option value="${e}"${(w.exposure||'B')===e?' selected':''}>${e} ${t('expo',e)}</option>`).join('');
   return `<div style="margin-top:12px;border-top:1px dashed var(--border);padding-top:12px">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;color:var(--cyan);font-weight:600">
-      <input type="checkbox" data-w="on" ${w.on?'checked':''} onchange="previewFromEditor(this)"> 🌬 ${L3('풍하중 적용 (간이 정적풍)','Apply wind (simplified static)','套用風力 (簡化靜風)')}</label>
+      <input type="checkbox" data-w="on" ${w.on?'checked':''} onchange="previewFromEditor(this)"> 🌬 ${t('apply_wind_simplified_stat')}</label>
     <div class="pe-grid" style="margin-top:10px">
-      ${wf('V10',L3('기본풍속 V10','Wind V10','基本風速 V10'), w.V10!=null?w.V10:42.5,'m/s')}
-      <div class="pe-f"><label>${L3('地況','Exposure','地況')}</label><div class="pe-in"><select data-w="exposure" onchange="previewFromEditor(this)">${exp}</select></div></div>
-      ${wf('G',L3('陣風係數 G','Gust G','陣風 G'), w.G!=null?w.G:1.9)}${wf('Cf',L3('風力係數 Cf','Force Cf','風力 Cf'), w.Cf!=null?w.Cf:1.3)}
+      ${wf('V10',t('wind_v10'), w.V10!=null?w.V10:42.5,'m/s')}
+      <div class="pe-f"><label>${t('exposure')}</label><div class="pe-in"><select data-w="exposure" onchange="previewFromEditor(this)">${exp}</select></div></div>
+      ${wf('G',t('gust_g'), w.G!=null?w.G:1.9)}${wf('Cf',t('force_cf'), w.Cf!=null?w.Cf:1.3)}
     </div>
-    <div class="pe-tip">${L3('간이 모델(qz=0.613·Vz²). WX·WY 자동 생성 → cLCB4/6. 정밀 風力規範 계수는 조정.','Simplified (qz=0.613·Vz²). WX·WY auto → cLCB4/6. Tune per code.','簡化模型。自動 WX·WY → cLCB4/6。精確係數請調整。')}</div>
+    <div class="pe-tip">${t('simplified_qz_0_613_vz_wx_')}</div>
   </div>`;
 }
 /* M2-A3: 전단벽 중앙코어 토글(자동 배치). PLATE 4면, 전층. */
@@ -1488,11 +1456,11 @@ function coreEditorHTML(p){
   const c=p.core||{};
   return `<div style="margin-top:12px;border-top:1px dashed var(--border);padding-top:12px">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;color:var(--cyan);font-weight:600">
-      <input type="checkbox" data-c="on" ${c.on?'checked':''} onchange="previewFromEditor(this)"> 🧱 ${L3('전단벽 중앙코어 (자동)','Central shear-wall core (auto)','中央剪力牆核心 (自動)')}</label>
+      <input type="checkbox" data-c="on" ${c.on?'checked':''} onchange="previewFromEditor(this)"> 🧱 ${t('central_shear_wall_core_au')}</label>
     <div class="pe-grid" style="margin-top:10px">
-      <div class="pe-f"><label>${L3('벽 두께','Wall thick','牆厚')}</label><div class="pe-in"><input data-c="thick" type="number" step="any" value="${c.thick!=null?c.thick:250}"><span class="pe-u">mm</span></div></div>
+      <div class="pe-f"><label>${t('wall_thick')}</label><div class="pe-in"><input data-c="thick" type="number" step="any" value="${c.thick!=null?c.thick:250}"><span class="pe-u">mm</span></div></div>
     </div>
-    <div class="pe-tip">${L3('평면 중앙 1베이에 4면 전단벽(PLATE)을 전층 배치 → 횡강성↑. 그리드 정렬·기존 절점 재사용.','Places 4-sided PLATE shear walls in the central bay over full height. Grid-aligned, reuses frame nodes.','於平面中央跨佈置四面剪力牆(PLATE)，全高 → 提升側向剛度。對齊軸網、共用節點。')}</div>
+    <div class="pe-tip">${t('places_4_sided_plate_shear')}</div>
   </div>`;
 }
 /* 지역 프리셋 선택 → SDS/SD1/T0 자동 채움 */
@@ -1595,10 +1563,10 @@ async function confirmBuild(btn){
     const e=S.model.cols.length+S.model.beams.length+S.model.links.length;
     let msg=t('build_ok',p.buildings,p.stories,S.model.nodes.length,e);
     const sm=S.model.seismic;
-    if(sm) msg+=`<br><span style="color:var(--cyan)">🌐 ${L3('내진','Seismic','地震')}: V=${Math.round(sm.V)} kN · T=${sm.T.toFixed(2)}s · Cs=${sm.Cs.toFixed(3)} (EX·EY, cLCB5/7)</span>`;
+    if(sm) msg+=`<br><span style="color:var(--cyan)">🌐 ${t('seismic')}: V=${Math.round(sm.V)} kN · T=${sm.T.toFixed(2)}s · Cs=${sm.Cs.toFixed(3)} (EX·EY, cLCB5/7)</span>`;
     const wm=S.model.wind;
-    if(wm) msg+=`<br><span style="color:var(--cyan)">🌬 ${L3('풍하중','Wind','風力')}: Vx=${Math.round(wm.Vx)} · Vy=${Math.round(wm.Vy)} kN (WX·WY, cLCB4/6)</span>`;
-    if(S.model.walls&&S.model.walls.length) msg+=`<br><span style="color:var(--cyan)">🧱 ${L3('전단벽 코어','Shear-wall core','剪力牆核心')}: ${S.model.walls.length} ${L3('패널 (PLATE)','panels (PLATE)','面板 (PLATE)')}</span>`;
+    if(wm) msg+=`<br><span style="color:var(--cyan)">🌬 ${t('wind')}: Vx=${Math.round(wm.Vx)} · Vy=${Math.round(wm.Vy)} kN (WX·WY, cLCB4/6)</span>`;
+    if(S.model.walls&&S.model.walls.length) msg+=`<br><span style="color:var(--cyan)">🧱 ${t('shear_wall_core')}: ${S.model.walls.length} ${t('panels_plate')}</span>`;
     addMsg('bot',msg);
   }catch(e){ th.remove(); addMsg('bot',t('build_fail',e.message)); }
 }
@@ -1981,7 +1949,7 @@ function plot3D(f){
       if(ns.length<4) return;
       ns.slice(0,4).forEach(nd=>{ vx.push(nd.x); vy.push(nd.y); vz.push(nd.z); });
       ii.push(base,base); jj.push(base+1,base+2); kk.push(base+2,base+3); base+=4; });
-    if(base) traces.push({ type:'mesh3d', name:(S.lang==='ko'?'전단벽':S.lang==='en'?'Shear wall':'剪力牆'),
+    if(base) traces.push({ type:'mesh3d', name:(t('shear_wall')),
       x:vx,y:vy,z:vz,i:ii,j:jj,k:kk, color:'#9b8cff', opacity:0.32, flatshading:true, hoverinfo:'skip' }); }
 
   /* ── 5. Node markers — regular joints ── */
@@ -2005,7 +1973,7 @@ function plot3D(f){
   if(supNodes.length){
     _traceIdx.node.push(traces.length);
     traces.push({
-      type:'scatter3d', mode:'markers', name:(S.lang==='ko'?'지점':S.lang==='en'?'Support':'支承'),
+      type:'scatter3d', mode:'markers', name:(t('support')),
       x:supNodes.map(n=>n.x), y:supNodes.map(n=>n.y), z:supNodes.map(n=>n.z),
       visible: _vis3D.node ? true : false,
       text:supNodes.map(n=>`Fixed  N${n.id}  (${n.x.toFixed(0)}, ${n.y.toFixed(0)}, 0)`),
@@ -2271,11 +2239,10 @@ function toggleGuide(){
 function hint(tt){ const i=$('input'); i.value=tt; i.focus(); i.dispatchEvent(new Event('input')); }
 function quick(tt){ $('input').value=tt; onSend(); }
 
-function L3(k,e,z){return S.lang==='ko'?k:S.lang==='en'?e:z;}
+/* L3 제거: 인라인 다국어 → shared/i18n.js + t() 로 이관 (Phase1) */
 /* FG_ROLES · FG_USES → shared/rc_engine.js */
-const _li=()=>S.lang==='ko'?0:S.lang==='en'?1:2;
-function roleLbl(r){return ({TYPICAL:['표준층','Typical','標準層'],PODIUM:['기단부','Podium','裙樓'],TRANSFER:['전이층','Transfer','轉換層'],ROOF:['지붕','Roof','屋頂'],BASEMENT:['지하','Basement','地下室']}[r]||[r,r,r])[_li()];}
-function useLbl(u){return ({Residential:['주거','Residential','住宅'],Office:['사무','Office','辦公'],Commercial:['상업','Commercial','商業'],School:['학교','School','學校'],Hospital:['병원','Hospital','病房'],Equipment:['설비','Equipment','設備層'],Roof:['지붕','Roof','屋頂']}[u]||[u,u,u])[_li()];}
+function roleLbl(r){return t('role')[r]||r;}
+function useLbl(u){return t('use')[u]||u;}
 function fgRow(g){
   const rs=FG_ROLES.map(r=>`<option value="${r}"${r===g.role?' selected':''}>${roleLbl(r)}</option>`).join('');
   const us=FG_USES.map(u=>`<option value="${u}"${u===g.use?' selected':''}>${useLbl(u)}</option>`).join('');
@@ -2286,7 +2253,7 @@ function fgRow(g){
     <td><input class="fg-h" type="number" value="${g.h}" style="width:58px" onchange="fgChanged(this)"></td>
     <td><select class="fg-use" onchange="fgChanged(this)">${us}</select></td>
     <td style="text-align:center"><input class="fg-dia" type="checkbox" ${g.dia===false?'':'checked'} onchange="fgChanged(this)"></td>
-    <td style="white-space:nowrap"><button class="btn btn-ghost" style="padding:2px 6px" title="${L3('위층(높은 층) 추가','Insert above (higher)','上方插入（較高層）')}" onclick="fgInsert(this,'above')">↑</button><button class="btn btn-ghost" style="padding:2px 6px" title="${L3('아래층(낮은 층) 추가','Insert below (lower)','下方插入（較低層）')}" onclick="fgInsert(this,'below')">↓</button><button class="btn btn-ghost" style="padding:2px 6px" title="${L3('삭제','Delete','刪除')}" onclick="fgDel(this)">×</button></td></tr>`;
+    <td style="white-space:nowrap"><button class="btn btn-ghost" style="padding:2px 6px" title="${t('insert_above_higher')}" onclick="fgInsert(this,'above')">↑</button><button class="btn btn-ghost" style="padding:2px 6px" title="${t('insert_below_lower')}" onclick="fgInsert(this,'below')">↓</button><button class="btn btn-ghost" style="padding:2px 6px" title="${t('delete')}" onclick="fgDel(this)">×</button></td></tr>`;
 }
 /* 표준층 표 핸들러 — 대화형 편집 카드(.plan-editor) 전용.
    표는 위(지붕)→아래(지하) 순서. 시작/끝 번호는 아래(=1)부터 위로 자동 정렬. */
@@ -2367,10 +2334,7 @@ renderGuide(); renderModelState(); draw3D(); syncMode();
 addMsg('bot', t('welcome'));
 /* 엔진 로드 가드 — shared/rc_engine.js 미로드 시 침묵 실패 대신 명확히 안내 */
 if(typeof window.RCEngine==='undefined' || typeof buildFrame!=='function'){
-  addMsg('bot', '⚠ '+L3(
-    '공용 엔진(shared/rc_engine.js)이 로드되지 않았습니다. ① 이 HTML과 같은 위치에 shared/rc_engine.js 폴더·파일이 있는지 확인하고 ② 브라우저를 강력 새로고침(Ctrl+Shift+R) 하세요. (단독 HTML만 열면 동작하지 않습니다.)',
-    'The shared engine (shared/rc_engine.js) failed to load. Ensure shared/rc_engine.js sits next to this HTML, and hard-refresh (Ctrl+Shift+R). Opening the HTML alone will not work.',
-    '共用引擎 (shared/rc_engine.js) 未載入。請確認 shared/rc_engine.js 與此 HTML 同層，並強制重新整理 (Ctrl+Shift+R)。'));
+  addMsg('bot', '⚠ '+t('the_shared_engine_shared_r'));
 }
 </script>
 </body>
