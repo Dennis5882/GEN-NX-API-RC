@@ -337,7 +337,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v1.2.1</span><small data-i18n="subtitle">對話式結構建模</small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v1.2.1 (<span data-i18n="updated">更新日</span> : 2026-06-27)</span><small data-i18n="subtitle">對話式結構建模</small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <button data-l="ko" onclick="setLang('ko')">한국어</button>
@@ -487,7 +487,7 @@ const S = {
 ════════════════════════════════════════════════════════════ */
 const I18N = {
   ko:{
-    subtitle:'대화형 구조 모델링', dev:'개발자',
+    subtitle:'대화형 구조 모델링', dev:'개발자', updated:'업데이트일',
     conn_unlinked:'미연결', conn_linked:'Gen NX 연결됨', conn_failed:'연결 실패',
     guide_title:'⌘ 명령 가이드', guide_close:'가이드 닫기', guide_open:'가이드 열기', guide_open_txt:'가이드',
     mode:'MODE', mode_local:'LOCAL · 규칙기반', mode_nokey:'키 없음→LOCAL', brain:' 두뇌',
@@ -555,7 +555,7 @@ const I18N = {
     llm_err:(p,m)=>`⚠ LLM 오류 (${p}): ${m}<br><span style="color:var(--muted);font-size:.8rem">키/모델명/CORS 문제일 수 있어요. F12 콘솔을 확인하거나 ⚙에서 LOCAL 모드로 전환하세요.</span>`
   },
   en:{
-    subtitle:'Conversational Structural Modeling', dev:'Developer',
+    subtitle:'Conversational Structural Modeling', dev:'Developer', updated:'Updated',
     conn_unlinked:'Not connected', conn_linked:'Gen NX connected', conn_failed:'Connection failed',
     guide_title:'⌘ Command Guide', guide_close:'Collapse guide', guide_open:'Expand guide', guide_open_txt:'Guide',
     mode:'MODE', mode_local:'LOCAL · rule-based', mode_nokey:'no key→LOCAL', brain:' brain',
@@ -623,7 +623,7 @@ const I18N = {
     llm_err:(p,m)=>`⚠ LLM error (${p}): ${m}<br><span style="color:var(--muted);font-size:.8rem">May be a key/model/CORS issue. Check the F12 console or switch to LOCAL mode in ⚙.</span>`
   },
   zh:{
-    subtitle:'對話式結構建模', dev:'開發者',
+    subtitle:'對話式結構建模', dev:'開發者', updated:'更新日',
     conn_unlinked:'未連線', conn_linked:'Gen NX 已連線', conn_failed:'連線失敗',
     guide_title:'⌘ 指令導引', guide_close:'收合導引', guide_open:'展開導引', guide_open_txt:'導引',
     mode:'MODE', mode_local:'本地 · 規則式', mode_nokey:'無金鑰→本地', brain:' 大腦',
