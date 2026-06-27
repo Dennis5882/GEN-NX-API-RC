@@ -1388,10 +1388,29 @@ function buildLLMRequest(provider, model, key){
       contents.push({role:'model',parts});
     } else contents.push({role:'user',parts:t.results.map(r=>({functionResponse:{name:r.name,response:{result:r.output}}}))});
   });
+  // Gemini requires type to be a single string (OpenAPI 3.0), not an array
+  function gSchema(s){
+    if(!s||typeof s!=='object') return s;
+    const r={};
+    for(const k of Object.keys(s)){
+      if(k==='type'&&Array.isArray(s[k])){
+        r.type=s[k].includes('array')?'array':s[k][0];
+      } else if(k==='items'){
+        r.items=gSchema(s[k]);
+      } else if(k==='properties'){
+        r.properties=Object.fromEntries(Object.entries(s[k]).map(([pk,pv])=>[pk,gSchema(pv)]));
+      } else {
+        r[k]=s[k];
+      }
+    }
+    // items only valid on array type
+    if(r.items&&r.type!=='array') delete r.items;
+    return r;
+  }
   return { url:`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
     headers:{'Content-Type':'application/json'},
     body:{ systemInstruction:{parts:[{text:SYSTEM}]},
-      tools:[{functionDeclarations:TOOLS.map(t=>({name:t.name,description:t.description,parameters:t.input_schema}))}],
+      tools:[{functionDeclarations:TOOLS.map(t=>({name:t.name,description:t.description,parameters:gSchema(t.input_schema)}))}],
       contents } };
 }
 
