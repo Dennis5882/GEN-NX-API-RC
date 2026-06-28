@@ -45,7 +45,7 @@ function deriveFloorGroups(p){
   const u=useOf(p);
   for(let iz=1;iz<=p.stories;iz++) g[iz]={role:'TYPICAL',use:u};
   if(p.podium) for(let iz=1;iz<=Math.min(p.podium,p.stories);iz++) g[iz]={role:'PODIUM',use:p.podiumUse||'Commercial'};
-  if(p.stories>=2) g[p.stories]={role:'ROOF',use:'Roof'};
+  if(p.stories>=1) g[p.stories]={role:'ROOF',use:'Roof'};
   return g;
 }
 /* 표준층 표 행: 연속 동일 그룹을 from~to 범위로 압축 */
@@ -170,7 +170,7 @@ function taiwanCombos(loadCases){
 const DEFAULT_SPEC={
   buildings:2, bayX:4, bayY:2, spanX:7000, spanY:8000, stories:10, h1:3600, hTyp:2900,
   gap:12000, connectFloor:8,
-  matName:'C280', E:7100, poisn:0.18, den:2.4e-9,
+  matName:'C280', E:24990, poisn:0.18, den:2.4e-9,
   colName:'C600x600', colH:600, colB:600,
   beamName:'B400x600', beamH:600, beamB:400
 };
@@ -184,7 +184,7 @@ const BUILDING_TYPES = {
     buildings:1, bayX:4, bayY:3, spanX:6500, spanY:7000,
     stories:15, h1:2900, hTyp:2800, gap:14000, connectFloor:0,
     podium:1, podiumUse:'Commercial',
-    matName:'C280', E:8700, poisn:0.18, den:2.4e-9,
+    matName:'C280', E:24990, poisn:0.18, den:2.4e-9,
     colName:'C500x500', colH:500, colB:500, beamName:'B300x500', beamH:500, beamB:300
   },
   office:{
@@ -195,7 +195,7 @@ const BUILDING_TYPES = {
     buildings:1, bayX:4, bayY:3, spanX:9000, spanY:9000,
     stories:10, h1:4500, hTyp:4000, gap:0, connectFloor:0,
     podium:1, podiumUse:'Commercial',
-    matName:'C350', E:8700, poisn:0.18, den:2.4e-9,
+    matName:'C350', E:27940, poisn:0.18, den:2.4e-9,
     colName:'C600x600', colH:600, colB:600, beamName:'B350x700', beamH:700, beamB:350
   },
   commercial:{
@@ -206,7 +206,7 @@ const BUILDING_TYPES = {
     buildings:1, bayX:5, bayY:4, spanX:9000, spanY:9000,
     stories:6, h1:5000, hTyp:4500, gap:0, connectFloor:0,
     podium:1, podiumUse:'Commercial',
-    matName:'C350', E:8700, poisn:0.18, den:2.4e-9,
+    matName:'C350', E:27940, poisn:0.18, den:2.4e-9,
     colName:'C700x700', colH:700, colB:700, beamName:'B400x750', beamH:750, beamB:400
   },
   hospital:{
@@ -217,7 +217,7 @@ const BUILDING_TYPES = {
     buildings:1, bayX:4, bayY:4, spanX:8500, spanY:8500,
     stories:8, h1:4500, hTyp:4200, gap:0, connectFloor:0,
     podium:1, podiumUse:'Commercial',
-    matName:'C350', E:9600, poisn:0.18, den:2.4e-9,
+    matName:'C350', E:27940, poisn:0.18, den:2.4e-9,
     colName:'C700x700', colH:700, colB:700, beamName:'B400x700', beamH:700, beamB:400
   },
   school:{
@@ -228,7 +228,7 @@ const BUILDING_TYPES = {
     buildings:1, bayX:6, bayY:2, spanX:7200, spanY:8400,
     stories:5, h1:3800, hTyp:3600, gap:0, connectFloor:0,
     podium:1, podiumUse:'Office',
-    matName:'C280', E:7100, poisn:0.18, den:2.4e-9,
+    matName:'C280', E:24990, poisn:0.18, den:2.4e-9,
     colName:'C550x550', colH:550, colB:550, beamName:'B350x550', beamH:550, beamB:350
   }
 };
@@ -395,7 +395,7 @@ function sseisSelfProfile(forces, ecc){
 function swindSelfPressures(forces, regStories){
   const lv=(regStories||[]).map(s=>+s.level||0).filter(x=>isFinite(x)).sort((a,b)=>a-b);
   const widthByName={}; (regStories||[]).forEach(s=>{ widthByName[String(s.name)]=+s.width||0; });
-  const tribH=L=>{ const i=lv.indexOf(L); if(i<0) return 0;
+  const tribH=L=>{ const i=lv.findIndex(v=>Math.abs(v-L)<0.5); if(i<0) return 0;
     const up=(i<lv.length-1)?(lv[i+1]-L)/2:0, dn=(i>0)?(L-lv[i-1])/2:0; return up+dn; };
   const press=[], skipped=[];
   (forces||[]).forEach(f=>{ const L=+f.h||0, w=widthByName[String(f.name)]||0, th=tribH(L);
@@ -580,9 +580,9 @@ function detectTypicalFloors(nodes, elems){
 const KGFCM2_TO_MPA=0.0980665;
 function fcMPa(matName){ const g=_CNS_CONC.includes(matName)?matName:(_MPA2CNS[matName]||'C280'); return (+g.slice(1))*KGFCM2_TO_MPA; }
 const REBAR_FY={SD280:280,SD420:420,SD490:490};                 // MPa(공칭)
-const BAR_AREA={D13:127,D16:199,D19:287,D22:387,D25:507,D29:642,D32:794};  // mm²(대만 D호칭)
+const BAR_AREA={D10:113,D13:127,D16:199,D19:287,D22:387,D25:507,D29:642,D32:794};  // mm²(대만 D호칭, D10≈#3)
 const DEFAULT_REBAR={fy:420,fyt:280,cover:40};                  // SD420 주근 / SD280 스터럽 / 피복 40mm
-function beamEffDepth(h,cover){ return h-(cover||40)-10-13; }   // 스터럽 D10 + 주근반경(~D25)
+function beamEffDepth(h,cover){ return h-(cover||40)-10-16; }   // 스터럽 D10 + 주근반경(D32 보수적)
 /* 휨 주철근 As(mm²): Mu(N·mm), φ=0.9, 단철근. 한계 초과 시 NaN(복철근/증대 필요) */
 function flexAs(Mu,b,d,fc,fy){
   if(!(Mu>0)) return 0;
@@ -616,9 +616,9 @@ function rcBeamDesign(demand,geom,mat){
   const rawBot=flexAs(demand.MuPos||0,b,d,fc,fy), rawTop=flexAs(demand.MuNeg||0,b,d,fc,fy);
   const over=(isNaN(rawBot)||isNaN(rawTop)||rawBot>asMax||rawTop>asMax);
   const asBot=Math.max(isNaN(rawBot)?asMax:rawBot,asMin), asTop=Math.max(isNaN(rawTop)?asMax:rawTop,asMin);
-  const Av=2*BAR_AREA.D13||2*127, sh=stirrupSpacing(demand.Vu||0,b,d,fc,fyt,2*113);  // 2-leg D10(≈113)
+  const sh=stirrupSpacing(demand.Vu||0,b,d,fc,fyt,2*BAR_AREA.D10);  // 2-leg D10
   return {b,h,d,asMin,asMax, asTop,asBot, barsTop:pickBars(asTop), barsBot:pickBars(asBot),
-          stirrup:{dia:'D10',leg:2,Av:226,s:Math.max(50,Math.floor(sh.s/10)*10),note:sh.note}, over};
+          stirrup:{dia:'D10',leg:2,Av:2*BAR_AREA.D10,s:Math.max(50,Math.floor(sh.s/10)*10),note:sh.note}, over};
 }
 
 /* ── 기둥 P-M 배근 (TWD-USD112, 변형률적합 + 사각형 응력블록) ──
@@ -630,7 +630,7 @@ const ES_STEEL=200000, ECU=0.003;
 /* 주근 nBars개를 단면 둘레에 균등 배치 → 굽힘축 깊이별 철근층 [{di,A}].
    axis 'x'=강축(깊이 h), 'y'=약축(깊이 b). di=압축연단부터의 깊이(mm). 모서리근 포함. */
 function colLayers(As,nBars,b,h,cover,axis){
-  const dp=(cover||40)+10+13;                        // 피복+띠철근(D10)+주근반경(≈D25/2)
+  const dp=(cover||40)+10+16;                        // 피복+띠철근(D10)+주근반경(D32 보수적)
   const depth=(axis==='y')?b:h, width=(axis==='y')?h:b;
   const Hc=Math.max(1,depth-2*dp), Wc=Math.max(1,width-2*dp);  // 주근 중심 둘레사각형
   const peri=2*(Hc+Wc), Abar=As/nBars, step=peri/nBars, acc=new Map();
@@ -650,6 +650,8 @@ function colPMcurve(layers,widthC,depth,fc,fy,Ast){
   const Po=0.85*fc*(widthC*depth-Ast)+fy*Ast;        // 순축 공칭(콘크리트 점유 공제)
   const phiPnMax=0.80*0.65*Po;                        // ACI 318/TWD 띠철근 압축 평탄캡
   let balanced=null, prevEtl=null;
+  /* 순인장 앵커(c→0): φPt = −0.9·fy·Ast, M=0 */
+  pts.push({P:-0.9*fy*Ast, M:0});
   for(let c=0.03*depth;c<=3*depth;c*=1.04){
     const a=Math.min(b1*c,depth), Cc=0.85*fc*widthC*a; let Ps=0,Ms=0,etl=0,dmax=0;
     layers.forEach(L=>{ const es=ECU*(c-L.di)/c; let fs=Math.max(-fy,Math.min(fy,ES_STEEL*es));
@@ -706,7 +708,8 @@ function rcColumnDesign(demand,geom,mat){
   let U=(Mux>0&&MnX<=0)||(Muy>0&&MnY<=0)?9
         :(MnX>0?Math.pow(Mux/MnX,A):0)+(MnY>0?Math.pow(Muy/MnY,A):0);
   const axialCap=fx.phiPnMax, over=!ok||U>1.0||Pu>axialCap;
-  const tieS=Math.min(16*22,48*10,Math.min(b,h));      // min(16db_long, 48db_tie, 최소변)
+  const dbLong=+(bars.dia.slice(1));                     // 실 주근 직경(mm)
+  const tieS=Math.min(16*dbLong,48*10,Math.min(b,h));   // min(16db_long, 48db_tie, 최소변)
   return {b,h,rho,As:bars.As,bars,tie:{dia:'D10',s:Math.floor(tieS/10)*10},
           over,Pu,Mux,Muy,util:+U.toFixed(3),
           pm:{x:fx.pts,y:fy_.pts,Po:+fx.Po.toFixed(0),phiPnMax:+axialCap.toFixed(0),

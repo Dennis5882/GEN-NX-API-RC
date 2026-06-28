@@ -190,7 +190,7 @@ function tl(key,...args){ const d=LOGS[S.lang]||LOGS.en; let v=d[key]; if(v===un
 ════════════════════════════════════════════════════════════ */
 const $=id=>document.getElementById(id);
 function tab(id){ document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('on'));
   $(id).classList.add('on'); document.querySelector(`.tab[data-p="${id}"]`).classList.add('on'); }
 function openMapi(){ $('scrim').classList.add('on'); $('drawerMapi').classList.add('on'); }
 function openLlm(){ $('scrim').classList.add('on'); $('drawerLlm').classList.add('on'); }
@@ -201,7 +201,8 @@ function nowTs(){ const d=new Date(); return d.toTimeString().slice(0,8); }
 function log(msg,type='api'){
   const box=$('log'); const e=box.querySelector('.empty'); if(e)e.remove();
   const ln=document.createElement('div'); ln.className='ln '+type;
-  ln.innerHTML=`<span class="ts">${nowTs()}</span><span class="m">${msg}</span>`;
+  const safe=type==='err'?escapeHtml(msg):msg;
+  ln.innerHTML=`<span class="ts">${nowTs()}</span><span class="m">${safe}</span>`;
   box.appendChild(ln); box.parentElement.scrollTop=box.parentElement.scrollHeight;
 }
 function addMsg(role,html){
@@ -330,7 +331,7 @@ async function applyFloorLoads(p,f){
   const uses=[...new Set(Object.values(groups).map(g=>g.use))];
   if(!uses.length||!f.floorCorners) return;
   S.model.floorGroups=groups;
-  let no=2; const lcTypeMap={LL:'L',LR:'LR'};
+  let no=S.model.nextLC||2; const lcTypeMap={LL:'L',LR:'LR'};
   const liveNeeded=[...new Set(uses.map(u=>FLOOR_USE[u].live))];
   for(const lc of liveNeeded){
     await putLoadCase(no,lc,lcTypeMap[lc]||'L'); S.model.loadCases.push({name:lc,type:lcTypeMap[lc]||'L'}); no++;
@@ -390,7 +391,7 @@ async function actBuildFrame(p, clear=true){
     f.walls.forEach(w=>{ const id=++eid; wa[id]={TYPE:'PLATE',MATL:1,SECT:thmap[w.thick],NODE:w.nodes,STYPE:1,ANGLE:0};
       recs.push({id,type:'wall',sect:thmap[w.thick],b:w.building,iz:w.story,nodes:w.nodes}); });
     await mapi('PUT','elem',{Assign:wa});
-    log('▸ '+(t('shear_wall_core'))+' <b>'+f.walls.length+'</b> ('+f.wallThks.map(t=>t+'mm').join(', ')+')','ok');
+    log('▸ '+(t('shear_wall_core'))+' <b>'+f.walls.length+'</b> ('+f.wallThks.map(tk=>tk+'mm').join(', ')+')','ok');
   }
   await putBoundary(f.baseNodes,'1111110');
   await putLoadCase(1,'DL','D');
@@ -869,7 +870,7 @@ async function actAnalyze(){
 /* 건물유형 필드의 현재 언어 값 */
 function bt(typeKey, field){ const o=BUILDING_TYPES[typeKey][field]; return (o&&typeof o==='object')?(o[S.lang]!==undefined?o[S.lang]:o.en):o; }
 
-function num(re,txt){ const m=txt.match(re); return m?parseFloat(m[1].replace(/,/g,'')):null; }
+function num(re,txt){ const m=txt.match(re); if(!m) return null; const v=m.slice(1).find(g=>g!=null); return v!=null?parseFloat(v.replace(/,/g,'')):null; }
 
 /* 층 인식 — 한국어(층) / 中文(樓·層) / English(floor·story·F) */
 function _range(a,b){ const r=[]; for(let i=Math.min(a,b);i<=Math.max(a,b);i++)r.push(i); return r; }
@@ -1232,20 +1233,21 @@ function editThisSpec(btn){
 /* ════════════════════════════════════════════════════════════
    AGENT DISPATCH (LOCAL)
 ════════════════════════════════════════════════════════════ */
-let pendingBuild=null;
+let pendingBuild=null, pendingBuildId=0;
 
 async function handleLocal(txt){
   const cmd=parseCommand(txt);
   if(cmd.intent==='build'){
-    pendingBuild=cmd.params;
+    pendingBuild=cmd.params; pendingBuildId++;
+    const _bid=pendingBuildId;
     const isCustom = !cmd.params.bldgType;   // 건물유형 → 설명카드; 자유골조 → 편집카드
     if(isCustom){
       addMsg('bot',`${t('plan_intro_custom')}${planEditor(cmd.params)}`+
-        `<div class="confirm-row"><button class="btn btn-c" onclick="confirmBuild(this)">${t('exec')}</button>`+
+        `<div class="confirm-row"><button class="btn btn-c" data-bid="${_bid}" onclick="confirmBuild(this)">${t('exec')}</button>`+
         `<button class="btn btn-ghost" onclick="this.closest('.confirm-row').remove()">${t('cancel')}</button></div>`);
     } else {
       addMsg('bot',`${t('plan_intro_tpl')}${planSummary(cmd.params)}`+
-        `<div class="confirm-row"><button class="btn btn-c" onclick="confirmBuild(this)">${t('exec')}</button>`+
+        `<div class="confirm-row"><button class="btn btn-c" data-bid="${_bid}" onclick="confirmBuild(this)">${t('exec')}</button>`+
         `<button class="btn btn-ghost" onclick="editThisSpec(this)">${t('edit_btn')}</button>`+
         `<button class="btn btn-ghost" onclick="this.closest('.confirm-row').remove()">${t('cancel')}</button></div>`);
     }
@@ -1329,9 +1331,9 @@ async function handleLocal(txt){
   if(cmd.intent==='change_spec'){
     if(!S.model.spec){ addMsg('bot',t('e_nomodel_edit')); return; }
     const p={...S.model.spec,[cmd.field]:cmd.value};
-    pendingBuild=p;
+    pendingBuild=p; pendingBuildId++;
     addMsg('bot',`${t('plan_intro_tpl')}${planSummary(p)}`+
-      `<div class="confirm-row"><button class="btn btn-c" onclick="confirmBuild(this)">${t('exec')}</button>`+
+      `<div class="confirm-row"><button class="btn btn-c" data-bid="${pendingBuildId}" onclick="confirmBuild(this)">${t('exec')}</button>`+
       `<button class="btn btn-ghost" onclick="editThisSpec(this)">${t('edit_btn')}</button>`+
       `<button class="btn btn-ghost" onclick="this.closest('.confirm-row').remove()">${t('cancel')}</button></div>`);
     tab('viewP'); previewSpec(p); return;
@@ -1344,6 +1346,8 @@ async function confirmBuild(btn){
   // 執行前先讀取編輯卡的最新數值
   let p=pendingBuild;
   if(btn){
+    const bid=btn.dataset.bid;
+    if(bid && +bid!==pendingBuildId){ return; }   // stale build card
     const card=btn.closest('.bubble');
     const editor=card&&card.querySelector('.plan-editor');
     if(editor) p=readPlanEditor(editor);
@@ -1437,7 +1441,7 @@ async function callTool(name,inp){
   if(name==='build_frame'){
     const _base = inp.bldgType && BUILDING_TYPES[inp.bldgType] ? {...BUILDING_TYPES[inp.bldgType], bldgType:inp.bldgType} : {...DEFAULT_SPEC};
     const p={..._base,...inp};
-    if(inp.colH||inp.colB){p.colName=`C${p.colH||p.colH}x${p.colB||p.colB}`;p.colH=inp.colH||p.colH;p.colB=inp.colB||p.colB;}
+    if(inp.colH||inp.colB){p.colH=inp.colH||p.colH;p.colB=inp.colB||p.colB;p.colName=`C${p.colH}x${p.colB}`;}
     if(inp.beamH||inp.beamB){p.beamH=inp.beamH||p.beamH;p.beamB=inp.beamB||p.beamB;p.beamName=`B${p.beamB}x${p.beamH}`;}
     if(inp.connectFloor===0)p.connectFloor=0;
     // 가변 스팬(배열)이면 跨數 동기화
@@ -2067,8 +2071,8 @@ function quick(tt){ $('input').value=tt; onSend(); }
 
 /* L3 제거: 인라인 다국어 → shared/i18n.js + t() 로 이관 (Phase1) */
 /* FG_ROLES · FG_USES → shared/rc_engine.js */
-function roleLbl(r){return t('role')[r]||r;}
-function useLbl(u){return t('use')[u]||u;}
+function roleLbl(r){return t('roles')[r]||r;}
+function useLbl(u){return t('uses')[u]||u;}
 function fgRow(g){
   const rs=FG_ROLES.map(r=>`<option value="${r}"${r===g.role?' selected':''}>${roleLbl(r)}</option>`).join('');
   const us=FG_USES.map(u=>`<option value="${u}"${u===g.use?' selected':''}>${useLbl(u)}</option>`).join('');
