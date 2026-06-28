@@ -17,7 +17,7 @@
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev"></span> <b>Dennis</b> · v1.2.1 (<span data-i18n="updated"></span> : 2026-06-28)</span><small data-i18n="subtitle"></small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev"></span> <b>Dennis</b> · v1.2.1 (<span data-i18n="updated"></span> : 2026-06-29)</span><small data-i18n="subtitle"></small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <select id="langSelect" onchange="setLang(this.value)" aria-label="Language">
@@ -262,12 +262,29 @@ async function putSection(id,name,H,B){
     USE_SHEAR_DEFORM:true,USE_WARPING_EFFECT:false}}}});
   log(tl('sect',name,H,B),'ok');
 }
+/* 다중 단면·재료 일괄 등록 — id = 배열 index+1 (specSections 레지스트리와 일치) */
+async function putMaterials(mats){
+  const a={};
+  mats.forEach((name,i)=>{ const shown=_MPA2CNS[name]||(_CNS_CONC.includes(name)?name:'C280');
+    a[i+1]={TYPE:'CONC',NAME:shown,DAMP_RAT:0.05,PARAM:[{P_TYPE:1,STANDARD:'CNS560(RC)',DB:shown}]}; });
+  await mapi('PUT','matl',{Assign:a});
+  S.model.matl=a[1]?a[1].NAME:'-';
+  log('▸ '+(t('material'))+' <b>'+mats.length+'</b> ('+Object.values(a).map(m=>m.NAME).join(', ')+')','ok');
+}
+async function putSections(sects){
+  const a={};
+  sects.forEach((s,i)=>{ a[i+1]={SECTTYPE:'DBUSER',SECT_NAME:s.name,
+    SECT_BEFORE:{SHAPE:'SB',DATATYPE:2,SECT_I:{vSIZE:[s.H,s.B,0,0,0,0,0]},
+    USE_SHEAR_DEFORM:true,USE_WARPING_EFFECT:false}}; });
+  await mapi('PUT','sect',{Assign:a});
+  sects.forEach(s=>log(tl('sect',s.name,s.H,s.B),'ok'));
+}
 async function putNodes(nodes){
   const a={}; nodes.forEach(n=>a[n.id]={X:+n.x.toFixed(4),Y:+n.y.toFixed(4),Z:+n.z.toFixed(4)});
   await mapi('PUT','node',{Assign:a}); log(tl('node',nodes.length),'ok');
 }
 async function putElements(elems){
-  const a={}; elems.forEach(e=>a[e.id]={TYPE:'BEAM',MATL:1,SECT:e.sect,NODE:[e.n1,e.n2],ANGLE:0,STYPE:0});
+  const a={}; elems.forEach(e=>a[e.id]={TYPE:'BEAM',MATL:e.matl||1,SECT:e.sect,NODE:[e.n1,e.n2],ANGLE:0,STYPE:0});
   await mapi('PUT','elem',{Assign:a}); log(tl('elem',elems.length),'ok');
 }
 async function putBoundary(nodeIds,constraint){
@@ -370,17 +387,21 @@ async function actBuildFrame(p, clear=true){
   const f=buildFrame(p);
   if(clear) await clearModel();              // doc/new가 단위를 리셋하므로 setUnit은 그 다음
   await setUnit('N','MM');
-  await putMaterial(p.matName);
-  await putSection(1, p.colName, p.colH, p.colB);
-  await putSection(2, p.beamName, p.beamH, p.beamB);
+  const R=specSections(p);                       // 다중 단면·재료 레지스트리 + 층별 배정
+  await putMaterials(R.mats);
+  await putSections(R.sections);
   await putNodes(f.nodes);
+  const asg=(iz)=>R.storyAssign[iz]||R.def;
   let eid=0; const elems=[]; const recs=[];
-  f.colMeta.forEach(c=>{ const id=++eid; elems.push({id,n1:c.n1,n2:c.n2,sect:1});
-    recs.push({id,type:'col',sect:1,b:c.b,iz:c.iz,n1:c.n1,n2:c.n2}); });
-  f.beamMeta.forEach(c=>{ const id=++eid; elems.push({id,n1:c.n1,n2:c.n2,sect:2});
-    recs.push({id,type:'beam',sect:2,b:c.b,iz:c.iz,n1:c.n1,n2:c.n2}); });
-  f.linkMeta.forEach(c=>{ const id=++eid; elems.push({id,n1:c.n1,n2:c.n2,sect:2});
-    recs.push({id,type:'link',sect:2,b:-1,iz:c.iz,n1:c.n1,n2:c.n2}); });
+  f.colMeta.forEach(c=>{ const a=asg(c.iz); const id=++eid;
+    elems.push({id,n1:c.n1,n2:c.n2,sect:a.colSect,matl:a.mat});
+    recs.push({id,type:'col',sect:a.colSect,matl:a.mat,b:c.b,iz:c.iz,n1:c.n1,n2:c.n2}); });
+  f.beamMeta.forEach(c=>{ const a=asg(c.iz); const id=++eid;
+    elems.push({id,n1:c.n1,n2:c.n2,sect:a.beamSect,matl:a.mat});
+    recs.push({id,type:'beam',sect:a.beamSect,matl:a.mat,b:c.b,iz:c.iz,n1:c.n1,n2:c.n2}); });
+  f.linkMeta.forEach(c=>{ const a=asg(c.iz); const id=++eid;
+    elems.push({id,n1:c.n1,n2:c.n2,sect:a.beamSect,matl:a.mat});
+    recs.push({id,type:'link',sect:a.beamSect,matl:a.mat,b:-1,iz:c.iz,n1:c.n1,n2:c.n2}); });
   await putElements(elems);
   /* M2-A3: 전단벽/코어 (PLATE). 두께별 THIK 생성 → SECT 가 thik id 참조. (라이브 검증된 스키마) */
   if(f.walls && f.walls.length){
@@ -388,8 +409,8 @@ async function actBuildFrame(p, clear=true){
     f.wallThks.forEach((tk,i)=>{ thmap[tk]=i+1; thA[i+1]={NAME:'W'+tk,TYPE:'VALUE',bINOUT:false,T_IN:tk,T_OUT:0,O_VALUE:0}; });
     await mapi('PUT','thik',{Assign:thA});
     const wa={};
-    f.walls.forEach(w=>{ const id=++eid; wa[id]={TYPE:'PLATE',MATL:1,SECT:thmap[w.thick],NODE:w.nodes,STYPE:1,ANGLE:0};
-      recs.push({id,type:'wall',sect:thmap[w.thick],b:w.building,iz:w.story,nodes:w.nodes}); });
+    f.walls.forEach(w=>{ const id=++eid; const a=asg(w.story); wa[id]={TYPE:'PLATE',MATL:a.mat,SECT:thmap[w.thick],NODE:w.nodes,STYPE:1,ANGLE:0};
+      recs.push({id,type:'wall',sect:thmap[w.thick],matl:a.mat,b:w.building,iz:w.story,nodes:w.nodes}); });
     await mapi('PUT','elem',{Assign:wa});
     log('▸ '+(t('shear_wall_core'))+' <b>'+f.walls.length+'</b> ('+f.wallThks.map(tk=>tk+'mm').join(', ')+')','ok');
   }
@@ -410,10 +431,11 @@ async function actBuildFrame(p, clear=true){
      ope/STOR(putStoryCalc)는 해석 후 actAnalyze에서 호출(해석 전 호출 시 [SS] no-result 알림 발생). */
   if(p.storyData!==false){ try{ await putStoryData(p, f); }catch(e){
     log('⚠ '+(t('story_data_skipped'))+(e.message||e),'err'); } }
+  const secMap={}; R.sections.forEach((s,i)=>secMap[i+1]={name:s.name,H:s.H,B:s.B});
   Object.assign(S.model,{spec:p, colSect:p.colName, beamSect:p.beamName,
     nodes:f.nodes, cols:f.cols, beams:f.beams, links:f.links, walls:f.walls||[],
-    elemRecs:recs, nextEid:eid+1, nextSect:3, nextLC:2,
-    sections:{1:{name:p.colName,H:p.colH,B:p.colB},2:{name:p.beamName,H:p.beamH,B:p.beamB}},
+    elemRecs:recs, nextEid:eid+1, nextSect:R.sections.length+1, nextMat:R.mats.length+1, nextLC:2,
+    sections:secMap, secReg:R, materials:R.mats.slice(),
     baseNodes:f.baseNodes, elev:f.elev, loadCases:[{name:'DL',type:'D'}], edits:[], seismic:null, wind:null});
   await applyFloorLoads(p, f);
   await applyLateral(p, f);
@@ -1000,6 +1022,15 @@ function floorCompoLine(p){
     return `${rng} ${roleLbl(r.role)}(${useLbl(r.use)})`;
   }).join('  ·  ');
 }
+/* 구역별 단면/재료 — 다중 단면일 때만 줄 단위로 표시(단일이면 빈 문자열) */
+function sectionCompoLine(p){
+  const R=specSections(p);
+  if(R.sections.length<=2 && R.mats.length<=1) return '';
+  return specToGroupRows(p).map(r=>{
+    const rng=(r.from===r.to)?`${r.from}F`:`${r.from}–${r.to}F`;
+    return `${rng}: ${r.col||p.colName} / ${r.beam||p.beamName} · ${r.mat||p.matName}`;
+  }).join('<br>');
+}
 function planSummary(p){
   const k = p.bldgType;
   const header = k
@@ -1017,6 +1048,7 @@ function planSummary(p){
     (p.buildings>=2?t('ps_link',p.connectFloor,p.gap):'')+
     t('ps_mat',p.matName)+
     `<div style="margin-top:7px;font-size:.8em;color:var(--cyan);line-height:1.5">▤ ${t('floor_make_up')}: ${floorCompoLine(p)}</div>`+
+    (sectionCompoLine(p)?`<div style="margin-top:6px;font-size:.78em;color:var(--amber);line-height:1.5">◫ ${t('section_zones')}<br>${sectionCompoLine(p)}</div>`:'')+
     tip+`</div>`;
 }
 
@@ -1028,8 +1060,6 @@ function planEditor(p){
       `<div><span style="color:var(--cyan);font-weight:700">${bt(k,'label')}</span>`+
       `<span style="color:var(--muted);font-size:.82em;margin-left:7px">${bt(k,'desc')}</span></div></div>`
     : '';
-  const mkeys = Object.keys(MATERIALS); if(!mkeys.includes(p.matName)) mkeys.unshift(p.matName);
-  const matOpts = mkeys.map(m=>`<option value="${m}"${m===p.matName?' selected':''}>${m}</option>`).join('');
   const PE=t('pe');
   const fmt=v=>Array.isArray(v)?v.join(','):v;
   const F=(k2,val,unit,text)=>`<div class="pe-f"><label>${PE[k2]}</label>`+
@@ -1041,12 +1071,9 @@ function planEditor(p){
       F('buildings',p.buildings)+
       F('bayX',p.bayX)+ F('bayY',p.bayY)+
       F('spanX',p.spanX,'mm',true)+ F('spanY',p.spanY,'mm',true)+
-      F('colH',p.colH,'mm')+ F('colB',p.colB,'mm')+
-      F('beamH',p.beamH,'mm')+ F('beamB',p.beamB,'mm')+
       F('connectFloor',p.connectFloor)+ F('gap',p.gap,'mm')+
-      `<div class="pe-f pe-full"><label>${PE.mat}</label><div class="pe-in">`+
-        `<select data-k="matName" onchange="previewFromEditor(this)">${matOpts}</select></div></div>`+
     `</div>`+
+    paletteHTML(p)+
     fgTableHTML(p)+
     seismicEditorHTML(p)+
     windEditorHTML(p)+
@@ -1061,11 +1088,7 @@ function readPlanEditor(el){
   const p={...pendingBuild};   // 基底保留 E/poisn/den/bldgType 等
   el.querySelectorAll('[data-k]').forEach(inp=>{
     const k=inp.dataset.k;
-    if(k==='matName'){
-      p.matName=inp.value;
-      const mt=MATERIALS[inp.value];
-      if(mt){ p.E=mt.E; p.poisn=mt.poisn; p.den=mt.den; }
-    } else if(k==='spanX'||k==='spanY'){
+    if(k==='spanX'||k==='spanY'){
       // 콤마 → 가변 스팬 배열, 단일 값 → 균일 스팬
       const parts=String(inp.value).split(',').map(s=>parseFloat(s)).filter(v=>!isNaN(v)&&v>0);
       if(parts.length>1) p[k]=parts;
@@ -1082,16 +1105,22 @@ function readPlanEditor(el){
   // 가변 스팬이면 跨數를 배열 길이에 맞추고, 입력칸도 동기화
   if(Array.isArray(p.spanX)){ p.bayX=p.spanX.length; const i=el.querySelector('[data-k="bayX"]'); if(i) i.value=p.bayX; }
   if(Array.isArray(p.spanY)){ p.bayY=p.spanY.length; const i=el.querySelector('[data-k="bayY"]'); if(i) i.value=p.bayY; }
-  // 由 H/B 重新組合斷面名稱
-  p.colName=`C${p.colH}x${p.colB}`;
-  p.beamName=`B${p.beamB}x${p.beamH}`;
   // 多棟卻無間距 → 避免建築重疊
   if(p.buildings>=2 && (!p.gap||p.gap<=0)) p.gap=14000;
-  // 표준층 표 → groups(층 구성·높이의 단일 출처). stories·h1·hTyp는 표를 따름.
+  // 단면·재료 팔레트(다중 단면) + 1차 단면/재료를 최상위 필드에 반영(하위호환·설계·표시용)
+  const pal=palFromEl(el);
+  p.palette=pal;
+  if(pal.cols[0]){ p.colName=pal.cols[0].name; p.colH=pal.cols[0].H; p.colB=pal.cols[0].B; }
+  if(pal.beams[0]){ p.beamName=pal.beams[0].name; p.beamH=pal.beams[0].H; p.beamB=pal.beams[0].B; }
+  if(pal.mats[0]){ p.matName=pal.mats[0]; const mt=MATERIALS[pal.mats[0]]; if(mt){ p.E=mt.E; p.poisn=mt.poisn; p.den=mt.den; } }
+  // 표준층 표 → groups(층 구성·높이·단면·재료의 단일 출처). stories·h1·hTyp는 표를 따름.
   const rows=[...el.querySelectorAll('.fg-row')].map(r=>({
     role:r.querySelector('.fg-role').value,
     from:+r.querySelector('.fg-from').value, to:+r.querySelector('.fg-to').value,
-    h:+r.querySelector('.fg-h').value, use:r.querySelector('.fg-use').value
+    h:+r.querySelector('.fg-h').value, use:r.querySelector('.fg-use').value,
+    col:(r.querySelector('.fg-col')||{}).value||'',
+    beam:(r.querySelector('.fg-beam')||{}).value||'',
+    mat:(r.querySelector('.fg-mat')||{}).value||''
   })).filter(g=>g.to>=g.from);
   if(rows.length){
     p.groups=rows;
@@ -1133,17 +1162,112 @@ function previewEditorEl(el){
   pendingBuild=p;
   tab('viewP'); previewSpec(p);
 }
-/* 스펙 → 표준층 표 행(역할/범위/층고/용도/다이어프램). 연속 동일 그룹은 묶음. */
+/* ── 단면·재료 팔레트(편집 카드) ──────────────────────────────
+   기둥/보 단면을 정의 → 표준층 표 각 행이 드롭다운으로 구역(지하·표준층·루프…)에 배정.
+   재료는 카탈로그(MATERIALS) 체크박스. 1차(첫) 항목 = 기본/대표 단면. */
+/* 편집용 팔레트: 엔진 paletteFor + 최상위 기본 단면/재료를 항상 포함(드롭다운 기본 선택지) */
+function editorPalette(p){
+  const pal=paletteFor(p);
+  const cols=pal.cols.slice(), beams=pal.beams.slice(), mats=pal.mats.slice();
+  if(p.colName && !cols.some(c=>c.name===p.colName)) cols.unshift({name:p.colName,H:p.colH,B:p.colB});
+  if(p.beamName && !beams.some(b=>b.name===p.beamName)) beams.unshift({name:p.beamName,H:p.beamH,B:p.beamB});
+  if(p.matName && !mats.includes(p.matName)) mats.unshift(p.matName);
+  return {cols,beams,mats};
+}
+/* 편집 카드 DOM → 현재 팔레트 {cols:[{name,H,B}], beams:[{name,H,B}], mats:[name]} */
+function palFromEl(el){
+  const cols=[], beams=[], mats=[]; const pb=pendingBuild||{};
+  el.querySelectorAll('[data-pal="cols"] .pal-row').forEach(r=>{
+    const H=+r.querySelector('.pal-h').value, B=+r.querySelector('.pal-b').value;
+    if(H>0&&B>0) cols.push({name:`C${H}x${B}`,H,B}); });
+  el.querySelectorAll('[data-pal="beams"] .pal-row').forEach(r=>{
+    const H=+r.querySelector('.pal-h').value, B=+r.querySelector('.pal-b').value;   // H=깊이, B=폭
+    if(H>0&&B>0) beams.push({name:`B${B}x${H}`,H,B}); });
+  el.querySelectorAll('[data-pal="mats"] input:checked').forEach(c=>mats.push(c.value));
+  if(!cols.length) cols.push({name:pb.colName||'C600x600',H:pb.colH||600,B:pb.colB||600});
+  if(!beams.length) beams.push({name:pb.beamName||'B400x600',H:pb.beamH||600,B:pb.beamB||400});
+  if(!mats.length) mats.push(pb.matName||'C280');
+  return {cols,beams,mats};
+}
+function colOptsFor(pal,sel){ return pal.cols.map(c=>`<option value="${c.name}"${c.name===sel?' selected':''}>${c.name}</option>`).join(''); }
+function beamOptsFor(pal,sel){ return pal.beams.map(b=>`<option value="${b.name}"${b.name===sel?' selected':''}>${b.name}</option>`).join(''); }
+function matOptsFor(mats,sel){ const ms=mats.slice(); if(sel&&!ms.includes(sel)) ms.unshift(sel);
+  return ms.map(m=>`<option value="${m}"${m===sel?' selected':''}>${m}</option>`).join(''); }
+function palRow(kind,H,B){
+  const nm = kind==='cols'?`C${H}x${B}`:`B${B}x${H}`;
+  return `<div class="pal-row" style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
+    <input class="pal-h" type="number" value="${H}" style="width:54px" onchange="palResize(this)">
+    <span style="color:var(--dim)">×</span>
+    <input class="pal-b" type="number" value="${B}" style="width:54px" onchange="palResize(this)">
+    <span class="pal-nm" style="font-size:.78rem;color:var(--cyan);min-width:78px">${nm}</span>
+    <button class="btn btn-ghost" style="padding:1px 7px" onclick="palDel(this)" title="${t('delete')}">×</button></div>`;
+}
+function paletteHTML(p){
+  const pal=editorPalette(p);
+  const colR=pal.cols.map(c=>palRow('cols',c.H,c.B)).join('');
+  const beamR=pal.beams.map(b=>palRow('beams',b.H,b.B)).join('');
+  const matCat=Object.keys(MATERIALS).slice(); pal.mats.forEach(m=>{ if(!matCat.includes(m)) matCat.unshift(m); });
+  const matChips=matCat.map(m=>`<label style="display:inline-flex;align-items:center;gap:4px;margin:0 9px 4px 0;font-size:.8rem;cursor:pointer"><input type="checkbox" value="${m}" ${pal.mats.includes(m)?'checked':''} onchange="palChanged(this)"> ${m}</label>`).join('');
+  const secStyle='margin-top:8px';
+  return `<div class="palette" style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px">
+    <div style="font-size:.82rem;color:var(--cyan);font-weight:600;margin-bottom:8px">◫ ${t('pal_title')}</div>
+    <div class="pal-sec" data-pal="cols">
+      <div style="font-size:.76rem;color:var(--muted);margin-bottom:4px">${t('pal_cols')} <button class="btn btn-ghost" style="padding:0 7px" onclick="palAdd(this,'cols')">＋</button></div>
+      <div class="pal-rows">${colR}</div></div>
+    <div class="pal-sec" data-pal="beams" style="${secStyle}">
+      <div style="font-size:.76rem;color:var(--muted);margin-bottom:4px">${t('pal_beams')} <button class="btn btn-ghost" style="padding:0 7px" onclick="palAdd(this,'beams')">＋</button></div>
+      <div class="pal-rows">${beamR}</div></div>
+    <div class="pal-sec" data-pal="mats" style="${secStyle}">
+      <div style="font-size:.76rem;color:var(--muted);margin-bottom:4px">${t('pal_mats')}</div>
+      <div class="pal-rows pal-mats">${matChips}</div></div>
+    <div class="pe-tip" style="margin-top:6px">${t('pal_hint')}</div>
+  </div>`;
+}
+function palAdd(btn,kind){
+  const rows=btn.closest('.pal-sec').querySelector('.pal-rows');
+  const d = kind==='cols'?[600,600]:[600,400];
+  rows.insertAdjacentHTML('beforeend', palRow(kind,d[0],d[1]));
+  palSync(btn);
+}
+function palDel(btn){
+  const rows=btn.closest('.pal-sec').querySelectorAll('.pal-row');
+  if(rows.length<=1) return;   // 종류별 최소 1개 유지
+  btn.closest('.pal-row').remove(); palSync(btn);
+}
+function palResize(inp){
+  const row=inp.closest('.pal-row'); const kind=inp.closest('.pal-sec').dataset.pal;
+  const H=+row.querySelector('.pal-h').value, B=+row.querySelector('.pal-b').value;
+  row.querySelector('.pal-nm').textContent = kind==='cols'?`C${H}x${B}`:`B${B}x${H}`;
+  palSync(inp);
+}
+function palChanged(inp){ palSync(inp); }
+/* 팔레트 변경 → fg 표 단면/재료 드롭다운 재구성(선택 보존) → 미리보기 */
+function palSync(anyEl){
+  const ed=anyEl.closest('.plan-editor'); if(!ed) return;
+  refreshFgSectionDropdowns(ed); previewEditorEl(ed);
+}
+function refreshFgSectionDropdowns(ed){
+  const pal=palFromEl(ed);
+  ed.querySelectorAll('.fg-row').forEach(r=>{
+    const c=r.querySelector('.fg-col'), b=r.querySelector('.fg-beam'), m=r.querySelector('.fg-mat');
+    if(c){ const v=c.value; c.innerHTML=colOptsFor(pal, pal.cols.some(x=>x.name===v)?v:pal.cols[0].name); }
+    if(b){ const v=b.value; b.innerHTML=beamOptsFor(pal, pal.beams.some(x=>x.name===v)?v:pal.beams[0].name); }
+    if(m){ const v=m.value; m.innerHTML=matOptsFor(pal.mats, pal.mats.includes(v)?v:pal.mats[0]); }
+  });
+}
+
+/* 스펙 → 표준층 표 행(역할/범위/층고/용도/단면/재료). 연속 동일 그룹은 묶음. */
 /* specToGroupRows → shared/rc_engine.js */
 /* 표준층 표 HTML(편집 카드용) */
 function fgTableHTML(p){
+  const pal=editorPalette(p);
   /* 표는 건물 입면처럼 위(지붕)→아래(지하) 순서로 표시 → reverse */
-  const rows=specToGroupRows(p).slice().reverse().map(fgRow).join('');
+  const rows=specToGroupRows(p).slice().reverse().map(g=>fgRow(g,pal)).join('');
   return `<div style="margin-top:14px">
     <div style="font-size:.7rem;color:var(--amber);font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';letter-spacing:.5px;margin-bottom:6px">${t('floor_stack_top_roof_botto')}</div>
-    <table class="fgtable" style="width:100%"><thead><tr>
-      <th>${t('role')}</th><th>${t('from')}</th><th>${t('to')}</th><th>${t('ht')}</th><th>${t('use')}</th><th>${t('add_del')}</th>
-    </tr></thead><tbody>${rows}</tbody></table>
+    <div style="overflow-x:auto"><table class="fgtable" style="width:100%;min-width:560px"><thead><tr>
+      <th>${t('role')}</th><th>${t('from')}</th><th>${t('to')}</th><th>${t('ht')}</th><th>${t('use')}</th><th>${t('fg_col')}</th><th>${t('fg_beam')}</th><th>${t('fg_mat')}</th><th>${t('add_del')}</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
     <div class="pe-tip">${t('use_above_below_on_a_row_t')}</div>
     <label style="display:flex;align-items:center;gap:7px;margin-top:8px;font-size:.82rem;cursor:pointer">
       <input type="checkbox" data-story="on" ${p.storyData===false?'':'checked'}>
@@ -1617,14 +1741,33 @@ function renderModelState(){
       <div class="kv"><span class="k">${t('kv_h')}</span><span class="v">${m.spec.h1} / ${m.spec.hTyp}</span></div>
       <div class="kv"><span class="k">${t('kv_cb')}</span><span class="v">${m.cols.length} / ${m.beams.length}</span></div>
       ${m.links.length?`<div class="kv"><span class="k">${t('kv_link',m.spec.connectFloor)}</span><span class="v hi">${m.links.length}</span></div>`:''}
-    </div>
-    <div class="scard"><h3>${t('sec_prop')}</h3>
-      <div class="kv"><span class="k">${t('kv_mat')}</span><span class="v">${m.matl}</span></div>
-      <div class="kv"><span class="k">${t('kv_csect')}</span><span class="v">${m.colSect}</span></div>
-      <div class="kv"><span class="k">${t('kv_bsect')}</span><span class="v">${m.beamSect}</span></div>
+    </div>`+
+    (function(){
+      const R=m.secReg||(m.spec?specSections(m.spec):null);
+      let colTxt=m.colSect, beamTxt=m.beamSect, matTxt=m.matl, zonesHTML='';
+      if(R){
+        const colIds=new Set(), beamIds=new Set();
+        for(const s in R.storyAssign){ colIds.add(R.storyAssign[s].colSect); beamIds.add(R.storyAssign[s].beamSect); }
+        const nm=id=>(R.sections[id-1]||{}).name||'-';
+        colTxt=[...colIds].map(nm).join(', ');
+        beamTxt=[...beamIds].map(nm).join(', ');
+        matTxt=(m.materials&&m.materials.length?m.materials:[m.matl]).join(', ');
+        if(R.sections.length>2 || R.mats.length>1){
+          const zr=specToGroupRows(m.spec).slice().reverse().map(r=>{
+            const rng=(r.from===r.to)?`${r.from}F`:`${r.from}–${r.to}F`;
+            return `<div class="kv"><span class="k">${rng}</span><span class="v" style="font-size:.82em">${r.col||m.spec.colName} / ${r.beam||m.spec.beamName} · ${r.mat||m.spec.matName}</span></div>`;
+          }).join('');
+          zonesHTML=`<div class="scard"><h3>${t('section_zones')}</h3>${zr}</div>`;
+        }
+      }
+      return `<div class="scard"><h3>${t('sec_prop')}</h3>
+      <div class="kv"><span class="k">${t('kv_mat')}</span><span class="v">${matTxt}</span></div>
+      <div class="kv"><span class="k">${t('kv_csect')}</span><span class="v">${colTxt}</span></div>
+      <div class="kv"><span class="k">${t('kv_bsect')}</span><span class="v">${beamTxt}</span></div>
       <div class="kv"><span class="k">${t('kv_bound',m.baseNodes.length)}</span><span class="v"></span></div>
       <div class="kv"><span class="k">${t('kv_lc')}</span><span class="v">${m.loadCases.map(l=>l.name).join(', ')||'-'}</span></div>
-    </div>`+
+    </div>`+zonesHTML;
+    })()+
     ((m.edits&&m.edits.length)?`<div class="scard"><h3>${t('sec_edits')}</h3>`+
       m.edits.map((e,i)=>`<div class="kv"><span class="k">${i+1}</span><span class="v hi" style="text-align:right">${e}</span></div>`).join('')+
       `</div>`:'');
@@ -2073,15 +2216,22 @@ function quick(tt){ $('input').value=tt; onSend(); }
 /* FG_ROLES · FG_USES → shared/rc_engine.js */
 function roleLbl(r){return t('roles')[r]||r;}
 function useLbl(u){return t('uses')[u]||u;}
-function fgRow(g){
+function fgRow(g,pal){
+  pal = pal || editorPalette(pendingBuild||{});
   const rs=FG_ROLES.map(r=>`<option value="${r}"${r===g.role?' selected':''}>${roleLbl(r)}</option>`).join('');
   const us=FG_USES.map(u=>`<option value="${u}"${u===g.use?' selected':''}>${useLbl(u)}</option>`).join('');
+  const cs=colOptsFor(pal, (g.col&&pal.cols.some(c=>c.name===g.col))?g.col:pal.cols[0].name);
+  const bs=beamOptsFor(pal, (g.beam&&pal.beams.some(b=>b.name===g.beam))?g.beam:pal.beams[0].name);
+  const mts=matOptsFor(pal.mats, (g.mat&&pal.mats.includes(g.mat))?g.mat:pal.mats[0]);
   return `<tr class="fg-row">
     <td><select class="fg-role" onchange="fgChanged(this)">${rs}</select></td>
     <td><input class="fg-from" type="number" value="${g.from}" style="width:44px" onchange="fgChanged(this)"></td>
     <td><input class="fg-to" type="number" value="${g.to}" style="width:44px" onchange="fgChanged(this)"></td>
     <td><input class="fg-h" type="number" value="${g.h}" style="width:58px" onchange="fgChanged(this)"></td>
     <td><select class="fg-use" onchange="fgChanged(this)">${us}</select></td>
+    <td><select class="fg-col" onchange="fgChanged(this)">${cs}</select></td>
+    <td><select class="fg-beam" onchange="fgChanged(this)">${bs}</select></td>
+    <td><select class="fg-mat" onchange="fgChanged(this)">${mts}</select></td>
     <td style="white-space:nowrap"><button class="btn btn-ghost" style="padding:2px 6px" title="${t('insert_above_higher')}" onclick="fgInsert(this,'above')">↑</button><button class="btn btn-ghost" style="padding:2px 6px" title="${t('insert_below_lower')}" onclick="fgInsert(this,'below')">↓</button><button class="btn btn-ghost" style="padding:2px 6px" title="${t('delete')}" onclick="fgDel(this)">×</button></td></tr>`;
 }
 /* 표준층 표 핸들러 — 대화형 편집 카드(.plan-editor) 전용.
@@ -2105,7 +2255,10 @@ function fgInsert(btn, dir){
   else if(dir==='below'&&isBottom) role='BASEMENT';
   const h=(+row.querySelector('.fg-h').value)||((pendingBuild?pendingBuild.hTyp:3200)||3200);
   const use=row.querySelector('.fg-use').value||useOf(pendingBuild||{});
-  const html=fgRow({role,from:1,to:1,h,use});
+  const pal=ed?palFromEl(ed):editorPalette(pendingBuild||{});
+  // 새 행 단면/재료는 클릭한 행의 값을 기본 상속
+  const col=(row.querySelector('.fg-col')||{}).value, beam=(row.querySelector('.fg-beam')||{}).value, mat=(row.querySelector('.fg-mat')||{}).value;
+  const html=fgRow({role,from:1,to:1,h,use,col,beam,mat},pal);
   if(dir==='above') row.insertAdjacentHTML('beforebegin',html);
   else row.insertAdjacentHTML('afterend',html);
   fgRenumber(tb);

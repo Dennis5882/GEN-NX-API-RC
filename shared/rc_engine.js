@@ -41,7 +41,7 @@ function useOf(p){ return TYPE_USE[p.bldgType]||'Residential'; }
 /* 표준층 전개: spec → 자연층별 {role,use,dia} 맵 */
 function deriveFloorGroups(p){
   const g={};
-  if(p.groups&&p.groups.length){ p.groups.forEach(gr=>{for(let s=gr.from;s<=gr.to;s++) g[s]={role:gr.role||'TYPICAL',use:gr.use||useOf(p),dia:(gr.dia!==false)};}); return g; }
+  if(p.groups&&p.groups.length){ p.groups.forEach(gr=>{for(let s=gr.from;s<=gr.to;s++) g[s]={role:gr.role||'TYPICAL',use:gr.use||useOf(p),dia:(gr.dia!==false),h:(gr.h!=null?+gr.h:null),col:gr.col||null,beam:gr.beam||null,mat:gr.mat||null};}); return g; }
   const u=useOf(p);
   for(let iz=1;iz<=p.stories;iz++) g[iz]={role:'TYPICAL',use:u};
   if(p.podium) for(let iz=1;iz<=Math.min(p.podium,p.stories);iz++) g[iz]={role:'PODIUM',use:p.podiumUse||'Commercial'};
@@ -53,11 +53,12 @@ function specToGroupRows(p){
   const g=deriveFloorGroups(p);
   const rows=[]; const keys=Object.keys(g).map(Number).sort((a,b)=>a-b);
   for(const s of keys){
-    const cur=g[s]; const h=((s===1?p.h1:p.hTyp)||p.hTyp||3000);
-    const dia=(cur.dia!==false);
+    const cur=g[s]; const h=(cur.h!=null?cur.h:((s===1?p.h1:p.hTyp)||p.hTyp||3000));
+    const dia=(cur.dia!==false); const col=cur.col||null, beam=cur.beam||null, mat=cur.mat||null;
     const last=rows[rows.length-1];
-    if(last && last.role===cur.role && last.use===cur.use && last.dia===dia && last.h===h && last.to===s-1){ last.to=s; }
-    else rows.push({role:cur.role,from:s,to:s,h,use:cur.use,dia});
+    if(last && last.role===cur.role && last.use===cur.use && last.dia===dia && last.h===h
+       && last.col===col && last.beam===beam && last.mat===mat && last.to===s-1){ last.to=s; }
+    else rows.push({role:cur.role,from:s,to:s,h,use:cur.use,dia,col,beam,mat});
   }
   return rows;
 }
@@ -65,6 +66,47 @@ function specToGroupRows(p){
 /* 표준층 표 옵션 */
 const FG_ROLES=['TYPICAL','PODIUM','TRANSFER','ROOF','BASEMENT'];
 const FG_USES=['Residential','Office','Commercial','School','Hospital','Equipment','Roof'];
+
+/* ── 단면·재료 팔레트(다중 단면 모델링) ──────────────────────────
+   팔레트 = 사용 가능한 기둥/보 단면 정의 목록. groups 각 행이 이름(col/beam/mat)으로
+   팔레트를 참조 → 구역(지하·표준층·루프…)별로 다른 단면/재료 배정.
+   팔레트/배정이 비면 최상위 colName/beamName/matName 단일 단면으로 폴백(하위호환). */
+function paletteFor(p){
+  const pal=p.palette||{};
+  const cols=(pal.cols&&pal.cols.length)?pal.cols.map(c=>({name:c.name,H:+c.H,B:+c.B}))
+            :[{name:p.colName,H:p.colH,B:p.colB}];
+  const beams=(pal.beams&&pal.beams.length)?pal.beams.map(b=>({name:b.name,H:+b.H,B:+b.B}))
+             :[{name:p.beamName,H:p.beamH,B:p.beamB}];
+  const mats=(pal.mats&&pal.mats.length)?pal.mats.slice():[p.matName];
+  return {cols,beams,mats};
+}
+/* spec → MIDAS 등록용 단면/재료 레지스트리 + 층별 배정.
+   반환: {sections:[{name,H,B}](sect id=idx+1), mats:[name](matl id=idx+1),
+          storyAssign:{[story]:{colSect,beamSect,mat}}, def:{colSect,beamSect,mat}} */
+function specSections(p){
+  const pal=paletteFor(p);
+  const g=deriveFloorGroups(p);
+  const sections=[], sIdx={};
+  const addSect=(s)=>{ if(!s||!s.name) return 0; if(sIdx[s.name]!=null) return sIdx[s.name];
+    sections.push({name:s.name,H:s.H,B:s.B}); return (sIdx[s.name]=sections.length); };
+  const mats=[], mIdx={};
+  const addMat=(name)=>{ name=name||p.matName; if(mIdx[name]!=null) return mIdx[name];
+    mats.push(name); return (mIdx[name]=mats.length); };
+  const colByName={}; pal.cols.forEach(c=>colByName[c.name]=c);
+  const beamByName={}; pal.beams.forEach(b=>beamByName[b.name]=b);
+  colByName[p.colName]=colByName[p.colName]||{name:p.colName,H:p.colH,B:p.colB};
+  beamByName[p.beamName]=beamByName[p.beamName]||{name:p.beamName,H:p.beamH,B:p.beamB};
+  // 기본(폴백) 단면을 id 1·2로 먼저 등록 → 표시·링크 일관성
+  const def={ colSect:addSect(colByName[p.colName]), beamSect:addSect(beamByName[p.beamName]), mat:addMat(p.matName) };
+  const storyAssign={};
+  for(let s=1;s<=p.stories;s++){
+    const gr=g[s]||{};
+    const cSpec=colByName[gr.col]||colByName[p.colName];
+    const bSpec=beamByName[gr.beam]||beamByName[p.beamName];
+    storyAssign[s]={ colSect:addSect(cSpec), beamSect:addSect(bSpec), mat:addMat(gr.mat||p.matName) };
+  }
+  return {sections,mats,storyAssign,def};
+}
 
 /* ════════════════════════════════════════════════════════════
    FRAME GENERATOR
@@ -1006,6 +1048,7 @@ function pickModalPeriods(resp){
 if(typeof window!=='undefined'){
   window.RCEngine={
     MATERIALS, FLOOR_USE, TYPE_USE, useOf, deriveFloorGroups, specToGroupRows,
+    paletteFor, specSections,
     FG_ROLES, FG_USES, asSpans, cumPos, buildFrame, taiwanCombos,
     DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType, autoCore,
     _MPA2CNS, _CNS_CONC,
