@@ -46,6 +46,22 @@ handleLocal(txt)  → intent에 따라 API 호출 or 즉시 응답
 
 GUIDE 패널: `GUIDE` 배열 → `renderGuide()`. `send:true` 항목은 클릭 시 즉시 전송.
 
+## 다중 단면·재료 모델링 (팔레트 + 구역 배정, 2026-06-29)
+
+기둥/보 단면·재료를 **구역(지하·표준층·루프…)별로 다르게** 배정. 단일 단면이면 기존과 동일(하위호환).
+
+- **팔레트**: 편집 카드에서 기둥/보 단면(H×B) 정의 + 재료(MATERIALS 카탈로그) 체크. **첫 항목 = 기본(대표) 단면**.
+- **배정**: 표준층 표 각 행에 `기둥·보·재료` 드롭다운 → 구역별 단면 선택.
+- **엔진** `shared/rc_engine.js`:
+  - `paletteFor(p)` → `{cols,beams,mats}` (없으면 최상위 colName/beamName/matName 폴백).
+  - `specSections(p)` → distinct 단면/재료 dedup → `{sections[](sect id), mats[](matl id), storyAssign{story:{colSect,beamSect,mat}}, def}`.
+  - `deriveFloorGroups`/`specToGroupRows` = 그룹 행에 `col/beam/mat/h` 패스스루(단면/재료 차이로도 행 분리).
+- **등록** `index.html`: `putMaterials`/`putSections`(배치), `putElements`가 **요소별 MATL·SECT**(`actBuildFrame`이 `storyAssign`대로 기둥·보·연결보·전단벽 배정).
+- **UI**: `paletteHTML`·`fgRow`(드롭다운 열)·`readPlanEditor`(팔레트·배정 읽기)·`palAdd/Del/Resize`·`refreshFgSectionDropdowns`.
+- **상태 필드**: `S.model.secReg`(레지스트리), `.sections`(id맵), `.materials`, `.nextSect`/`.nextMat`. `p.palette`+`p.groups[].col/beam/mat`가 단일 출처.
+
+⚠ **범위 경계(의도적)**: **모델 지오메트리·단면·재료까지만** 다중화. **설계·배근·`colPMcurve`·`rcBeamDesign`·M4 스케줄은 대표(1차) 단면 기준 유지** — 다중단면 설계 분기는 차기. 최상위 `p.colName/colH/matName` 등은 팔레트 1차 항목으로 채워 설계 입력·표시 유지.
+
 ## MIDAS Gen NX API 핵심 제약
 
 ### Story Manager (SSEIS/SWIND)
