@@ -893,6 +893,19 @@ function parseFloors(t){
 function parseCommand(txt){
   const t=txt.toLowerCase();
   const hasModel = S.model && S.model.nodes && S.model.nodes.length>0;
+  /* ── 최우선: 뷰·도움말·연결 확인 (모델 여부 무관) ── */
+  if(/도움말|뭘\s*할|어떻게\s*써|어떤\s*명령|使用說明|指令說明|help|what\s*can|commands?\s*list/.test(t))
+    return {intent:'help'};
+  if(/3[dD]|3디|입체|삼차원|三維|透視/.test(t))
+    return {intent:'tab',which:'3d'};
+  if(/결과\s*(?:탭|tab|보여)|탭.*결과|result\s*tab|tab.*result/.test(t))
+    return {intent:'tab',which:'result'};
+  if(/로그\s*(?:탭|tab|보여)|활동\s*(?:탭|tab)|log\s*tab|activity\s*tab/.test(t))
+    return {intent:'tab',which:'log'};
+  if(/모델\s*(?:탭|tab|정보|개요)|model\s*(?:tab|info|summ)/.test(t))
+    return {intent:'tab',which:'model'};
+  if(/연결\s*(?:됐|상태|확인|됩|테스트)|접속\s*됐|connected\?|conn\s*(?:status|check)|連線\s*(?:了嗎|狀態|確認)/.test(t))
+    return {intent:'conn_check'};
   if(/초기화|모두\s*삭제|비우|清除|清空|重置|初始化|全部刪除|刪除全部|clear|reset/.test(t)) return {intent:'clear'};
   if(hasModel){
     const isEdit=/키워|키우|늘려|줄여|바꿔|변경|수정|추가|보강|加大|放大|增大|加粗|加強|縮小|改成|改為|變更|修改|新增|增加|補強|加上|加裝|change|resize|modify|add|increase|enlarge|bigger|larger|reduce|smaller|set|make/.test(t);
@@ -914,10 +927,26 @@ function parseCommand(txt){
     if(isEdit && (isCol || isBeam)){
       const target=isCol?'col':'beam';
       let H,B;
+      const sqm=t.match(/(?:기둥|컬럼|柱|column|보|梁|beam|girder)\s+(\d{3,4})(?!\s*[x×\d])/);
       if(size){ H=+size[1]; B=+size[2]; }
+      else if(sqm){ const s=+sqm[1]; H=s; B=s; }
       else { const cur=S.model.sections[target==='col'?1:2]; H=(cur?.H||600)+100; B=(cur?.B||600)+100; }
       if(floors.length) return {intent:'resize_subset', target, H, B, floors};
       return {intent:'modify_section', target, H, B};
+    }
+    /* 스펙 수정 후 재생성 — 재료·층고·층수 */
+    if(isEdit && S.model.spec){
+      const matM=t.match(/(c(?:210|240|270|280|300|350|400|490))/);
+      if(matM && /재료|材料|材質|콘크리트|concrete|material/.test(t))
+        return {intent:'change_spec', field:'matName', value:matM[1].toUpperCase()};
+      const htMm=num(/층고\s*(\d{3,5})/,t)||num(/樓高\s*(\d+)/,t)||num(/(?:story|floor)\s*height\s*(\d+)/,t);
+      const htMobj=t.match(/(?:층고|樓高|(?:story|floor)\s*height)\s*(\d+\.?\d*)\s*m(?!m)/);
+      const htVal=htMm||(htMobj?Math.round(+htMobj[1]*1000):null);
+      if(htVal&&htVal>=2000&&htVal<=8000&&/층고|樓高|height/.test(t))
+        return {intent:'change_spec', field:'hTyp', value:htVal};
+      const nsM=num(/(\d+)\s*(?:층|樓|層)/,t)||num(/(\d+)\s*stor/,t);
+      if(nsM&&nsM>=1&&nsM<=100&&/층수|층.*(?:바꿔|변경)|樓層.*(?:改|變)|stories?\s*(?:to|change)/i.test(t))
+        return {intent:'change_spec', field:'stories', value:nsM};
     }
   }
   /* M2-A4: 동적해석(고유치·응답스펙트럼) — '해석'을 포함하므로 analyze 보다 먼저 판정 */
@@ -934,7 +963,6 @@ function parseCommand(txt){
   const bldgType = detectBuildingType(t);
   if(/만들|생성|모델링|세워|짓|建立|生成|建模|建造|蓋|做一個|做個|create|build/.test(t) || bldgType || /건물|골조|프레임|建築|構架|構架系統|剛架|frame|building/.test(t)){
     const p = bldgType ? {...BUILDING_TYPES[bldgType], bldgType} : {...DEFAULT_SPEC, bldgType:null};
-
     const stories=num(/(\d+)\s*(?:층|樓|層)/,t)||num(/(\d+)\s*stor/,t); if(stories) p.stories=stories;
     const bld=num(/(\d+)\s*동|(\d+)\s*棟|(\d+)\s*building/,t); if(bld) p.buildings=bld;
     const bx=num(/(\d+)\s*(?:베이|跨|開間|bay)/,t); if(bx) p.bayX=bx;
@@ -943,13 +971,20 @@ function parseCommand(txt){
     if(by) p.bayY=by;
     const col=t.match(/(?:기둥|柱|column)\s*(\d+)\s*[x×]\s*(\d+)/);
     if(col){ const h=+col[1],b=+col[2]; p.colH=h;p.colB=b;p.colName=`C${h}x${b}`; }
+    else{ const colSq=t.match(/(?:기둥|柱|column)\s+(\d{3,4})(?!\s*[x×\d])/); if(colSq){ const s=+colSq[1]; p.colH=s;p.colB=s;p.colName=`C${s}x${s}`; } }
     const bm=t.match(/(?:보|梁|beam)\s*(\d+)\s*[x×]\s*(\d+)/);
     if(bm){ const h=+bm[1],b=+bm[2]; p.beamH=h;p.beamB=b;p.beamName=`B${b}x${h}`; }
+    else{ const bmSq=t.match(/(?:보|梁|beam)\s+(\d{3,4})(?!\s*[x×\d])/); if(bmSq){ const s=+bmSq[1]; p.beamH=s;p.beamB=s;p.beamName=`B${s}x${s}`; } }
     const span=num(/스팬\s*(\d+)|跨距\s*(\d+)|跨度\s*(\d+)|span\s*(\d+)/,t); if(span){ p.spanX=span;p.spanY=span; }
+    else{ const spanM=t.match(/(?:스팬|跨距|跨度|span)\s*(\d+\.?\d*)\s*m(?!m)/); if(spanM){ const v=Math.round(+spanM[1]*1000); p.spanX=v;p.spanY=v; } }
     const gap=num(/간격\s*(\d+)|間距\s*(\d+)|gap\s*(\d+)/,t); if(gap) p.gap=gap;
     const pod=num(/기단부\s*(\d+)|裙樓\s*(\d+)|裙房\s*(\d+)|podium\s*(\d+)/,t); if(pod) p.podium=pod;
     const cf=num(/(\d+)\s*(?:층|樓|層)\s*(?:에서|處)?\s*(?:연결|連接)|connect\D*(\d+)/,t); if(cf) p.connectFloor=cf;
-
+    /* 층고 — 미터 단위 지원 (e.g. "층고 3.5m" → 3500) */
+    const htBM=t.match(/(?:층고|樓高|floor\s*height)\s*(\d+\.?\d*)\s*m(?!m)/);
+    const htBMM=num(/(?:층고|樓高|floor\s*height)\s*(\d{3,5})/,t);
+    const htBVal=htBMM||(htBM?Math.round(+htBM[1]*1000):null);
+    if(htBVal&&htBVal>=2000&&htBVal<=8000) p.hTyp=htBVal;
     if(p.buildings>=2 && !p.gap)  p.gap=14000;
     if(p.buildings>=2 && !p.connectFloor) p.connectFloor=Math.max(1,Math.round(p.stories*0.8));
     return {intent:'build', params:p};
@@ -1251,7 +1286,58 @@ async function handleLocal(txt){
     }catch(e){ th.remove(); addMsg('bot',t('err',e.message)); }
     return;
   }
-  addMsg('bot',t('unknown'));
+  if(cmd.intent==='help'){
+    const H={
+      ko:`사용 가능한 명령:<br>
+🏗 <b>모델 생성</b> — <code>주거 15층 만들어</code> · <code>층고 3.5m</code> · <code>기둥 700</code>(정사각)<br>
+✏ <b>단면 수정</b> — <code>기둥 700×700으로 바꿔</code> · <code>3층 보 키워줘</code><br>
+🔧 <b>스펙 변경</b> — <code>층수 20층으로 바꿔</code> · <code>층고 3500으로</code> · <code>재료 C350으로</code><br>
+⬇ <b>하중·보강</b> — <code>활하중 5000N 추가</code> · <code>1동 가새 추가</code><br>
+▷ <b>해석·결과</b> — <code>해석 돌려</code> · <code>동적 해석</code> · <code>최대 변위</code> · <code>반력</code><br>
+🖥 <b>뷰 전환</b> — <code>3D 보여줘</code> · <code>결과 탭</code> · <code>모델 탭</code><br>
+ℹ <b>기타</b> — <code>상태</code> · <code>연결 확인</code> · <code>초기화</code>`,
+      en:`Available commands:<br>
+🏗 <b>Build</b> — <code>build 15 story residential</code> · <code>floor height 3.5m</code> · <code>column 700</code>(square)<br>
+✏ <b>Section</b> — <code>change all columns to 700×700</code> · <code>enlarge floor 3 beams</code><br>
+🔧 <b>Spec</b> — <code>change stories to 20</code> · <code>floor height 3500</code> · <code>material C350</code><br>
+⬇ <b>Load/Brace</b> — <code>add 5000N live load</code> · <code>add bracing</code><br>
+▷ <b>Analysis</b> — <code>run analysis</code> · <code>dynamic analysis</code> · <code>max displacement</code> · <code>reactions</code><br>
+🖥 <b>View</b> — <code>3D</code> · <code>result tab</code> · <code>model tab</code><br>
+ℹ <b>Other</b> — <code>status</code> · <code>check connection</code> · <code>clear</code>`,
+      zh:`可用指令:<br>
+🏗 <b>建立模型</b> — <code>建立 15 層住宅</code> · <code>樓高 3.5m</code> · <code>柱 700</code>(正方)<br>
+✏ <b>斷面修改</b> — <code>柱改為 700×700</code> · <code>第 3 樓梁加大</code><br>
+🔧 <b>規格變更</b> — <code>樓層數改為 20</code> · <code>樓高 3500</code> · <code>材料 C350</code><br>
+⬇ <b>載重·補強</b> — <code>新增活載重 5000N</code> · <code>新增斜撐</code><br>
+▷ <b>分析·結果</b> — <code>執行分析</code> · <code>動力分析</code> · <code>最大變位</code> · <code>反力</code><br>
+🖥 <b>切換視圖</b> — <code>3D</code> · <code>結果分頁</code> · <code>模型分頁</code><br>
+ℹ <b>其他</b> — <code>目前狀態</code> · <code>確認連線</code> · <code>清除</code>`
+    };
+    addMsg('bot', H[S.lang]||H.en); return;
+  }
+  if(cmd.intent==='tab'){
+    const M={[`3d`]:'viewP',result:'resP',log:'logP',model:'modelP'};
+    const pid=M[cmd.which]; if(pid){ tab(pid); if(cmd.which==='3d') draw3D(); }
+    return;
+  }
+  if(cmd.intent==='conn_check'){
+    addMsg('bot', S.connected
+      ? `✅ ${t('conn_linked')}${S.apiUser?` <span style="color:var(--muted)">· ${S.apiUser}</span>`:''}`
+      : `⚠ ${t('conn_unlinked')} — ${t('e_notconn')}`);
+    return;
+  }
+  if(cmd.intent==='change_spec'){
+    if(!S.model.spec){ addMsg('bot',t('e_nomodel_edit')); return; }
+    const p={...S.model.spec,[cmd.field]:cmd.value};
+    pendingBuild=p;
+    addMsg('bot',`${t('plan_intro_tpl')}${planSummary(p)}`+
+      `<div class="confirm-row"><button class="btn btn-c" onclick="confirmBuild(this)">${t('exec')}</button>`+
+      `<button class="btn btn-ghost" onclick="editThisSpec(this)">${t('edit_btn')}</button>`+
+      `<button class="btn btn-ghost" onclick="this.closest('.confirm-row').remove()">${t('cancel')}</button></div>`);
+    tab('viewP'); previewSpec(p); return;
+  }
+  const _hint={ko:'💡 <code>도움말</code>로 사용 가능한 명령 확인',en:'💡 Type <code>help</code> to see all commands',zh:'💡 輸入 <code>使用說明</code> 查看指令'}[S.lang]||'';
+  addMsg('bot',t('unknown')+(_hint?`<br><span style="color:var(--dim);font-size:.78rem">${_hint}</span>`:''));
 }
 
 async function confirmBuild(btn){
@@ -1897,12 +1983,16 @@ const GUIDE = [
     { icon:'🏗', label:G('자유 골조','Custom frame','自訂構架'),         cmd:G('자유골조 10층 만들어','build a 10 story custom frame','建立 10 層自訂構架') },
     { note:G('클릭하면 입력창에 채워집니다 → Enter → 편집 카드(표준층 표)에서 정밀 수정','Click to fill the input → Enter → fine-tune in the editable card (typical-floor table)','點選後填入輸入框 → Enter → 於可編輯卡（標準層表）精細調整') },
   ]},
-  { id:'section', icon:'◫', open:true, label:G('단면 수정','Section','斷面修改'), items:[
+  { id:'section', icon:'◫', open:true, label:G('단면·스펙 수정','Section / Spec','斷面·規格修改'), items:[
     { icon:'↕', label:G('기둥 전체 변경','Resize all columns','全部柱變更'), cmd:G('기둥 700x700으로 변경','change all columns to 700x700','柱改為 700x700') },
     { icon:'↕', label:G('N층 기둥 변경','Resize floor columns','指定樓層柱'), cmd:G('3층 기둥 700x700으로 키워','enlarge floor 3 columns to 700x700','第 3 樓柱加大為 700x700') },
     { icon:'↕', label:G('층 범위 기둥','Floor-range columns','樓層範圍柱'),  cmd:G('1~3층 기둥 키워','enlarge floors 1-3 columns','1~3 樓柱加大') },
     { icon:'↔', label:G('보 전체 변경','Resize all beams','全部梁變更'),     cmd:G('보 400x700으로 변경','change all beams to 400x700','梁改為 400x700') },
-    { note:G('숫자를 원하는 값으로 고친 뒤 전송','Edit the numbers then send','將數字改成所需值後送出') },
+    { div:true },
+    { icon:'🔢', label:G('층수 변경','Change stories','變更樓層數'),         cmd:G('층수 20층으로 바꿔','change stories to 20','樓層數改為 20') },
+    { icon:'📐', label:G('층고 변경','Change floor height','變更樓高'),      cmd:G('층고 3500으로 바꿔','change floor height to 3500','樓高改為 3500') },
+    { icon:'🧱', label:G('재료 변경','Change material','變更材料'),          cmd:G('재료 C350으로 바꿔','change material to C350','材料改為 C350') },
+    { note:G('숫자를 원하는 값으로 고친 뒤 전송. 스펙 변경 시 재생성 확인 카드가 표시됩니다.','Edit numbers then send. Spec changes show a rebuild-confirm card.','修改數字後送出。規格變更時將顯示重建確認卡。') },
   ]},
   { id:'load', icon:'⬇', open:true, label:G('하중·보강','Load · Brace','載重·補強'), items:[
     { icon:'↓', label:G('활하중 추가','Add live load','新增活載重'),     cmd:G('옥상에 활하중 5000N 추가','add 5000N live load on roof','屋頂新增活載重 5000N') },
@@ -1916,9 +2006,14 @@ const GUIDE = [
     { icon:'▷', label:G('지점 반력 조회','Reactions','查詢支承反力'),    cmd:G('반력 알려줘','show reactions','查詢反力'),        send:true },
     { icon:'▷', label:G('부재력 조회','Member forces','查詢桿件內力'),   cmd:G('부재력 보여줘','show member forces','顯示桿件內力'), send:true },
     { icon:'▷', label:G('상태 요약','Status summary','目前狀態摘要'),     cmd:G('상태 요약','status summary','狀態摘要'),        send:true },
+    { div:true },
+    { icon:'◈', label:G('3D 뷰로 이동','Go to 3D view','切換 3D 視圖'), cmd:G('3D 보여줘','show 3D','顯示 3D'), send:true },
   ]},
   { id:'misc', icon:'⊟', open:false, label:G('모델 관리','Manage','模型管理'), items:[
     { icon:'↺', label:G('모델 초기화','Clear model','清除模型'),         cmd:G('초기화','clear','清除') },
+    { div:true },
+    { icon:'❓', label:G('도움말','Help','使用說明'), cmd:G('도움말','help','使用說明'), send:true },
+    { icon:'◉', label:G('연결 확인','Check connection','確認連線'), cmd:G('연결 확인','check connection','確認連線'), send:true },
   ]},
 ];
 
