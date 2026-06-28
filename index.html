@@ -17,7 +17,7 @@
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v1.2.1 (<span data-i18n="updated">更新日</span> : 2026-06-28)</span><small data-i18n="subtitle">對話式結構建模</small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev"></span> <b>Dennis</b> · v1.2.1 (<span data-i18n="updated"></span> : 2026-06-28)</span><small data-i18n="subtitle"></small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <select id="langSelect" onchange="setLang(this.value)" aria-label="Language">
@@ -26,7 +26,7 @@
       <option value="zh">繁體中文</option>
     </select>
   </div>
-  <div class="pill" id="connPill" onclick="openSettings()"><span class="dot"></span><span id="connTxt">未連線</span></div>
+  <div class="pill" id="connPill" onclick="openSettings()"><span class="dot"></span><span id="connTxt" data-i18n="conn_unlinked"></span></div>
   <div class="gear" onclick="openSettings()">⚙</div>
 </header>
 
@@ -36,26 +36,26 @@
     <!-- Guide sidebar -->
     <aside class="guide" id="guide">
       <div class="guide-hd">
-        <span data-i18n="guide_title">⌘ 指令導引</span>
-        <button class="guide-tog" id="guideTog" onclick="toggleGuide()" title="收合導引">⟨</button>
+        <span data-i18n="guide_title"></span>
+        <button class="guide-tog" id="guideTog" onclick="toggleGuide()" data-i18n-title="guide_close">⟨</button>
       </div>
       <div class="guide-body" id="guideBody"></div>
     </aside>
 
     <!-- Chat inner -->
     <div class="chat-inner">
-      <button class="guide-open" id="guideOpen" onclick="toggleGuide()" title="展開導引" data-i18n="guide_open_txt">導引</button>
+      <button class="guide-open" id="guideOpen" onclick="toggleGuide()" data-i18n-title="guide_open" data-i18n="guide_open_txt"></button>
       <div class="msgs" id="msgs"></div>
       <div class="composer" id="composer">
         <div class="modebar">
           <span data-i18n="mode">MODE</span>
-          <span class="tag local" id="modeTag">本地 · 規則式</span>
+          <span class="tag local" id="modeTag"></span>
           <span style="flex:1"></span>
           <span id="modelNote" style="opacity:.6"></span>
-          <button class="clearchat" onclick="clearChat()" data-i18n="clearchat" data-i18n-title="clearchat_tip">🧹 清除對話</button>
+          <button class="clearchat" onclick="clearChat()" data-i18n="clearchat" data-i18n-title="clearchat_tip"></button>
         </div>
         <div class="row">
-          <textarea id="input" rows="1" data-i18n-ph="input_ph" placeholder="以自然語言下達指令…  例）建立 15 層住宅"></textarea>
+          <textarea id="input" rows="1" data-i18n-ph="input_ph" placeholder=""></textarea>
           <button class="send" id="sendBtn" onclick="onSend()">➤</button>
         </div>
       </div>
@@ -65,45 +65,45 @@
   <!-- RIGHT: PANELS -->
   <section class="right">
     <div class="tabbar">
-      <div class="tab on" data-p="logP" onclick="tab('logP')" data-i18n="tab_log">⬡ 活動記錄</div>
-      <div class="tab" data-p="modelP" onclick="tab('modelP')" data-i18n="tab_model">▣ 模型</div>
-      <div class="tab" data-p="viewP" onclick="tab('viewP');draw3D()" data-i18n="tab_3d">◈ 3D</div>
-      <div class="tab" data-p="resP" onclick="tab('resP')" data-i18n="tab_res">∑ 結果</div>
+      <div class="tab on" data-p="logP" onclick="tab('logP')" data-i18n="tab_log"></div>
+      <div class="tab" data-p="modelP" onclick="tab('modelP')" data-i18n="tab_model"></div>
+      <div class="tab" data-p="viewP" onclick="tab('viewP');draw3D()" data-i18n="tab_3d"></div>
+      <div class="tab" data-p="resP" onclick="tab('resP')" data-i18n="tab_res"></div>
     </div>
-    <div class="panel on" id="logP"><div id="log"><div class="empty" data-i18n="log_empty">// API 通訊記錄將顯示於此</div></div></div>
+    <div class="panel on" id="logP"><div id="log"><div class="empty" data-i18n="log_empty"></div></div></div>
     <div class="panel" id="modelP"><div id="modelState"></div></div>
 
     <!-- 3D panel — v2 -->
     <div class="panel" id="viewP">
       <div class="view-tb">
         <!-- camera presets -->
-        <span class="vlbl" data-i18n="cam">視角</span>
-        <button class="vcam on" id="cam-iso"   onclick="setCam('iso')"   data-i18n="cam_iso">等角</button>
-        <button class="vcam"    id="cam-front" onclick="setCam('front')" data-i18n="cam_front">正視</button>
-        <button class="vcam"    id="cam-side"  onclick="setCam('side')"  data-i18n="cam_side">側視</button>
-        <button class="vcam"    id="cam-top"   onclick="setCam('top')"   data-i18n="cam_top">俯視</button>
+        <span class="vlbl" data-i18n="cam"></span>
+        <button class="vcam on" id="cam-iso"   onclick="setCam('iso')"   data-i18n="cam_iso"></button>
+        <button class="vcam"    id="cam-front" onclick="setCam('front')" data-i18n="cam_front"></button>
+        <button class="vcam"    id="cam-side"  onclick="setCam('side')"  data-i18n="cam_side"></button>
+        <button class="vcam"    id="cam-top"   onclick="setCam('top')"   data-i18n="cam_top"></button>
         <span class="vsep"></span>
         <!-- visibility toggles -->
-        <span class="vlbl" data-i18n="show">顯示</span>
-        <button class="vtog on" id="tog-col"   onclick="toggleVis('col')"><span class="swatch" style="background:#2faadc"></span><span data-i18n="show_col">柱</span></button>
-        <button class="vtog on" id="tog-beam"  onclick="toggleVis('beam')"><span class="swatch" style="background:#38e1d6"></span><span data-i18n="show_beam">梁</span></button>
-        <button class="vtog on" id="tog-node"  onclick="toggleVis('node')"><span class="swatch" style="background:#6b7a99"></span><span data-i18n="show_node">節點</span></button>
-        <button class="vtog on" id="tog-floor" onclick="toggleVis('floor')"><span class="swatch" style="background:#2a3a55"></span><span data-i18n="show_floor">樓層線</span></button>
+        <span class="vlbl" data-i18n="show"></span>
+        <button class="vtog on" id="tog-col"   onclick="toggleVis('col')"><span class="swatch" style="background:#2faadc"></span><span data-i18n="show_col"></span></button>
+        <button class="vtog on" id="tog-beam"  onclick="toggleVis('beam')"><span class="swatch" style="background:#38e1d6"></span><span data-i18n="show_beam"></span></button>
+        <button class="vtog on" id="tog-node"  onclick="toggleVis('node')"><span class="swatch" style="background:#6b7a99"></span><span data-i18n="show_node"></span></button>
+        <button class="vtog on" id="tog-floor" onclick="toggleVis('floor')"><span class="swatch" style="background:#2a3a55"></span><span data-i18n="show_floor"></span></button>
       </div>
       <div id="plot"></div>
       <div class="view-stats" id="viewStats">
-        <span style="color:var(--dim);font-style:italic" data-i18n="view_empty">// 建立模型後將以 3D 顯示</span>
+        <span style="color:var(--dim);font-style:italic" data-i18n="view_empty"></span>
       </div>
     </div>
 
-    <div class="panel" id="resP"><div id="results"><div class="res-empty" data-i18n="res_empty">// 分析後將顯示結果</div></div></div>
+    <div class="panel" id="resP"><div id="results"><div class="res-empty" data-i18n="res_empty"></div></div></div>
   </section>
 </main>
 
 <!-- SETTINGS -->
 <div class="scrim" id="scrim" onclick="closeSettings()"></div>
 <div class="drawer" id="drawer">
-  <header><h1 style="font-size:.9rem"><span data-i18n="set_title">⚙ 連線設定</span><small>Connection &amp; Agent</small></h1><div class="spacer"></div><div class="gear" onclick="closeSettings()">✕</div></header>
+  <header><h1 style="font-size:.9rem"><span data-i18n="set_title"></span><small>Connection &amp; Agent</small></h1><div class="spacer"></div><div class="gear" onclick="closeSettings()">✕</div></header>
   <div class="body">
     <div class="sec-divider">MIDAS Gen NX (MAPI)</div>
     <div class="field">
@@ -112,15 +112,15 @@
     </div>
     <div class="field">
       <label>MAPI-KEY</label>
-      <input id="mapiKey" type="password" data-i18n-ph="mapi_key_ph" placeholder="於 Gen NX → API Settings 複製">
-      <div class="hint" data-i18n-html="mapi_hint_html">Gen NX 須正在執行，且 API 狀態為 <b style="color:var(--cyan)">Connect</b>。</div>
+      <input id="mapiKey" type="password" data-i18n-ph="mapi_key_ph" placeholder="">
+      <div class="hint" data-i18n-html="mapi_hint_html"></div>
     </div>
-    <button class="btn btn-c" onclick="testConn()" data-i18n="conn_test">連線測試</button>
+    <button class="btn btn-c" onclick="testConn()" data-i18n="conn_test"></button>
     <div class="test-out" id="testOut"></div>
 
-    <div class="sec-divider" style="margin-top:26px" data-i18n="ai_section">AI 大腦（選用）</div>
+    <div class="sec-divider" style="margin-top:26px" data-i18n="ai_section"></div>
     <div class="toggle-row" style="border:none;padding-top:0">
-      <div><div style="font-size:.85rem" data-i18n="llm_mode">LLM 模式</div><div style="font-size:.7rem;color:var(--muted)" data-i18n="llm_mode_desc">以所選 AI 自由對話（需 API 金鑰）</div></div>
+      <div><div style="font-size:.85rem" data-i18n="llm_mode"></div><div style="font-size:.7rem;color:var(--muted)" data-i18n="llm_mode_desc"></div></div>
       <label class="switch"><input type="checkbox" id="llmToggle" onchange="syncMode()"><span class="track"></span><span class="knob"></span></label>
     </div>
     <div class="field">
@@ -134,17 +134,17 @@
     <div class="field">
       <label id="keyLabel">ANTHROPIC API KEY</label>
       <input id="provKey" type="password" placeholder="sk-ant-…">
-      <div class="hint" id="keyHint">與 claude.ai 登入<b>無關</b>。請至 console.anthropic.com 申請。</div>
+      <div class="hint" id="keyHint"></div>
     </div>
     <div class="field">
       <label>MODEL</label>
       <input id="provModel" list="modelList" value="claude-sonnet-4-6">
       <datalist id="modelList"></datalist>
-      <div class="hint" data-i18n="model_hint">模型名稱可自行修改（供應商常更新最新模型）。</div>
+      <div class="hint" data-i18n="model_hint"></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn btn-c" onclick="saveSettings()" data-i18n="save">儲存</button>
-      <button class="btn btn-ghost" onclick="closeSettings()" data-i18n="close">關閉</button>
+      <button class="btn btn-c" onclick="saveSettings()" data-i18n="save"></button>
+      <button class="btn btn-ghost" onclick="closeSettings()" data-i18n="close"></button>
     </div>
   </div>
 </div>
@@ -157,7 +157,7 @@
    STATE
 ════════════════════════════════════════════════════════════ */
 const S = {
-  connected:false, llm:false, provider:'claude', lang:'ko',
+  connected:false, llm:false, provider:'claude', lang:(()=>{ const _l=localStorage.getItem('nx_lang'); return (I18N&&I18N[_l])?_l:'ko'; })(),
   model:{ matl:null, colSect:null, beamSect:null, nodes:[], cols:[], beams:[], links:[],
           baseNodes:[], elev:[], loadCases:[], spec:null },
   conv:[],
@@ -2026,6 +2026,7 @@ function applyStatic(){
 function setLang(l){
   if(!I18N[l]) return;
   S.lang=l;
+  localStorage.setItem('nx_lang',l);
   const _ls=document.getElementById('langSelect'); if(_ls) _ls.value=l;
   applyStatic();
   setProvider(S.provider);   // provider 힌트 언어 갱신 + 대화 초기화
