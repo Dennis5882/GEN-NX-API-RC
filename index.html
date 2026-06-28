@@ -380,9 +380,8 @@ async function actBuildFrame(p, clear=true){
   await putBoundary(f.baseNodes,'1111110');
   await putLoadCase(1,'DL','D');
   await putSelfWeight(1,'DL',-1);
-  /* M1.7: per-floor rigid diaphragm.
-     'rigd'(기본): db/rigd 사용. 'story': db/STOR bFLOOR_DIAPHRAGM 사용(db/rigd 건너뜀 — 중복 DOF 방지). */
-  if(p.diaphragmMethod!=='story'){
+  /* M1.7: 다이어프램. 기본=story(db/STOR bFLOOR_DIAPHRAGM). 'rigd' 명시 시만 db/rigd 사용. */
+  if(p.diaphragmMethod==='rigd'){
   const _dia={}; let _rid=1; const _dg=deriveFloorGroups(p);
   for(const k in (f.floorGroups||{})){ const _iz=+k.split('_')[1]; const _g=_dg[_iz];
     if(_g && _g.dia===false) continue;
@@ -1050,8 +1049,8 @@ function readPlanEditor(el){
   }
   // Story 정보 자동 생성 토글 (기본 ON)
   const stEl=el.querySelector('[data-story="on"]'); p.storyData = stEl ? stEl.checked : true;
-  // 다이어프램 방식: 'rigd'(기본=db/rigd) | 'story'(db/STOR bFLOOR_DIAPHRAGM)
-  const dmEl=el.querySelector('[data-story="diaMethod"]'); p.diaphragmMethod = dmEl ? dmEl.value : 'rigd';
+  // 다이어프램 방식: 'story'(기본=db/STOR bFLOOR_DIAPHRAGM) | 'rigd'(db/rigd 명시)
+  const dmEl=el.querySelector('[data-story="diaMethod"]'); p.diaphragmMethod = dmEl ? dmEl.value : 'story';
   // 내진 입력
   const seis={}; const onEl=el.querySelector('[data-s="on"]');
   seis.on=!!(onEl&&onEl.checked);
@@ -1102,8 +1101,8 @@ function fgTableHTML(p){
     <div class="pe-f" style="margin-top:8px;align-items:center;gap:8px;display:flex">
       <label style="font-size:.82rem;white-space:nowrap">${t('diaphragm_method')}</label>
       <select data-story="diaMethod" style="flex:1;font-size:.82rem" onchange="previewFromEditor(this)">
-        <option value="rigd" ${(p.diaphragmMethod||'rigd')==='rigd'?'selected':''}>${t('rigid_link_db_rigd')}</option>
-        <option value="story" ${p.diaphragmMethod==='story'?'selected':''}>${t('story_floor_diaphragm_db_s')}</option>
+        <option value="story" ${(p.diaphragmMethod||'story')!=='rigd'?'selected':''}>${t('story_floor_diaphragm_db_s')}</option>
+        <option value="rigd" ${p.diaphragmMethod==='rigd'?'selected':''}>${t('rigid_link_db_rigd')}</option>
       </select>
     </div>
     <div class="pe-tip" style="opacity:.75">${t('rigd_db_rigd_rigid_link_man')}</div>

@@ -490,7 +490,7 @@ function sseisProfileToStoryProp(genSseis){
    ⚠ 단위 전제 N·mm. ⚠ db/STOR는 Story Data 테이블만 채움 — Gen Story Manager(Module) 등록은 GUI Auto Generate 별도. */
 function buildStoryData(p, f){
   const elev=storyElevations(p);
-  const useStoryDia=(p.diaphragmMethod==='story');
+  const useStoryDia=(p.diaphragmMethod!=='rigd'); // 기본=story(미지정 포함), 'rigd' 명시 시만 false
   let mnx=Infinity,mxx=-Infinity,mny=Infinity,mxy=-Infinity;
   ((f&&f.nodes)||[]).forEach(n=>{ if(n.x<mnx)mnx=n.x; if(n.x>mxx)mxx=n.x; if(n.y<mny)mny=n.y; if(n.y>mxy)mxy=n.y; });
   const wX=isFinite(mxx-mnx)?(mxx-mnx):0, wY=isFinite(mxy-mny)?(mxy-mny):0;
