@@ -20,9 +20,11 @@
   <h1>Gen NX Agent<span class="byline"><span data-i18n="dev">開發者</span> <b>Dennis</b> · v1.2.1 (<span data-i18n="updated">更新日</span> : 2026-06-28)</span><small data-i18n="subtitle">對話式結構建模</small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
-    <button data-l="ko" onclick="setLang('ko')">한국어</button>
-    <button data-l="en" onclick="setLang('en')">English</button>
-    <button data-l="zh" onclick="setLang('zh')">繁體中文</button>
+    <select id="langSelect" onchange="setLang(this.value)" aria-label="Language">
+      <option value="ko">한국어</option>
+      <option value="en">English</option>
+      <option value="zh">繁體中文</option>
+    </select>
   </div>
   <div class="pill" id="connPill" onclick="openSettings()"><span class="dot"></span><span id="connTxt">未連線</span></div>
   <div class="gear" onclick="openSettings()">⚙</div>
@@ -2024,7 +2026,7 @@ function applyStatic(){
 function setLang(l){
   if(!I18N[l]) return;
   S.lang=l;
-  document.querySelectorAll('#langSel button').forEach(b=>b.classList.toggle('on', b.dataset.l===l));
+  const _ls=document.getElementById('langSelect'); if(_ls) _ls.value=l;
   applyStatic();
   setProvider(S.provider);   // provider 힌트 언어 갱신 + 대화 초기화
   setConn(S.connected, $('connPill').classList.contains('err'));
@@ -2043,7 +2045,7 @@ $('input').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.p
 $('provKey').addEventListener('input',syncMode); $('provModel').addEventListener('input',syncMode);
 
 setProvider('claude');
-document.querySelectorAll('#langSel button').forEach(b=>b.classList.toggle('on', b.dataset.l===S.lang));
+const _ls0=document.getElementById('langSelect'); if(_ls0) _ls0.value=S.lang;
 applyStatic();
 renderGuide(); renderModelState(); draw3D(); syncMode();
 addMsg('bot', t('welcome'));

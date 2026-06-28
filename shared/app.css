@@ -44,11 +44,10 @@ header .spacer{flex:1}
 .gear{cursor:pointer;color:var(--muted);font-size:1.2rem;padding:4px 8px;border-radius:6px;transition:.2s}
 .gear:hover{color:var(--cyan);background:rgba(56,225,214,.08)}
 @media(max-width:640px){header h1 .byline{display:none}}
-.langsel{display:flex;gap:3px;margin-right:4px}
-.langsel button{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.66rem;padding:4px 8px;border-radius:6px;
-  border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;white-space:nowrap}
-.langsel button:hover{border-color:var(--dim);color:var(--txt)}
-.langsel button.on{border-color:var(--cyan);color:var(--cyan);background:rgba(56,225,214,.08)}
+.langsel{display:flex;align-items:center;margin-right:4px}
+.langsel select{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.72rem;padding:4px 8px;border-radius:6px;
+  border:1px solid var(--border);background:var(--bg);color:var(--dim);cursor:pointer;outline:none;transition:.15s}
+.langsel select:hover{border-color:var(--dim);color:var(--txt)}
 
 /* main split */
 main{flex:1;display:grid;grid-template-columns:1fr 1.05fr;gap:1px;background:var(--border);overflow:hidden}
