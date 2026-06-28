@@ -380,14 +380,17 @@ async function actBuildFrame(p, clear=true){
   await putBoundary(f.baseNodes,'1111110');
   await putLoadCase(1,'DL','D');
   await putSelfWeight(1,'DL',-1);
-  /* M1.7: per-floor rigid diaphragm (RIGD, DOF 110001 = Dx Dy Rz). 표준층별 체크 반영 */
+  /* M1.7: per-floor rigid diaphragm.
+     'rigd'(기본): db/rigd 사용. 'story': db/STOR bFLOOR_DIAPHRAGM 사용(db/rigd 건너뜀 — 중복 DOF 방지). */
+  if(p.diaphragmMethod!=='story'){
   const _dia={}; let _rid=1; const _dg=deriveFloorGroups(p);
   for(const k in (f.floorGroups||{})){ const _iz=+k.split('_')[1]; const _g=_dg[_iz];
     if(_g && _g.dia===false) continue;
     const ns=f.floorGroups[k];
     if(ns.length>=3){ _dia[ns[0]]={ITEMS:[{ID:_rid++,GROUP_NAME:'',DOF:110001,S_NODE:ns.slice(1)}]}; } }
   if(Object.keys(_dia).length){ await mapi('PUT','rigd',{Assign:_dia});
-    log('\u25b8 '+(t('rigid_diaphragm'))+' <b>'+Object.keys(_dia).length+'</b>','ok'); }
+      log('\u25b8 '+(t('rigid_diaphragm'))+' <b>'+Object.keys(_dia).length+'</b>','ok'); }
+  }
   /* M2-A8: Story 정보(db/STOR) 자동 생성 — 표준층 모델 기본 ON(p.storyData!==false)
      ope/STOR(putStoryCalc)는 해석 후 actAnalyze에서 호출(해석 전 호출 시 [SS] no-result 알림 발생). */
   if(p.storyData!==false){ try{ await putStoryData(p, f); }catch(e){
@@ -1048,6 +1051,8 @@ function readPlanEditor(el){
   }
   // Story 정보 자동 생성 토글 (기본 ON)
   const stEl=el.querySelector('[data-story="on"]'); p.storyData = stEl ? stEl.checked : true;
+  // 다이어프램 방식: 'rigd'(기본=db/rigd) | 'story'(db/STOR bFLOOR_DIAPHRAGM)
+  const dmEl=el.querySelector('[data-story="diaMethod"]'); p.diaphragmMethod = dmEl ? dmEl.value : 'rigd';
   // 내진 입력
   const seis={}; const onEl=el.querySelector('[data-s="on"]');
   seis.on=!!(onEl&&onEl.checked);
@@ -1095,6 +1100,14 @@ function fgTableHTML(p){
       <input type="checkbox" data-story="on" ${p.storyData===false?'':'checked'}>
       <span>${t('auto_create_story_data_db_')}</span></label>
     <div class="pe-tip" style="opacity:.75">${t('fills_the_story_data_table')}</div>
+    <div class="pe-f" style="margin-top:8px;align-items:center;gap:8px;display:flex">
+      <label style="font-size:.82rem;white-space:nowrap">${t('diaphragm_method')}</label>
+      <select data-story="diaMethod" style="flex:1;font-size:.82rem" onchange="previewFromEditor(this)">
+        <option value="rigd" ${(p.diaphragmMethod||'rigd')==='rigd'?'selected':''}>${t('rigid_link_db_rigd')}</option>
+        <option value="story" ${p.diaphragmMethod==='story'?'selected':''}>${t('story_floor_diaphragm_db_s')}</option>
+      </select>
+    </div>
+    <div class="pe-tip" style="opacity:.75">${t('rigd_db_rigd_rigid_link_man')}</div>
   </div>`;
 }
 

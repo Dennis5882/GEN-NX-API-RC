@@ -490,11 +490,13 @@ function sseisProfileToStoryProp(genSseis){
    ⚠ 단위 전제 N·mm. ⚠ db/STOR는 Story Data 테이블만 채움 — Gen Story Manager(Module) 등록은 GUI Auto Generate 별도. */
 function buildStoryData(p, f){
   const elev=storyElevations(p);
+  const useStoryDia=(p.diaphragmMethod==='story');
   let mnx=Infinity,mxx=-Infinity,mny=Infinity,mxy=-Infinity;
   ((f&&f.nodes)||[]).forEach(n=>{ if(n.x<mnx)mnx=n.x; if(n.x>mxx)mxx=n.x; if(n.y<mny)mny=n.y; if(n.y>mxy)mxy=n.y; });
   const wX=isFinite(mxx-mnx)?(mxx-mnx):0, wY=isFinite(mxy-mny)?(mxy-mny):0;
   const cX=isFinite(mnx)?(mnx+mxx)/2:0, cY=isFinite(mny)?(mny+mxy)/2:0;
-  const mk=(name,lvl)=>({ STORY_NAME:name, STORY_LEVEL:lvl, bFLOOR_DIAPHRAGM:false,
+  /* bFLOOR_DIAPHRAGM: 'rigd' 방식(기본)=false(db/rigd가 담당), 'story' 방식=true(Story Data가 직접 담당) */
+  const mk=(name,lvl)=>({ STORY_NAME:name, STORY_LEVEL:lvl, bFLOOR_DIAPHRAGM:useStoryDia&&lvl>0,
     WIND_FLOOR_WIDTH_X:wX, WIND_FLOOR_WIDTH_Y:wY, WIND_CENTER_X:cX, WIND_CENTER_Y:cY,
     WIND_ECCENT_X:0, WIND_ECCENT_Y:0,
     SEIS_ACC_ECCENT_X:0.05*wX, SEIS_ACC_ECCENT_Y:0.05*wY,
