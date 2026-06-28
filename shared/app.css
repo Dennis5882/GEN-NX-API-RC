@@ -43,6 +43,7 @@ header .spacer{flex:1}
 .pill.err .dot{background:var(--red);box-shadow:0 0 8px var(--red)}
 .gear{cursor:pointer;color:var(--muted);font-size:1.2rem;padding:4px 8px;border-radius:6px;transition:.2s}
 .gear:hover{color:var(--cyan);background:rgba(56,225,214,.08)}
+.gear.active{color:var(--cyan)}
 @media(max-width:640px){header h1 .byline{display:none}}
 .langsel{display:flex;align-items:center;margin-right:4px}
 .langsel select{font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.72rem;padding:4px 8px;border-radius:6px;

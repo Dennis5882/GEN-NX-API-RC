@@ -26,8 +26,9 @@
       <option value="zh">繁體中文</option>
     </select>
   </div>
-  <div class="pill" id="connPill" onclick="openSettings()"><span class="dot"></span><span id="connTxt" data-i18n="conn_unlinked"></span></div>
-  <div class="gear" onclick="openSettings()">⚙</div>
+  <div class="pill" id="connPill" onclick="openMapi()"><span class="dot"></span><span id="connTxt" data-i18n="conn_unlinked"></span></div>
+  <div class="gear" onclick="openMapi()">⚙</div>
+  <div class="gear" id="llmGear" onclick="openLlm()" data-i18n-title="ai_section" style="font-size:.75rem;font-weight:600;letter-spacing:.5px">AI</div>
 </header>
 
 <main>
@@ -100,12 +101,13 @@
   </section>
 </main>
 
-<!-- SETTINGS -->
+<!-- SETTINGS (scrim shared) -->
 <div class="scrim" id="scrim" onclick="closeSettings()"></div>
-<div class="drawer" id="drawer">
-  <header><h1 style="font-size:.9rem"><span data-i18n="set_title"></span><small>Connection &amp; Agent</small></h1><div class="spacer"></div><div class="gear" onclick="closeSettings()">✕</div></header>
+
+<!-- MIDAS API drawer -->
+<div class="drawer" id="drawerMapi">
+  <header><h1 style="font-size:.9rem"><span data-i18n="set_title"></span><small>MIDAS Gen NX</small></h1><div class="spacer"></div><div class="gear" onclick="closeSettings()">✕</div></header>
   <div class="body">
-    <div class="sec-divider">MIDAS Gen NX (MAPI)</div>
     <div class="field">
       <label>BASE URL</label>
       <input id="baseUrl" value="https://moa-engineers.midasit.com:443/gen">
@@ -117,9 +119,18 @@
     </div>
     <button class="btn btn-c" onclick="testConn()" data-i18n="conn_test"></button>
     <div class="test-out" id="testOut"></div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-c" onclick="saveSettings()" data-i18n="save"></button>
+      <button class="btn btn-ghost" onclick="closeSettings()" data-i18n="close"></button>
+    </div>
+  </div>
+</div>
 
-    <div class="sec-divider" style="margin-top:26px" data-i18n="ai_section"></div>
-    <div class="toggle-row" style="border:none;padding-top:0">
+<!-- LLM AI drawer -->
+<div class="drawer" id="drawerLlm">
+  <header><h1 style="font-size:.9rem"><span data-i18n="ai_section"></span><small>LLM · AI Brain</small></h1><div class="spacer"></div><div class="gear" onclick="closeSettings()">✕</div></header>
+  <div class="body">
+    <div class="toggle-row" style="border:none;padding-top:0;margin-bottom:18px">
       <div><div style="font-size:.85rem" data-i18n="llm_mode"></div><div style="font-size:.7rem;color:var(--muted)" data-i18n="llm_mode_desc"></div></div>
       <label class="switch"><input type="checkbox" id="llmToggle" onchange="syncMode()"><span class="track"></span><span class="knob"></span></label>
     </div>
@@ -181,8 +192,10 @@ const $=id=>document.getElementById(id);
 function tab(id){ document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   $(id).classList.add('on'); document.querySelector(`.tab[data-p="${id}"]`).classList.add('on'); }
-function openSettings(){ $('scrim').classList.add('on'); $('drawer').classList.add('on'); }
-function closeSettings(){ $('scrim').classList.remove('on'); $('drawer').classList.remove('on'); }
+function openMapi(){ $('scrim').classList.add('on'); $('drawerMapi').classList.add('on'); }
+function openLlm(){ $('scrim').classList.add('on'); $('drawerLlm').classList.add('on'); }
+function openSettings(){ openMapi(); }
+function closeSettings(){ $('scrim').classList.remove('on'); ['drawerMapi','drawerLlm'].forEach(id=>$(id)&&$(id).classList.remove('on')); }
 
 function nowTs(){ const d=new Date(); return d.toTimeString().slice(0,8); }
 function log(msg,type='api'){
@@ -1861,10 +1874,10 @@ function setConn(ok,err){ const p=$('connPill'); p.classList.toggle('on',ok); p.
   $('connTxt').textContent=ok?t('conn_linked'):err?t('conn_failed'):t('conn_unlinked'); }
 function syncMode(){ S.llm=$('llmToggle').checked;
   const hasKey=$('provKey').value.trim();
-  const tag=$('modeTag');
+  const tag=$('modeTag'); const lg=$('llmGear');
   if(S.llm&&hasKey){ tag.className='tag llm'; tag.textContent='LLM · '+PROVIDERS[S.provider].label+' · '+$('provModel').value;
-    $('modelNote').textContent=PROVIDERS[S.provider].label+t('brain'); }
-  else { tag.className='tag local'; tag.textContent=t('mode_local'); $('modelNote').textContent=S.llm?t('mode_nokey'):''; }
+    $('modelNote').textContent=PROVIDERS[S.provider].label+t('brain'); if(lg)lg.classList.add('active'); }
+  else { tag.className='tag local'; tag.textContent=t('mode_local'); $('modelNote').textContent=S.llm?t('mode_nokey'):''; if(lg)lg.classList.remove('active'); }
 }
 function saveSettings(){ syncMode(); closeSettings(); }
 
