@@ -1041,8 +1041,7 @@ function readPlanEditor(el){
   const rows=[...el.querySelectorAll('.fg-row')].map(r=>({
     role:r.querySelector('.fg-role').value,
     from:+r.querySelector('.fg-from').value, to:+r.querySelector('.fg-to').value,
-    h:+r.querySelector('.fg-h').value, use:r.querySelector('.fg-use').value,
-    dia:(r.querySelector('.fg-dia')?r.querySelector('.fg-dia').checked:true)
+    h:+r.querySelector('.fg-h').value, use:r.querySelector('.fg-use').value
   })).filter(g=>g.to>=g.from);
   if(rows.length){
     p.groups=rows;
@@ -1093,7 +1092,7 @@ function fgTableHTML(p){
   return `<div style="margin-top:14px">
     <div style="font-size:.7rem;color:var(--amber);font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';letter-spacing:.5px;margin-bottom:6px">${t('floor_stack_top_roof_botto')}</div>
     <table class="fgtable" style="width:100%"><thead><tr>
-      <th>${t('role')}</th><th>${t('from')}</th><th>${t('to')}</th><th>${t('ht')}</th><th>${t('use')}</th><th>${t('diaph')}</th><th>${t('add_del')}</th>
+      <th>${t('role')}</th><th>${t('from')}</th><th>${t('to')}</th><th>${t('ht')}</th><th>${t('use')}</th><th>${t('add_del')}</th>
     </tr></thead><tbody>${rows}</tbody></table>
     <div class="pe-tip">${t('use_above_below_on_a_row_t')}</div>
     <label style="display:flex;align-items:center;gap:7px;margin-top:8px;font-size:.82rem;cursor:pointer">
@@ -1970,7 +1969,6 @@ function fgRow(g){
     <td><input class="fg-to" type="number" value="${g.to}" style="width:44px" onchange="fgChanged(this)"></td>
     <td><input class="fg-h" type="number" value="${g.h}" style="width:58px" onchange="fgChanged(this)"></td>
     <td><select class="fg-use" onchange="fgChanged(this)">${us}</select></td>
-    <td style="text-align:center"><input class="fg-dia" type="checkbox" ${g.dia===false?'':'checked'} onchange="fgChanged(this)"></td>
     <td style="white-space:nowrap"><button class="btn btn-ghost" style="padding:2px 6px" title="${t('insert_above_higher')}" onclick="fgInsert(this,'above')">↑</button><button class="btn btn-ghost" style="padding:2px 6px" title="${t('insert_below_lower')}" onclick="fgInsert(this,'below')">↓</button><button class="btn btn-ghost" style="padding:2px 6px" title="${t('delete')}" onclick="fgDel(this)">×</button></td></tr>`;
 }
 /* 표준층 표 핸들러 — 대화형 편집 카드(.plan-editor) 전용.
