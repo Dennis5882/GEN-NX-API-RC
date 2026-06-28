@@ -385,8 +385,9 @@ async function actBuildFrame(p, clear=true){
     if(ns.length>=3){ _dia[ns[0]]={ITEMS:[{ID:_rid++,GROUP_NAME:'',DOF:110001,S_NODE:ns.slice(1)}]}; } }
   if(Object.keys(_dia).length){ await mapi('PUT','rigd',{Assign:_dia});
     log('\u25b8 '+(t('rigid_diaphragm'))+' <b>'+Object.keys(_dia).length+'</b>','ok'); }
-  /* M2-A8: Story 정보(db/STOR) 자동 생성 — 표준층 모델 기본 ON(p.storyData!==false) */
-  if(p.storyData!==false){ try{ await putStoryData(p, f); await putStoryCalc(); }catch(e){
+  /* M2-A8: Story 정보(db/STOR) 자동 생성 — 표준층 모델 기본 ON(p.storyData!==false)
+     ope/STOR(putStoryCalc)는 해석 후 actAnalyze에서 호출(해석 전 호출 시 [SS] no-result 알림 발생). */
+  if(p.storyData!==false){ try{ await putStoryData(p, f); }catch(e){
     log('⚠ '+(t('story_data_skipped'))+(e.message||e),'err'); } }
   Object.assign(S.model,{spec:p, colSect:p.colName, beamSect:p.beamName,
     nodes:f.nodes, cols:f.cols, beams:f.beams, links:f.links, walls:f.walls||[],
@@ -830,6 +831,8 @@ async function actAddBracing(building, floors){
 async function actAnalyze(){
   if(!S.model.nodes.length) throw new Error(t('e_noanalyze'));
   await runAnalysis();
+  /* ope/STOR: 해석 완료 후 Story Calc OPT 등록 — 빌드 단계에서 호출 시 [SS] no-result 알림 발생하므로 여기서 처리 */
+  if(S.model.spec?.storyData!==false) try{ await putStoryCalc(); }catch(e){}
   const lc=S.model.loadCases.map(l=>l.name+'(ST)');
   S.results.react=await fetchTable('REACTIONG',lc);
   S.results.disp =await fetchTable('DISPLACEMENTG',lc);
