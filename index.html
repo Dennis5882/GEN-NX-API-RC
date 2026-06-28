@@ -283,7 +283,10 @@ async function runAnalysis(){
   await setUnit('N','MM');
   log(tl('analRun'),'info');
   try{ await mapi('POST','/doc/saveas',{Argument:await autoSavePath()}); }catch(e){}
-  await mapi('POST','/doc/anal',{});
+  const analRes=await mapi('POST','/doc/anal',{});
+  const analMsg=String((analRes&&analRes.message)||'');
+  if(/not allowed|not permitted|허용되지|許可/i.test(analMsg))
+    throw new Error(t('analysis_refused')+analMsg);
   log(tl('analDone'),'ok');
 }
 /* Track D: post/table에 UNIT을 명시 → 모델 전역 단위와 무관하게 항상 N·mm로 회수
@@ -831,13 +834,13 @@ async function actAddBracing(building, floors){
 async function actAnalyze(){
   if(!S.model.nodes.length) throw new Error(t('e_noanalyze'));
   await runAnalysis();
-  /* ope/STOR: 해석 완료 후 Story Calc OPT 등록 — 빌드 단계에서 호출 시 [SS] no-result 알림 발생하므로 여기서 처리 */
-  if(S.model.spec?.storyData!==false) try{ await putStoryCalc(); }catch(e){}
   const lc=S.model.loadCases.map(l=>l.name+'(ST)');
   S.results.react=await fetchTable('REACTIONG',lc);
   S.results.disp =await fetchTable('DISPLACEMENTG',lc);
   S.results.force=await fetchTable('BEAMFORCE',lc,{PARTS:['PartI','PartJ']});
   renderResults();
+  /* ope/STOR: 결과 회수 완료 후 Story Calc OPT 등록 — fetchTable 전에 호출 시 GEN NX 내부 상태 변경으로 post/table 실패 */
+  if(S.model.spec?.storyData!==false) try{ await putStoryCalc(); }catch(e){}
   return S.results;
 }
 
