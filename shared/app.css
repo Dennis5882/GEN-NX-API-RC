@@ -252,7 +252,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 .btn{padding:9px 16px;border-radius:8px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.2s}
 .btn-c{background:var(--cyan);color:#06121a} .btn-c:hover{filter:brightness(1.1)}
 .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)} .btn-ghost:hover{border-color:var(--dim);color:var(--txt)}
-.test-out{margin-top:10px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.76rem;padding:9px 11px;border-radius:7px;display:none}
+.test-out{margin-top:10px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.76rem;padding:9px 11px;border-radius:7px;display:none;white-space:pre-line;line-height:1.5}
 .prov-seg{display:flex;gap:6px}
 .prov-seg button{flex:1;padding:8px 0;border-radius:8px;border:1px solid var(--border);background:var(--bg);
   color:var(--muted);font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.78rem;cursor:pointer;transition:.2s}

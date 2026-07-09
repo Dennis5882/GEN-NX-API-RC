@@ -17,7 +17,7 @@
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev"></span> <b>Dennis</b> · v1.2.1 (<span data-i18n="updated"></span> : 2026-06-29)</span><small data-i18n="subtitle"></small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev"></span> <b>Dennis</b> · v1.2.1 (<span data-i18n="updated"></span> : 2026-07-10)</span><small data-i18n="subtitle"></small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <select id="langSelect" onchange="setLang(this.value)" aria-label="Language">
@@ -1449,7 +1449,7 @@ async function handleLocal(txt){
   if(cmd.intent==='conn_check'){
     addMsg('bot', S.connected
       ? `✅ ${t('conn_linked')}${S.apiUser?` <span style="color:var(--muted)">· ${S.apiUser}</span>`:''}`
-      : `⚠ ${t('conn_unlinked')} — ${t('e_notconn')}`);
+      : `⚠ ${t('e_notconn')}`);
     return;
   }
   if(cmd.intent==='change_spec'){

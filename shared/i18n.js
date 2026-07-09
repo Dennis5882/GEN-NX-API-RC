@@ -35,9 +35,9 @@ window.I18N = {
     exec:'실행 ▶', cancel:'취소', edit_btn:'✎ 수정',
     test_need:'Base URL과 MAPI Key를 모두 입력하세요.', test_ing:'연결 테스트 중…',
     test_ok:(prog,user)=>`✅ Gen NX 연결 성공`,
-    test_keyfail:'❌ 키 미검증 또는 제품 미연결 — Gen NX 실행/Connect 상태를 확인하세요.',
-    test_wrongprod:p=>`⚠️ 연결됨 — 그러나 제품이 "${p}"입니다. 이 도구는 Gen NX 전용이라 일부 기능(전단벽·풍 등)이 다르게 동작할 수 있습니다.`,
-    test_http:c=>`❌ 연결 실패 (HTTP ${c})`, test_err:m=>`❌ ${m} — Gen NX 실행/Connect 상태 및 CORS를 확인하세요.`,
+    test_keyfail:'❌ 키를 확인하지 못했어요.\nGen NX가 실행 중이고 Apps → Connect 가 켜져 있는지, MAPI-Key가 현재 세션 키와 일치하는지 확인해 주세요.',
+    test_wrongprod:p=>`⚠️ 연결됐지만 제품이 "${p}"입니다.\n이 도구는 Gen NX 전용이라 일부 기능(전단벽·풍 등)이 다르게 동작할 수 있어요.`,
+    test_http:c=>`❌ 서버가 오류를 반환했어요 (HTTP ${c}).\nBase URL이 정확한지, Gen NX API 서버가 실행 중인지 확인해 주세요.`, test_err:m=>`❌ Gen NX에 연결할 수 없어요.\nGen NX 실행·Connect 상태, Base URL, CORS 설정을 확인해 주세요.\n(상세: ${m})`,
     sec_geom:'▣ 형상', sec_prop:'◫ 속성', sec_edits:'✏ 편집 이력',
     kv_type:'건물 유형', kv_bs:'동수 / 층수', kv_bay:'평면 bay', kv_span:'스팬 (mm)', kv_h:'층고 1F / 기준',
     kv_cb:'기둥 / 보', kv_link:f=>`연결보 (${f}F)`, kv_mat:'재료', kv_csect:'기둥 단면', kv_bsect:'보 단면',
@@ -78,7 +78,7 @@ window.I18N = {
     act_brace:(b,fl,c)=>`건물${b} ${fl}층에 가새 ${c}개 추가.`,
     e_nomodel_edit:'수정할 모델이 없습니다.', e_nomodel:'모델이 없습니다.', e_notarget:'대상 부재를 찾지 못했습니다 (층 범위 확인).',
     e_nofloor:'해당 층 절점을 찾지 못했습니다.', e_nobrace:'가새를 놓을 위치를 찾지 못했습니다.',
-    e_noanalyze:'해석할 모델이 없습니다. 먼저 모델을 생성하세요.', e_notconn:'먼저 Gen NX 연결을 설정하세요 (⚙).',
+    e_noanalyze:'해석할 모델이 없습니다. 먼저 모델을 생성하세요.', e_notconn:'아직 Gen NX에 연결되지 않았어요.<br><span style="color:var(--muted);font-size:.85rem">① Gen NX를 실행해 모델을 열고 ② 오른쪽 위 <b>⚙</b> 에서 Base URL·MAPI-Key를 입력한 뒤 <b>연결 테스트</b>를 눌러 주세요.</span>',
     llm_err:(p,m)=>`⚠ LLM 오류 (${p}): ${m}<br><span style="color:var(--muted);font-size:.8rem">키/모델명/CORS 문제일 수 있어요. F12 콘솔을 확인하거나 ⚙에서 LOCAL 모드로 전환하세요.</span>`
   },
   en:{
@@ -104,9 +104,9 @@ window.I18N = {
     exec:'Run ▶', cancel:'Cancel', edit_btn:'✎ Edit',
     test_need:'Enter both Base URL and MAPI Key.', test_ing:'Testing connection…',
     test_ok:(prog,user)=>`✅ Gen NX connected`,
-    test_keyfail:'❌ Key not verified or product not connected — check Gen NX is running/Connect.',
-    test_wrongprod:p=>`⚠️ Connected — but product is "${p}". This tool targets Gen NX; some features (shear wall, wind…) may differ.`,
-    test_http:c=>`❌ Connection failed (HTTP ${c})`, test_err:m=>`❌ ${m} — Check Gen NX is running/Connect and CORS.`,
+    test_keyfail:"❌ Couldn't verify the key.\nCheck Gen NX is running with Apps → Connect enabled, and that the MAPI-Key matches your current session key.",
+    test_wrongprod:p=>`⚠️ Connected, but the product is "${p}".\nThis tool targets Gen NX; some features (shear wall, wind…) may behave differently.`,
+    test_http:c=>`❌ The server returned an error (HTTP ${c}).\nCheck the Base URL is correct and the Gen NX API server is running.`, test_err:m=>`❌ Couldn't reach Gen NX.\nCheck Gen NX is running/Connected, the Base URL, and CORS.\n(Details: ${m})`,
     sec_geom:'▣ Geometry', sec_prop:'◫ Properties', sec_edits:'✏ Edit history',
     kv_type:'Building type', kv_bs:'Buildings / Stories', kv_bay:'Plan bays', kv_span:'Span (mm)', kv_h:'Height 1F / typ',
     kv_cb:'Columns / Beams', kv_link:f=>`Link beams (${f}F)`, kv_mat:'Material', kv_csect:'Column section', kv_bsect:'Beam section',
@@ -147,7 +147,7 @@ window.I18N = {
     act_brace:(b,fl,c)=>`Added ${c} braces to building ${b}, floors ${fl}.`,
     e_nomodel_edit:'No model to modify.', e_nomodel:'No model.', e_notarget:'No target members found (check floor range).',
     e_nofloor:'No nodes found at that floor.', e_nobrace:'No place found for bracing.',
-    e_noanalyze:'No model to analyze. Build a model first.', e_notconn:'Set up the Gen NX connection first (⚙).',
+    e_noanalyze:'No model to analyze. Build a model first.', e_notconn:'Not connected to Gen NX yet.<br><span style="color:var(--muted);font-size:.85rem">① Launch Gen NX and open a model, then ② open <b>⚙</b> (top-right), enter the Base URL &amp; MAPI-Key and press <b>Test connection</b>.</span>',
     llm_err:(p,m)=>`⚠ LLM error (${p}): ${m}<br><span style="color:var(--muted);font-size:.8rem">May be a key/model/CORS issue. Check the F12 console or switch to LOCAL mode in ⚙.</span>`
   },
   zh:{
@@ -173,9 +173,9 @@ window.I18N = {
     exec:'執行 ▶', cancel:'取消', edit_btn:'✎ 修改',
     test_need:'請輸入 Base URL 與 MAPI Key。', test_ing:'連線測試中…',
     test_ok:(prog,user)=>`✅ Gen NX 連線成功`,
-    test_keyfail:'❌ 金鑰未驗證或產品未連線 — 請確認 Gen NX 執行／Connect 狀態。',
-    test_wrongprod:p=>`⚠️ 已連線 — 但產品為「${p}」。本工具專為 Gen NX 設計，部分功能（剪力牆・風力等）可能不同。`,
-    test_http:c=>`❌ 連線失敗 (HTTP ${c})`, test_err:m=>`❌ ${m} — 請確認 Gen NX 執行／Connect 狀態及 CORS。`,
+    test_keyfail:'❌ 無法驗證金鑰。\n請確認 Gen NX 執行中且已開啟 Apps → Connect，並確認 MAPI-Key 與目前工作階段金鑰一致。',
+    test_wrongprod:p=>`⚠️ 已連線，但產品為「${p}」。\n本工具專為 Gen NX 設計，部分功能（剪力牆・風力等）可能不同。`,
+    test_http:c=>`❌ 伺服器回傳錯誤 (HTTP ${c})。\n請確認 Base URL 是否正確，以及 Gen NX API 伺服器是否執行中。`, test_err:m=>`❌ 無法連線到 Gen NX。\n請確認 Gen NX 執行／Connect 狀態、Base URL 及 CORS 設定。\n（詳細：${m}）`,
     sec_geom:'▣ 幾何', sec_prop:'◫ 性質', sec_edits:'✏ 編輯紀錄',
     kv_type:'建築類型', kv_bs:'棟數 / 樓層', kv_bay:'平面 跨', kv_span:'跨距 (mm)', kv_h:'樓高 1F / 標準',
     kv_cb:'柱 / 梁', kv_link:f=>`連接梁 (${f}F)`, kv_mat:'材料', kv_csect:'柱斷面', kv_bsect:'梁斷面',
@@ -216,7 +216,7 @@ window.I18N = {
     act_brace:(b,fl,c)=>`已於第${b}棟 ${fl}樓新增斜撐 ${c} 個。`,
     e_nomodel_edit:'沒有可修改的模型。', e_nomodel:'沒有模型。', e_notarget:'找不到目標桿件（請確認樓層範圍）。',
     e_nofloor:'找不到該樓層的節點。', e_nobrace:'找不到可配置斜撐的位置。',
-    e_noanalyze:'沒有可分析的模型。請先建立模型。', e_notconn:'請先設定 Gen NX 連線（⚙）。',
+    e_noanalyze:'沒有可分析的模型。請先建立模型。', e_notconn:'尚未連線到 Gen NX。<br><span style="color:var(--muted);font-size:.85rem">① 請先執行 Gen NX 並開啟模型，② 於右上角 <b>⚙</b> 輸入 Base URL·MAPI-Key 後按下<b>連線測試</b>。</span>',
     llm_err:(p,m)=>`⚠ LLM 錯誤 (${p})：${m}<br><span style="color:var(--muted);font-size:.8rem">可能為金鑰／模型名稱／CORS 問題。請檢查 F12 主控台，或於 ⚙ 切換為本地模式。</span>`
   }
 };
