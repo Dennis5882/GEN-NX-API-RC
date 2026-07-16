@@ -981,7 +981,8 @@ function parseCommand(txt){
     return {intent:'analyze'};
   if(/변위|처짐|變位|位移|撓度|displacement|deflect/.test(t)) return {intent:'result',which:'disp'};
   if(/반력|지점|反力|支承反力|支點|reaction/.test(t)) return {intent:'result',which:'react'};
-  if(/부재력|모멘트|전단|桿件內力|構材內力|內力|彎矩|剪力|force|moment|shear/.test(t)) return {intent:'result',which:'force'};
+  if(/휨\s*모멘트|bending\s*moment|彎矩/.test(t)) return {intent:'result',which:'moment'};
+  if(/부재력|모멘트|전단|桿件內力|構材內力|內力|剪力|force|moment|shear/.test(t)) return {intent:'result',which:'force'};
   if(/상태|요약|현재|狀態|摘要|目前|現況|status|summary/.test(t)) return {intent:'status'};
   const bldgType = detectBuildingType(t);
   if(/만들|생성|모델링|세워|짓|建立|生成|建模|建造|蓋|做一個|做個|create|build/.test(t) || bldgType || /건물|골조|프레임|建築|構架|構架系統|剛架|frame|building/.test(t)){
@@ -1394,7 +1395,9 @@ async function handleLocal(txt){
     }catch(e){ th.remove(); addMsg('bot',t('err',e.message)); } return;
   }
   if(cmd.intent==='result'){
-    if(!S.results[cmd.which]){ addMsg('bot',t('need_analyze')); return; }
+    /* 휨모멘트 탭은 별도 테이블이 아니라 BEAMFORCE(force)에서 파생 */
+    const src=cmd.which==='moment'?'force':cmd.which;
+    if(!S.results[src]){ addMsg('bot',t('need_analyze')); return; }
     tab('resP'); showResult(cmd.which);
     addMsg('bot', resultBrief(cmd.which)); return;
   }
@@ -1497,7 +1500,29 @@ async function confirmBuild(btn){
   }catch(e){ th.remove(); addMsg('bot',t('build_fail',e.message)); }
 }
 
-function resultBrief(which){
+/* BEAMFORCE에서 휨모멘트 열(Torsion 제외) 인덱스 */
+function momentCols(F){ return F.head.map((h,i)=>i).filter(i=>/moment/i.test(F.head[i])&&!/torsion/i.test(F.head[i])); }
+/* 최대 휨모멘트 요약 라인 — fetchTable이 N·MM 고정이므로 N·mm → kN·m 는 1e6으로 나눔 */
+function momentLines(){
+  const F=S.results.force; if(!F) return '';
+  let s=''; const ei=F.head.findIndex(h=>/ELEM/i.test(h));
+  momentCols(F).forEach(ci=>{
+    let best=null;
+    F.data.forEach(r=>{ const v=parseFloat(r[ci]); if(isNaN(v)) return;
+      if(!best||Math.abs(v)>Math.abs(best.v)) best={v,id:ei>=0?r[ei]:'?'}; });
+    if(best) s+=t('rb_moment',escapeHtml(String(F.head[ci])),(best.v/1e6).toFixed(1),escapeHtml(String(best.id)));
+  });
+  return s;
+}
+/* 휨모멘트 탭 — BEAMFORCE에서 식별열 + Moment 열만 추린 뷰 (추가 API 호출 없음) */
+function momentTable(){
+  const F=S.results.force; if(!F) return null;
+  const mc=momentCols(F); if(!mc.length) return null;
+  const keep=F.head.map((h,i)=>i).filter(i=>/index|elem|load|part/i.test(F.head[i])).concat(mc);
+  return {head:keep.map(i=>F.head[i]), data:F.data.map(r=>keep.map(i=>r[i]))};
+}
+/* 탭별 결과 요약(HTML). 채팅 브리프(resultBrief)와 결과 패널 요약바(renderResults)가 공유. */
+function resultStats(which){
   let s='';
   if((!which||which==='disp')&&S.results.disp){
     const ext=extremum(S.results.disp,'DZ'); if(ext) s+=t('rb_disp',ext.v.toFixed(3),ext.node);
@@ -1506,21 +1531,12 @@ function resultBrief(which){
     const ext=extremum(S.results.react,'FZ'); if(ext) s+=t('rb_react',(ext.v/1000).toFixed(1),ext.node);
   }
   if((!which||which==='force')&&S.results.force){
-    s+=t('rb_force',S.results.force.data.length);
-    /* 최대 휨모멘트 — BEAMFORCE의 Moment 열(Torsion 제외)마다 |max| 추출.
-       fetchTable이 N·MM 고정이므로 N·mm → kN·m 는 1e6 으로 나눔. */
-    const F=S.results.force;
-    const ei=F.head.findIndex(h=>/ELEM/i.test(h));
-    F.head.forEach((h,ci)=>{
-      if(!/moment/i.test(h)||/torsion/i.test(h)) return;
-      let best=null;
-      F.data.forEach(r=>{ const v=parseFloat(r[ci]); if(isNaN(v)) return;
-        if(!best||Math.abs(v)>Math.abs(best.v)) best={v,id:ei>=0?r[ei]:'?'}; });
-      if(best) s+=t('rb_moment',escapeHtml(String(h)),(best.v/1e6).toFixed(1),escapeHtml(String(best.id)));
-    });
+    s+=t('rb_force',S.results.force.data.length)+momentLines();
   }
-  return (s||t('rb_none'))+t('rb_see');
+  if(which==='moment') s+=momentLines();
+  return s;
 }
+function resultBrief(which){ return (resultStats(which)||t('rb_none'))+t('rb_see'); }
 function extremum(tbl,colName){
   const ci=tbl.head.findIndex(h=>h.toUpperCase().includes(colName));
   const ni=tbl.head.findIndex(h=>h.toUpperCase().includes('NODE'));
@@ -1789,11 +1805,14 @@ function showResult(which){ resultTab=which; renderResults(); }
 function renderResults(){
   const box=$('results'); const r=S.results;
   if(!r.react&&!r.disp&&!r.force){ box.innerHTML=`<div class="res-empty">${t('res_empty')}</div>`; return; }
-  const tabs=[['react',t('r_react')],['disp',t('r_disp')],['force',t('r_force')]]
+  const tabs=[['react',t('r_react')],['disp',t('r_disp')],['force',t('r_force')],['moment',t('r_moment')]]
     .map(([k,l])=>`<button class="chip" style="${resultTab===k?'border-color:var(--cyan);color:var(--cyan)':''}" onclick="showResult('${k}')">${l}</button>`).join('');
-  const tbl=r[resultTab];
+  const tbl=resultTab==='moment'?momentTable():r[resultTab];
   let html=`<div class="res-sel">${tabs}</div>`;
   if(!tbl){ html+=`<div class="res-empty">${t('r_none')}</div>`; box.innerHTML=html; return; }
+  /* 탭별 요약바 — 표를 훑지 않아도 최대 변위/반력/휨모멘트를 바로 보이게 */
+  const stat=resultStats(resultTab);
+  if(stat) html+=`<div class="res-stat">${stat}</div>`;
   const rows=tbl.data.slice(0,200);
   html+='<div style="overflow:auto"><table><thead><tr>'+tbl.head.map(h=>`<th>${h}</th>`).join('')+'</tr></thead><tbody>';
   rows.forEach(row=>{ html+='<tr>'+row.map(c=>{ const n=parseFloat(c);

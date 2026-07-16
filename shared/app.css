@@ -222,6 +222,8 @@ th{background:var(--panel);color:var(--cyan);text-align:left;padding:7px 9px;bor
 td{padding:6px 9px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--txt)}
 td.pos{color:var(--green)} td.neg{color:var(--red)}
 .res-empty{color:var(--dim);font-style:italic;text-align:center;padding:30px}
+.res-stat{margin:0 0 12px;padding:9px 12px;border:1px solid var(--border);border-left:2px solid var(--cyan);
+  border-radius:7px;background:rgba(255,255,255,.02);font-size:.78rem;line-height:1.65}
 .res-sel{margin-bottom:12px;display:flex;gap:9px;align-items:center}
 .res-sel select{background:var(--bg);border:1px solid var(--border);color:var(--txt);border-radius:7px;padding:6px 10px;font-family:'IBM Plex Mono','Noto Sans KR','Noto Sans TC';font-size:.8rem}
 
