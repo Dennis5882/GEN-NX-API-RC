@@ -17,7 +17,7 @@
 
 <header>
   <div class="mark">GEN</div>
-  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev"></span> <b>Dennis</b> · v1.2.1 (<span data-i18n="updated"></span> : 2026-07-10)</span><small data-i18n="subtitle"></small></h1>
+  <h1>Gen NX Agent<span class="byline"><span data-i18n="dev"></span> <b>Dennis</b> · v1.2.1 (<span data-i18n="updated"></span> : 2026-07-16)</span><small data-i18n="subtitle"></small></h1>
   <div class="spacer"></div>
   <div class="langsel" id="langSel">
     <select id="langSelect" onchange="setLang(this.value)" aria-label="Language">
@@ -1507,6 +1507,17 @@ function resultBrief(which){
   }
   if((!which||which==='force')&&S.results.force){
     s+=t('rb_force',S.results.force.data.length);
+    /* 최대 휨모멘트 — BEAMFORCE의 Moment 열(Torsion 제외)마다 |max| 추출.
+       fetchTable이 N·MM 고정이므로 N·mm → kN·m 는 1e6 으로 나눔. */
+    const F=S.results.force;
+    const ei=F.head.findIndex(h=>/ELEM/i.test(h));
+    F.head.forEach((h,ci)=>{
+      if(!/moment/i.test(h)||/torsion/i.test(h)) return;
+      let best=null;
+      F.data.forEach(r=>{ const v=parseFloat(r[ci]); if(isNaN(v)) return;
+        if(!best||Math.abs(v)>Math.abs(best.v)) best={v,id:ei>=0?r[ei]:'?'}; });
+      if(best) s+=t('rb_moment',escapeHtml(String(h)),(best.v/1e6).toFixed(1),escapeHtml(String(best.id)));
+    });
   }
   return (s||t('rb_none'))+t('rb_see');
 }
