@@ -122,8 +122,8 @@ export function editorToSpec(st: EditorState, base: BuildingSpec): BuildingSpec 
   if (rows.length) {
     p.groups = rows
     p.stories = Math.max(1, ...rows.map(g => g.to))
-    // ⚠ 바닐라 동작 그대로: rows[0] 은 표의 맨 위(지붕) 행. 그룹 높이가 우선이라 h1 은 표시용에만 영향.
-    p.h1 = rows[0].h
+    // h1 = 1층이 속한 행의 층고 (표는 위→아래 순서라 rows[0] 은 지붕 행 — 바닐라는 그걸 써서 표시가 틀렸음)
+    p.h1 = (rows.find(g => g.from <= 1 && 1 <= g.to) || rows[rows.length - 1]).h
     p.hTyp = (rows.find(g => g.role === 'TYPICAL') || rows[rows.length - 1]).h
   }
   p.storyData = st.storyData

@@ -9,7 +9,7 @@ import type { BuildingSpec } from '../engine/types'
 
 export type PanelId = 'logP' | 'modelP' | 'viewP' | 'resP'
 export type ResultTab = 'react' | 'disp' | 'force' | 'moment'
-export type Provider = 'claude' | 'gemini' | 'gpt'
+export type Provider = 'claude' | 'gemini' | 'gpt' | 'deepseek'
 export type LogType = 'api' | 'ok' | 'err' | 'info' | 'warn'
 
 export interface Table { head: string[]; data: string[][] }
@@ -81,6 +81,8 @@ export interface ConvTurn {
   text?: string
   calls?: { id: string; name: string; args: any }[]
   results?: { id: string; name: string; output: string }[]
+  reasoning?: string   // DeepSeek reasoning_content (재전송 필수)
+  raw?: any[]          // Gemini 원본 parts (thoughtSignature 보존)
 }
 
 function emptyModel(): ModelState {
@@ -111,7 +113,7 @@ export const S = {
   llm: false,
   provider: 'claude' as Provider,
   provKey: '',
-  provModel: 'claude-sonnet-4-6',
+  provModel: 'claude-sonnet-5-5',
   conv: [] as ConvTurn[],
   /* 모델·결과 */
   model: emptyModel(),

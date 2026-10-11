@@ -1,6 +1,10 @@
 /* ════════════════════════════════════════════════════════════
-   LLM MODE — Claude / Gemini / GPT tool-use 루프. 바닐라 1:1.
+   LLM MODE — Claude / Gemini / GPT / DeepSeek tool-use 루프.
    키는 브라우저에서 직접 공급자에 전송(메모리 보관만). Gemini 는 gSchema() 정규화 필요.
+   공급자별 제약(2026-10 공식 문서 확인):
+   - GPT: Chat Completions 도구호출은 gpt-6-luna 가 reasoning_effort 'none' 일 때만. gpt-6.1-sol 은 미지원 → 목록 제외.
+   - Gemini 3: 응답 part(thoughtSignature 포함)를 다음 요청에 그대로 재전송 → turn.raw 보존.
+   - DeepSeek: thinking 기본 ON, assistant reasoning_content 를 모든 후속 요청에 재전송(누락 시 400).
 ════════════════════════════════════════════════════════════ */
 import { actAnalyze } from '../actions/analysis'
 import { actAddBracing, actAddLoad, actBuildFrame, actModifySection, actResizeSubset, clearModel } from '../actions/model'
@@ -14,13 +18,22 @@ import { extremum, statusBrief } from './results'
 export const PROVIDERS: Record<Provider, { label: string; keyLabel: string; ph: string; hint: Record<string, string>; models: string[]; def: string }> = {
   claude: { label: 'Claude', keyLabel: 'ANTHROPIC API KEY', ph: 'sk-ant-…',
     hint: { ko: 'claude.ai 로그인과 <b>별개</b>입니다. console.anthropic.com 에서 발급.', en: '<b>Separate</b> from claude.ai login. Get a key at console.anthropic.com.', zh: '與 claude.ai 登入<b>無關</b>。請至 console.anthropic.com 申請。' },
-    models: ['claude-sonnet-4-6', 'claude-opus-4-8', 'claude-haiku-4-5-20251001'], def: 'claude-sonnet-4-6' },
+    models: ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5', 'claude-fable-5-1'], def: 'claude-sonnet-5-5' },
   gemini: { label: 'Gemini', keyLabel: 'GOOGLE AI STUDIO API KEY', ph: 'AIza…',
     hint: { ko: 'aistudio.google.com → Get API key 에서 발급 (Gemini API).', en: 'Get a key at aistudio.google.com → Get API key (Gemini API).', zh: '於 aistudio.google.com → Get API key 申請（Gemini API）。' },
-    models: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'], def: 'gemini-2.5-flash' },
+    models: ['gemini-3.8-flash', 'gemini-3.1-pro-preview', 'gemini-3.5-flash-lite'], def: 'gemini-3.8-flash' },
   gpt: { label: 'GPT', keyLabel: 'OPENAI API KEY', ph: 'sk-…',
     hint: { ko: 'platform.openai.com → API keys 에서 발급.', en: 'Get a key at platform.openai.com → API keys.', zh: '於 platform.openai.com → API keys 申請。' },
-    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1', 'gpt-4.1-mini', 'o4-mini'], def: 'gpt-4o-mini' },
+    models: ['gpt-6-luna', 'gpt-6-astra'], def: 'gpt-6-luna' },
+  deepseek: { label: 'DeepSeek', keyLabel: 'DEEPSEEK API KEY', ph: 'sk-…',
+    hint: { ko: 'platform.deepseek.com → API keys 에서 발급.', en: 'Get a key at platform.deepseek.com → API keys.', zh: '於 platform.deepseek.com → API keys 申請。' },
+    models: ['deepseek-flash', 'deepseek-v4-pro'], def: 'deepseek-flash' },
+}
+
+/* OpenAI Chat Completions 호환 공급자(GPT · DeepSeek) 엔드포인트 */
+const OPENAI_COMPAT: Partial<Record<Provider, string>> = {
+  gpt: 'https://api.openai.com/v1/chat/completions',
+  deepseek: 'https://api.deepseek.com/chat/completions',
 }
 
 const TOOLS = [
@@ -131,26 +144,30 @@ function buildLLMRequest(provider: Provider, model: string, key: string): { url:
         'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: { model, max_tokens: 1024, system: SYSTEM, tools: TOOLS, messages } }
   }
-  if (provider === 'gpt') {
+  const compatUrl = OPENAI_COMPAT[provider]
+  if (compatUrl) {
     const messages: any[] = [{ role: 'system', content: SYSTEM }]
     S.conv.forEach(tn => {
       if (tn.role === 'user') messages.push({ role: 'user', content: tn.text })
       else if (tn.role === 'assistant') {
         const m: any = { role: 'assistant', content: tn.text || null }
+        if (tn.reasoning != null) m.reasoning_content = tn.reasoning   // DeepSeek thinking: 반드시 재전송
         if ((tn.calls || []).length) m.tool_calls = tn.calls!.map(k => ({ id: k.id, type: 'function',
           function: { name: k.name, arguments: JSON.stringify(k.args || {}) } }))
         messages.push(m)
       } else tn.results!.forEach(r => messages.push({ role: 'tool', tool_call_id: r.id, content: r.output }))
     })
-    return { url: 'https://api.openai.com/v1/chat/completions',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-      body: { model, messages, tools: TOOLS.map(tl => ({ type: 'function',
-        function: { name: tl.name, description: tl.description, parameters: tl.input_schema } })) } }
+    const body: any = { model, messages, tools: TOOLS.map(tl => ({ type: 'function',
+      function: { name: tl.name, description: tl.description, parameters: tl.input_schema } })) }
+    if (/^gpt-6-luna/.test(model)) body.reasoning_effort = 'none'   // luna: 도구호출은 none 에서만
+    return { url: compatUrl, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key }, body }
   }
   const contents: any[] = []
   S.conv.forEach(tn => {
     if (tn.role === 'user') contents.push({ role: 'user', parts: [{ text: tn.text }] })
     else if (tn.role === 'assistant') {
+      // Gemini 3: thoughtSignature 가 붙은 원본 part 를 그대로 재전송
+      if (tn.raw) { contents.push({ role: 'model', parts: tn.raw }); return }
       const parts: any[] = []
       if (tn.text) parts.push({ text: tn.text })
       ;(tn.calls || []).forEach(k => parts.push({ functionCall: { name: k.name, args: k.args || {} } }))
@@ -164,22 +181,24 @@ function buildLLMRequest(provider: Provider, model: string, key: string): { url:
       contents } }
 }
 
-function parseLLMResponse(provider: Provider, data: any): { text: string; calls: { id: string; name: string; args: any }[] } {
+interface LLMReply { text: string; calls: { id: string; name: string; args: any }[]; reasoning?: string; raw?: any[] }
+
+function parseLLMResponse(provider: Provider, data: any): LLMReply {
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error))
   if (provider === 'claude') {
     const text = data.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n')
     const calls = data.content.filter((c: any) => c.type === 'tool_use').map((c: any) => ({ id: c.id, name: c.name, args: c.input || {} }))
     return { text, calls }
   }
-  if (provider === 'gpt') {
+  if (OPENAI_COMPAT[provider]) {
     const m = data.choices?.[0]?.message || {}
     const calls = (m.tool_calls || []).map((tc: any) => ({ id: tc.id, name: tc.function.name, args: safeJSON(tc.function.arguments) }))
-    return { text: m.content || '', calls }
+    return { text: m.content || '', calls, reasoning: m.reasoning_content ?? undefined }
   }
   const parts = data.candidates?.[0]?.content?.parts || []
   const text = parts.filter((p: any) => p.text).map((p: any) => p.text).join('\n')
   const calls = parts.filter((p: any) => p.functionCall).map((p: any) => ({ id: genId(), name: p.functionCall.name, args: p.functionCall.args || {} }))
-  return { text, calls }
+  return { text, calls, raw: parts }
 }
 
 export async function handleLLM(txt: string): Promise<void> {
@@ -193,8 +212,8 @@ export async function handleLLM(txt: string): Promise<void> {
       const req = buildLLMRequest(provider, model, key)
       const res = await fetch(req.url, { method: 'POST', headers: req.headers, body: JSON.stringify(req.body) })
       const data = await res.json()
-      const { text, calls } = parseLLMResponse(provider, data)
-      S.conv.push({ role: 'assistant', text, calls })
+      const { text, calls, reasoning, raw } = parseLLMResponse(provider, data)
+      S.conv.push({ role: 'assistant', text, calls, reasoning, raw })
       if (text) { dropThinking(); addMsg('bot', escapeHtml(text).replace(/\n/g, '<br>')) }
       if (!calls.length) break
       const results: { id: string; name: string; output: string }[] = []

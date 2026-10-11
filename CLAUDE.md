@@ -105,6 +105,12 @@ T₁은 `EIGENVALUEMODE` 테이블에서 회수 (`PARTICIPATIONVECTORMODE` 아�
 ### Gemini 스키마
 `functionDeclarations`의 type은 단일 string 필수. `gSchema()` 재귀 정규화로 union type 변환(Gemini 분기만 적용).
 
+### LLM 공급자 (2026-10 공식 문서 확인, `src/agent/llm.ts`)
+- 기본 모델: Claude `claude-sonnet-5-5` · Gemini `gemini-3.8-flash` · GPT `gpt-6-luna` · DeepSeek `deepseek-flash`.
+- **GPT**: Chat Completions 도구호출은 `gpt-6-luna` + `reasoning_effort:'none'`에서만. `gpt-6.1-sol`은 Chat Completions 도구호출 미지원 → 목록 제외. `gpt-6-astra`는 문서상 미확정.
+- **Gemini 3**: 응답 parts(thoughtSignature 포함)를 다음 요청에 원본 그대로 재전송(`turn.raw`).
+- **DeepSeek**: OpenAI 호환(`api.deepseek.com/chat/completions`), CORS 허용 확인. thinking 기본 ON → assistant `reasoning_content`를 모든 후속 요청에 재전송(누락 시 400, `turn.reasoning`).
+
 ## 설정 드로어 구조
 
 | 버튼 | 드로어 ID | 용도 |
