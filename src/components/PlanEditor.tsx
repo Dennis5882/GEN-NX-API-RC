@@ -128,7 +128,7 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
 
         {/* ── 표준층 표 (위=지붕 → 아래=지하) ── */}
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: '.7rem', color: 'var(--amber)', fontFamily: "'IBM Plex Mono','Noto Sans KR','Noto Sans TC'", letterSpacing: '.5px', marginBottom: 6 }}>
+          <div style={{ fontSize: '.7rem', color: 'var(--amber)', fontFamily: "'IBM Plex Mono',var(--cjk)", letterSpacing: '.5px', marginBottom: 6 }}>
             {t('floor_stack_top_roof_botto')}
           </div>
           <div style={{ overflowX: 'auto' }}>

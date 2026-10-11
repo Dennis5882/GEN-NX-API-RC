@@ -6,6 +6,7 @@ export const LANG_DEFS = [
   { code: 'ko', label: '한국어', html: 'ko' },
   { code: 'en', label: 'English', html: 'en' },
   { code: 'zh-TW', label: '繁體中文', html: 'zh-Hant' },   // 대만 번체 (구 코드 'zh')
+  { code: 'zh-CN', label: '简体中文', html: 'zh-Hans' },   // 대륙 간체 (대륙 용어)
 ] as const
 
 export type Lang = (typeof LANG_DEFS)[number]['code']

@@ -20,7 +20,7 @@ const CAMS = {
   top: { eye: { x: 0.001, y: 0.001, z: 2.5 } },
 } as const
 type Cam = keyof typeof CAMS
-const FONT = 'IBM Plex Mono, Noto Sans KR, Noto Sans TC'
+const FONT = 'IBM Plex Mono, Noto Sans KR, Noto Sans TC, Noto Sans SC'
 
 /** 표시할 형상 — 미리보기 스펙이면 buildFrame, 아니면 현재 모델 */
 function frameOf(s: AppState): any | null {

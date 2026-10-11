@@ -18,6 +18,24 @@ export type Command =
   | { intent: 'dynamic'; rs: boolean }
   | { intent: 'result'; which: ResultTab }
 
+/* ── 간체 → 번체 정규화 — zh-CN 입력을 기존 번체 정규식으로 인식 ──
+   간체 전용 글자만 바꾸므로 ko/en/zh-TW 입력은 영향 없음. 글자표는 OpenCC s2t 로 생성(為 는 대만 자형으로 보정).
+   키워드를 추가할 때 정규식에는 번체만 쓰면 된다. */
+const ZH_S2T_PAIRS = '业業个個为為内內况況刚剛创創删刪办辦动動医醫卖賣变變号號吗嗎场場学學实實层層应應开開弯彎强強态態恒恆执執挠撓撑撐数數构構栋棟楼樓点點状狀现現疗療盖蓋确確筑築线線统統维維缩縮补補装裝视視计計认認说說谱譜货貨质質购購载載运運连連间間静靜风風'
+const ZH_S2T: Record<string, string> = Object.fromEntries(
+  Array.from({ length: ZH_S2T_PAIRS.length / 2 }, (_, i) => [ZH_S2T_PAIRS[i * 2], ZH_S2T_PAIRS[i * 2 + 1]]))
+/* 대륙식 어휘 → 대만식(정규식 기준) — 글자 정규화 뒤 적용 */
+const ZH_WORDS: [string, string][] = [
+  ['創建', '建立'], ['添加', '新增'], ['運行', '執行'], ['層高', '樓高'], ['振型', '振態'],
+  ['特征', '特徵'], ['框架', '構架'], ['活荷載', '活載重'], ['確認連接', '確認連線'], ['連接確認', '連線確認'], ['連接狀態', '連線狀態'],
+]
+
+export function normalizeZh(t: string): string {
+  let s = t.replace(/[\u4e00-\u9fff]/g, c => ZH_S2T[c] ?? c)
+  for (const [a, b] of ZH_WORDS) s = s.split(a).join(b)
+  return s
+}
+
 function num(re: RegExp, txt: string): number | null {
   const m = txt.match(re); if (!m) return null
   const v = m.slice(1).find(g => g != null)
@@ -44,7 +62,7 @@ export function parseFloors(t: string): number[] {
 }
 
 export function parseCommand(txt: string): Command {
-  const t = txt.toLowerCase()
+  const t = normalizeZh(txt.toLowerCase())
   const hasModel = S.model && S.model.nodes && S.model.nodes.length > 0
   /* ── 최우선: 뷰·도움말·연결 확인 (모델 여부 무관) ── */
   if (/도움말|뭘\s*할|어떻게\s*써|어떤\s*명령|使用說明|指令說明|help|what\s*can|commands?\s*list/.test(t))
@@ -53,7 +71,7 @@ export function parseCommand(txt: string): Command {
   if (/결과\s*(?:탭|tab|보여)|탭.*결과|result\s*tab|tab.*result/.test(t)) return { intent: 'tab', which: 'result' }
   if (/로그\s*(?:탭|tab|보여)|활동\s*(?:탭|tab)|log\s*tab|activity\s*tab/.test(t)) return { intent: 'tab', which: 'log' }
   if (/모델\s*(?:탭|tab|정보|개요)|model\s*(?:tab|info|summ)/.test(t)) return { intent: 'tab', which: 'model' }
-  if (/연결\s*(?:됐|상태|확인|됩|테스트)|접속\s*됐|connected\?|conn\s*(?:status|check)|連線\s*(?:了嗎|狀態|確認)/.test(t))
+  if (/연결\s*(?:됐|상태|확인|됩|테스트)|접속\s*됐|connected\?|conn\s*(?:status|check)|連線\s*(?:了嗎|狀態|確認)|確認\s*連線/.test(t))
     return { intent: 'conn_check' }
   if (/초기화|모두\s*삭제|비우|清除|清空|重置|初始化|全部刪除|刪除全部|clear|reset/.test(t)) return { intent: 'clear' }
   if (hasModel) {

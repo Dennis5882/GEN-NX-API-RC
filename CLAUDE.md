@@ -47,9 +47,13 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 - 새 문자열 = `ko:{}` / `en:{}` / `'zh-TW':{}` 블록에 동시 추가 → `npm run i18n:check -- --write`(keys.gen.ts 갱신).
 - **언어 레지스트리** `src/i18n/types.ts` `LANG_DEFS` = 지원 언어 단일 출처(code·label·html lang). 언어 추가 = 여기 한 줄 + 사전 블록.
 - 대만 번체 코드 = **`zh-TW`**(구 `zh`는 `normalizeLang`이 localStorage 값 자동 변환). 폴백 = `en`.
+- **간체 `zh-CN`(2026-10)**: 사전은 zh-TW 블록을 OpenCC `tw2sp` + 구조 용어집(荷载·截面·构件·位移·框架·跨度·层高·振型…) + 대륙식 후처리(列→行, 登录→注册, 分页→选项卡 등)로 생성 후 검수. **현지 엔지니어 검수 전 초안.**
+- **언어 ≠ 설계기준**: zh-CN 은 UI 언어일 뿐, 설계 로직은 여전히 대만(TWN-USD112). GB 기준은 별도 '설계기준 프로필' 작업(차기).
+- 로컬 NLP: `parse.ts` `normalizeZh()` 가 간체 전용 글자→번체 + 대륙 어휘(创建→建立, 添加→新增, 运行→执行…) 정규화 후 기존 번체 정규식 사용 → **정규식엔 번체만 추가**하면 간체도 인식.
+- 폰트: `app.css` `--cjk` 변수 — `:lang(zh-Hans)` SC 우선, `:lang(zh-Hant)` TC 우선, 그 외 KR 우선. 새 CJK 언어는 여기와 index.html Google Fonts 링크에 추가.
 - `npm run i18n:check`(build·typecheck 에 포함): 함수 인자 수·타입 불일치, 폴백 누락, keys.gen 불일치 = 오류 / 일부 언어 키 누락 = 경고(`--strict` 시 오류).
 - 언어 영속성: `localStorage('nx_lang')`.
-- 미정리(차기): 로컬 NLP 정규식(`parse.ts`)과 LLM SYSTEM 프롬프트 응답언어 규칙은 ko/en/zh 전용 — 언어 추가 시 함께 확장 필요.
+- 미정리(차기): LLM SYSTEM 프롬프트 응답언어 규칙은 언어별 수동 기재(현재 ko/en/zh-TW/zh-CN). 도움말 예시 일부(`樓層數改為 20`, `結果分頁` 등)는 파서가 원래 인식 못 함(기존 결함).
 
 ## 로컬 NLP 구조
 
