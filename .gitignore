@@ -28,3 +28,8 @@ shot_*.png
 GEN_NX_v2.1_BETA_FEEDBACK.md
 GEN_NX_v2.1_RELNOTE_API_ADDENDUM.md
 GEN_NX_SSEIS_INTEGRATION_PLAN.md
+
+# Node / Vite
+node_modules/
+dist/
+*.tsbuildinfo

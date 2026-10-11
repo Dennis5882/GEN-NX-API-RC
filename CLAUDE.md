@@ -8,18 +8,30 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 브라우저 단일 HTML 웹앱 — MIDAS Gen NX Open API(REST)를 호출해 기둥/보 RC 골조를 자동 모델링·해석·배근 설계.  
 대만 건물 RC 코드(TWN-USD112) 기반. Vercel 루트(`/`)로 서빙.
 
-## 파일 구조 (2026-06-27 대개편)
+## 파일 구조 (2026-10-11 Vite+TS+React 이전 시작 — 브랜치 `feat/vite-react-ts`)
 
 | 파일 | 역할 |
 |---|---|
-| `index.html` | **유일한 작업 소스** — 모든 수정은 여기만 |
-| `shared/rc_engine.js` | 구조 계산 로직 단일 소스 |
-| `shared/i18n.js` | 다국어 사전 (window.I18N 221키+, ko/en/zh) |
-| `shared/app.css` | 스타일 단일 소스 |
+| `index.html` | Vite 진입점 (`#root` + `/src/main.tsx`) |
+| `src/state/` | `store.ts` — 바닐라 전역 `S`를 옮긴 mutable store(`notify()`+`useStore()`), `ui.ts` — log/addMsg/thinking/tab/draw3D/previewSpec |
+| `src/actions/` | MAPI 액션 — `model.ts`(actBuildFrame·편집), `analysis.ts`(해석·동적), `verify.ts`(SSEIS·SWIND·층중량) |
+| `src/agent/` | `parse.ts`(parseCommand) · `local.ts`(handleLocal·confirmBuild) · `llm.ts`(TOOLS·handleLLM) · `session.ts`(send·setLang·testConn) · `editor.ts`(편집카드 상태↔스펙) · `plan.ts` · `results.ts` · `guide.ts` |
+| `src/mapi/client.ts` | midas-nx `MidasClient` 래퍼 — `mapi(method,path,body)` 바닐라 시그니처 유지, 타임아웃 15분 |
+| `src/components/` | Header·Drawers·Guide·Chat·PlanCard·PlanEditor·Panels·View3D(Plotly 동적 import) |
+| `src/engine/` | `shared/rc_engine.js` 브리지(side-effect import → `RC`) + `types.ts` 점진 타입화 |
+| `src/i18n/` | `shared/i18n.js` 브리지 — plain `t()`/`tl()`/`tv()`/`pick()` (S.lang 기준, 액션에서도 사용) |
+| `shared/rc_engine.js` | 구조 계산 로직 단일 소스 (React 앱·Wizard 공용, 이전 완료 전까지 유지) |
+| `shared/i18n.js` | 다국어 사전 (window.I18N 235키, ko/en/zh) |
+| `shared/app.css` | 스타일 단일 소스 (React 앱이 import, 바닐라 클래스명 유지) |
+| `archive/vanilla-v1.2.1/` | 바닐라 단일 HTML 백업 (git tag `vanilla-v1.2.1`) |
 | `archive/` | 구버전 동결 — 수정 금지 |
 
-- `standalone`, `v1.1.9`, `v1.2.0` HTML 파일은 archive 동결, 유지보수 중단.
-- `MIDAS_RC_Modeling_Wizard.html`, `gen_nx_api_validation.html`은 루트에 별도 유지.
+- 명령: `npm run dev` / `npm run build`(= `tsc -b && vite build`) / `npm run typecheck`.
+- 빌드는 멀티페이지: `MIDAS_RC_Modeling_Wizard.html`, `gen_nx_api_validation.html`도 `dist/`에 포함, `shared/*`는 `dist/shared/`로 복사(vite.config.ts 플러그인).
+- 이전 현황(2026-10-11): **전 기능 이전 완료** — 채팅·NLP·가이드·편집카드·로그·모델·3D·결과·LLM·QA검증. 바닐라 동작 원본은 `archive/vanilla-v1.2.1/index.html`.
+- 등가성 검증: jsdom(바닐라) vs Vite SSR(React)에 가짜 MIDAS 서버를 물려 10개 시나리오의 API 호출·페이로드·메시지·로그·모델 상태 비교 → 동일. 하네스는 비커밋(scratchpad).
+- 액션은 `S`를 직접 변경 후 `notify()` — 로직을 바닐라와 1:1로 유지하기 위한 의도적 설계. API 호출은 아직 `client.request` 원시 호출(SDK 타입 리소스 전환은 차기).
+- MAPI-Key는 바닐라와 같이 메모리(state)에만 보관, 저장 금지.
 
 ## 보안·커밋 규칙 (항상 준수)
 
@@ -107,5 +119,5 @@ MIDAS GEN NX 2026 (v2.1), Build **06/12/2026**.
 도구 내부 버전: `v1.2.1`. 0616·0617·0624 검증 전부 이 단일 빌드 기준.
 
 ## 개발 환경 주의
-- Node.js **미설치** (exit 127). JS 검증은 `py-mini-racer` 사용.
+- Node.js v24 / npm 설치됨 (winget, 2026-10 확인). 엔진 스모크 테스트는 node ESM으로 가능.
 - 콘솔 cp949 — 한글 print 시 UnicodeEncodeError. UTF-8 파일에 쓰고 Read로 확인.

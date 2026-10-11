@@ -1,0 +1,160 @@
+/* ════════════════════════════════════════════════════════════
+   STATE — 바닐라 전역 S 를 그대로 옮긴 외부 store.
+   액션은 S 를 직접 변경한 뒤 notify() — React 는 useStore() 로 구독(version 기반 재렌더).
+   액션 로직을 바닐라와 1:1 로 유지하기 위한 의도적 설계(mutable store).
+════════════════════════════════════════════════════════════ */
+import { useSyncExternalStore } from 'react'
+import { LANGS, type Lang } from '../i18n/types'
+import type { BuildingSpec } from '../engine/types'
+
+export type PanelId = 'logP' | 'modelP' | 'viewP' | 'resP'
+export type ResultTab = 'react' | 'disp' | 'force' | 'moment'
+export type Provider = 'claude' | 'gemini' | 'gpt'
+export type LogType = 'api' | 'ok' | 'err' | 'info' | 'warn'
+
+export interface Table { head: string[]; data: string[][] }
+
+export interface ElemRec {
+  id: number
+  type: 'col' | 'beam' | 'link' | 'wall' | 'brace'
+  sect: number
+  matl?: number
+  b: number
+  iz: number
+  n1?: number
+  n2?: number
+  nodes?: number[]
+}
+
+export interface Node3 { id: number; x: number; y: number; z: number }
+export type Edge = [number, number]
+
+export interface ModelState {
+  matl: string | null
+  colSect: string | null
+  beamSect: string | null
+  nodes: Node3[]
+  cols: Edge[]
+  beams: Edge[]
+  links: Edge[]
+  braces?: Edge[]
+  walls?: any[]
+  baseNodes: number[]
+  elev: number[]
+  loadCases: { name: string; type: string }[]
+  spec: BuildingSpec | null
+  elemRecs: ElemRec[]
+  edits: string[]
+  sections: Record<number, { name: string; H: number; B: number }>
+  secReg?: any
+  materials?: string[]
+  nextEid?: number
+  nextSect?: number
+  nextMat?: number
+  nextLC?: number
+  floorGroups?: any
+  combos?: string[]
+  seismic?: { T: number; Cs: number; V: number; Wtot: number } | null
+  wind?: { Vx: number; Vy: number; V10: number } | null
+  dynamic?: any
+  sseisQA?: any
+  swindQA?: any
+}
+
+export interface LogEntry { id: number; ts: string; type: LogType; html: string }
+
+/** 채팅 메시지 — html(일반) / plan(건물 확인·편집 카드) / thinking(대기 표시) */
+export type ChatMsg =
+  | { id: number; role: 'user' | 'bot'; kind: 'html'; html: string }
+  | { id: number; role: 'bot'; kind: 'thinking' }
+  | {
+      id: number; role: 'bot'; kind: 'plan'
+      intro: string           // plan_intro_tpl / plan_intro_custom
+      spec: BuildingSpec
+      editable: boolean       // 자유골조 → 처음부터 편집 카드
+      buildId: number
+      epoch: number           // 생성 시점 buildEpoch — 실행되면 모든 카드 버튼 제거
+    }
+
+export interface ConvTurn {
+  role: 'user' | 'assistant' | 'tool'
+  text?: string
+  calls?: { id: string; name: string; args: any }[]
+  results?: { id: string; name: string; output: string }[]
+}
+
+function emptyModel(): ModelState {
+  return {
+    matl: null, colSect: null, beamSect: null, nodes: [], cols: [], beams: [], links: [],
+    baseNodes: [], elev: [], loadCases: [], spec: null, elemRecs: [], edits: [], sections: {},
+  }
+}
+
+function readLang(): Lang {
+  try {
+    const l = localStorage.getItem('nx_lang')
+    if (l && (LANGS as readonly string[]).includes(l)) return l as Lang
+  } catch { /* storage 차단 환경 */ }
+  return 'ko'
+}
+
+export const S = {
+  lang: readLang(),
+  /* MIDAS API — MAPI-Key 는 메모리에만(저장 금지) */
+  baseUrl: 'https://moa-engineers.midasit.com:443/gen',
+  mapiKey: '',
+  connected: false,
+  connErr: false,
+  program: '',
+  apiUser: '',
+  /* LLM — 키는 메모리에만 */
+  llm: false,
+  provider: 'claude' as Provider,
+  provKey: '',
+  provModel: 'claude-sonnet-4-6',
+  conv: [] as ConvTurn[],
+  /* 모델·결과 */
+  model: emptyModel(),
+  results: { react: null as Table | null, disp: null as Table | null, force: null as Table | null },
+  /* 대화형 빌드 카드 */
+  pendingBuild: null as BuildingSpec | null,
+  pendingBuildId: 0,
+  buildEpoch: 0,
+  /* UI */
+  panel: 'logP' as PanelId,
+  resultTab: 'react' as ResultTab,
+  preview: null as BuildingSpec | null,   // 3D 미리보기 스펙(null = 현재 모델 표시)
+  viewNonce: 0,                           // 3D 재플롯 트리거
+  busy: false,
+  log: [] as LogEntry[],
+  msgs: [] as ChatMsg[],
+}
+export type AppState = typeof S
+
+let version = 0
+const listeners = new Set<() => void>()
+
+export function notify(): void {
+  version++
+  listeners.forEach(l => l())
+}
+
+const getVersion = (): number => version
+
+function subscribe(l: () => void): () => void {
+  listeners.add(l)
+  return () => { listeners.delete(l) }
+}
+
+/** S 전체를 구독 — 변경(notify) 시 재렌더. 반환값은 S 자체(가변). */
+export function useStore(): AppState {
+  useSyncExternalStore(subscribe, getVersion, getVersion)
+  return S
+}
+
+export function resetModel(): void {
+  S.model = emptyModel()
+}
+
+let seq = 0
+export const nextId = (): number => ++seq
