@@ -1,4 +1,5 @@
 /* 해석·결과 회수·동적해석 — 바닐라 1:1 이전 */
+import { profileOf } from '../codes'
 import { RC } from '../engine'
 import { t, tl } from '../i18n'
 import { mapi, verifyConn } from '../mapi/client'
@@ -63,6 +64,7 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   const sp: any = p.seismic || {}
   const stories = p.stories || Math.max(1, ...(S.model.elemRecs || []).map(r => r.iz || 1))
   const doRS = !!opt.rs
+  const prof = profileOf(S.model.spec)
   await setUnit('KN', 'M')
   /* 1) 질량원: 자중→질량(db/styp) + 바닥/절점/보하중→질량(db/LTOM: DL×1.0 + 활하중×liveF) */
   await mapi('PUT', 'styp', { Assign: { 1: { bSELFWEIGHT: true } } })
@@ -75,16 +77,16 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   const modes = Math.min(Math.max(stories * 3, 6), 30)
   await mapi('PUT', 'eigv', { Assign: { 1: RC.eigvPayload(modes) } })
   log('▸ ' + t('eigenvalue_setup') + ` (${modes} modes)`, 'ok')
-  /* 3) (옵션) 응답스펙트럼: 대만 설계스펙트럼(SDS/SD1) → SPFC, RSX·RSY → SPLC(CQC) */
-  let ds: any = null
+  /* 3) (옵션) 응답스펙트럼: 기준별 설계스펙트럼 → SPFC, RSX·RSY → SPLC(CQC) */
+  let ds: ReturnType<typeof prof.seismic.spectrum> = null
   if (doRS) {
-    ds = RC.twDesignSpectrum({ SDS: sp.SDS, SD1: sp.SD1, T0: sp.T0 })
-    if (!(sp.SDS > 0) || !ds.func.length) {
-      log('▸ ' + t('no_sds_sd1_rs_skipped'), 'warn'); ds = null
+    ds = prof.seismic.spectrum(sp)
+    if (!ds) {
+      log('▸ ' + t('no_sds_sd1_rs_skipped'), 'warn')
     } else {
-      await mapi('PUT', 'spfc', { Assign: { 1: { NAME: 'TW-RS', iTYPE: 1, iMETHOD: 0, SCALE: 1, GRAV: 9.806, DRATIO: 0.05, DESC: 'TWD design spectrum', STR: { SPEC_CODE: 'USER' }, aFUNC: ds.func } } })
-      await mapi('PUT', 'splc', { Assign: { 1: RC.splcPayload('RSX', 'X', 'TW-RS'), 2: RC.splcPayload('RSY', 'Y', 'TW-RS') } })
-      log('▸ ' + t('response_spectrum_tw_rsx_r') + ` · T0=${ds.T0}s Ts=${ds.Ts}s`, 'ok')
+      await mapi('PUT', 'spfc', { Assign: { 1: ds.spfc } })
+      await mapi('PUT', 'splc', { Assign: { 1: RC.splcPayload('RSX', 'X', ds.name), 2: RC.splcPayload('RSY', 'Y', ds.name) } })
+      log('▸ ' + t(prof.seismic.spectrumLogKey) + ds.logSuffix, 'ok')
     }
   }
   /* 4) 해석 실행 — 동적해석은 라이선스/시트에 따라 막힐 수 있음("Analysis is not allowed"). */
@@ -106,7 +108,7 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   /* 6) 지진 Cs 재산정 (실주기 T₁ 피드백) */
   let fb: any = null
   if (modal.T1 && sp.SDS > 0) {
-    const r = RC.seismicStoryForces(p, { SDS: sp.SDS, SD1: sp.SD1, T0: sp.T0, I: sp.I, R: sp.R, w0: sp.w0, liveRatio: sp.liveRatio, T: modal.T1 })
+    const r = prof.seismic.storyForces(p, sp, { T: modal.T1 })
     const old = S.model.seismic
     fb = { Tdyn: modal.T1, Ta: (old && old.T) || null, CsOld: (old && old.Cs) || null, Cs: r.Cs, Vold: (old && old.V) || null, V: r.V }
     S.model.dynamic = { T1: modal.T1, modes: modal.modes, Cs: r.Cs, V: r.V, Ta: fb.Ta, rs: !!ds }
@@ -130,7 +132,7 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
     if (fb.CsOld != null) msg += ` · Cs ${fb.CsOld.toFixed(3)}→<b>${fb.Cs.toFixed(3)}</b>`
     if (fb.Vold != null) msg += ` · V ${Math.round(fb.Vold)}→<b>${Math.round(fb.V)}</b>kN`
   }
-  if (ds) msg += '<br>' + t('design_spectrum') + ` SDS=${ds.SDS} SD1=${ds.SD1} (T0=${ds.T0}s, Ts=${ds.Ts}s)`
+  if (ds) msg += '<br>' + t('design_spectrum') + ds.reportSuffix
   msg += `<br><span style="color:var(--dim);font-size:.85em">` + t('dynNote', liveF) + `</span>`
   return msg
 }

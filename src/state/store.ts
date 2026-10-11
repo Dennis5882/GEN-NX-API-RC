@@ -6,6 +6,7 @@
 import { useSyncExternalStore } from 'react'
 import { DEFAULT_LANG, normalizeLang, type Lang } from '../i18n/types'
 import type { BuildingSpec } from '../engine/types'
+import type { CodeId } from '../codes/types'
 
 export type PanelId = 'logP' | 'modelP' | 'viewP' | 'resP'
 export type ResultTab = 'react' | 'disp' | 'force' | 'moment'
@@ -114,6 +115,8 @@ export const S = {
   provKey: '',
   provModel: 'claude-sonnet-5-5',
   conv: [] as ConvTurn[],
+  /* 설계기준 (UI 언어와 독립) */
+  code: 'TW' as CodeId,
   /* 모델·결과 */
   model: emptyModel(),
   results: { react: null as Table | null, disp: null as Table | null, force: null as Table | null },

@@ -1,9 +1,10 @@
 /* 편집 가능 규격 카드 — 상단 그리드 · 단면/재료 팔레트 · 표준층 표 · 내진 · 풍 · 코어.
    상태(EditorState)가 바뀔 때마다 onChange(spec) — 부모가 미리보기 갱신(디바운스). */
+import { profileOf, type LateralGroup } from '../codes'
 import { RC, type BuildingSpec } from '../engine'
 import {
-  effectiveSel, newKey, paletteOf, renumber, SEIS_KEYS, TOP_KEYS,
-  type EditorState, type FgRow, type PalRow, type TopKey,
+  effectiveSel, newKey, paletteOf, renumber, TOP_KEYS,
+  type EditorState, type FgRow, type LateralState, type PalRow, type TopKey,
 } from '../agent/editor'
 import { typeHeadHTML } from '../agent/plan'
 import { roleLbl, t, tv, useLbl } from '../i18n'
@@ -19,6 +20,46 @@ const TOP_UNIT: Partial<Record<TopKey, string>> = { spanX: 'mm', spanY: 'mm', ga
 const TOP_TEXT: Partial<Record<TopKey, boolean>> = { spanX: true, spanY: true }
 
 function Unit({ u }: { u?: string }) { return u ? <span className="pe-u">{u}</span> : null }
+
+/** 횡하중(지진·풍) 섹션 — 항목·프리셋·안내문은 설계기준 프로필이 정의 */
+function LateralSection({ g, icon, st, set, first }: {
+  g: LateralGroup; icon: string; st: LateralState; set(next: LateralState): void; first?: boolean
+}) {
+  const setVal = (k: string, v: string) => set({ ...st, vals: { ...st.vals, [k]: v } })
+  const presets = g.presets?.list()
+  const applyPreset = (idx: string) => {
+    const pr = presets?.[+idx]; if (idx === '' || !pr) return
+    const vals = { ...st.vals }
+    for (const [k, v] of Object.entries(pr.values)) vals[k] = v == null ? '' : String(v)
+    set({ ...st, vals })
+  }
+  return (
+    <div style={{ marginTop: first ? 14 : 12, borderTop: '1px dashed var(--border)', paddingTop: 12 }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '.82rem', color: 'var(--cyan)', fontWeight: 600 }}>
+        <input type="checkbox" checked={st.on} onChange={e => set({ ...st, on: e.target.checked })} /> {icon} {t(g.toggleKey)}
+      </label>
+      <div className="pe-grid" style={{ marginTop: 10 }}>
+        {presets && g.presets && (
+          <div className="pe-f pe-full"><label>{t(g.presets.labelKey)}</label><div className="pe-in">
+            <select defaultValue="" onChange={e => applyPreset(e.target.value)}>
+              <option value="">{t('manual')}</option>
+              {presets.map((z, i) => <option key={i} value={i}>{z.label}</option>)}
+            </select></div></div>
+        )}
+        {g.fields.map(f => (
+          <div className="pe-f" key={f.key}><label>{f.label()}</label><div className="pe-in">
+            {f.kind === 'select'
+              ? <select value={st.vals[f.key] ?? ''} onChange={e => setVal(f.key, e.target.value)}>
+                  {f.options!().map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              : <input type="number" step="any" value={st.vals[f.key] ?? ''} onChange={e => setVal(f.key, e.target.value)} />}
+            <Unit u={f.unit} /></div></div>
+        ))}
+      </div>
+      <div className="pe-tip" dangerouslySetInnerHTML={{ __html: g.tipHtml() }} />
+    </div>
+  )
+}
 
 export function PlanEditor({ base, st, setSt, disabled }: Props) {
   const PE = tv<Record<string, string>>('pe')
@@ -66,15 +107,7 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
   })
   const fgDel = (key: number) => setSt(s => s.rows.length <= 1 ? s : ({ ...s, rows: renumber(s.rows.filter(r => r.key !== key)) }))
 
-  const seisPreset = (idx: string) => {
-    const z = RC.SEISMIC_ZONES[+idx]; if (idx === '' || !z) return
-    setSt(s => ({ ...s, seis: { ...s.seis, SDS: String(z.SDS ?? ''), SD1: String(z.SD1 ?? ''), T0: z.T0 != null ? String(z.T0) : '' } }))
-  }
-
-  const seisLabels: Record<(typeof SEIS_KEYS)[number], [string, string?]> = {
-    SDS: ['SDS (Sas)'], SD1: ['SD1 (Sa1)'], T0: [t('t0_basin'), 's'], I: ['I ' + t('use_2')], R: ['R ' + t('sys')],
-    w0: [t('dead_w0'), 'kN/㎡'], liveRatio: [t('live')], Cs: ['Cs ' + t('ovr')], V: [t('v_direct'), 'kN'],
-  }
+  const prof = profileOf(base)
 
   return (
     <fieldset disabled={disabled} style={{ border: 'none', padding: 0, margin: 0, minWidth: 0 }}>
@@ -183,47 +216,9 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
           <div className="pe-tip" style={{ opacity: 0.75 }}>{t('rigd_db_rigd_rigid_link_man')}</div>
         </div>
 
-        {/* ── M2-A1 내진 等效靜力 ── */}
-        <div style={{ marginTop: 14, borderTop: '1px dashed var(--border)', paddingTop: 12 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '.82rem', color: 'var(--cyan)', fontWeight: 600 }}>
-            <input type="checkbox" checked={st.seis.on} onChange={e => setSt(s => ({ ...s, seis: { ...s.seis, on: e.target.checked } }))} /> 🌐 {t('apply_equivalent_static_se')}
-          </label>
-          <div className="pe-grid" style={{ marginTop: 10 }}>
-            <div className="pe-f pe-full"><label>{t('site_preset')}</label><div className="pe-in">
-              <select defaultValue="" onChange={e => seisPreset(e.target.value)}>
-                <option value="">{t('manual')}</option>
-                {RC.SEISMIC_ZONES.map((z, i) => <option key={i} value={i}>{z.city} {z.dist} · SDS {z.SDS}</option>)}
-              </select></div></div>
-            {SEIS_KEYS.map(k => (
-              <div className="pe-f" key={k}><label>{seisLabels[k][0]}</label><div className="pe-in">
-                <input type="number" step="any" value={st.seis[k]} onChange={e => setSt(s => ({ ...s, seis: { ...s.seis, [k]: e.target.value } }))} />
-                <Unit u={seisLabels[k][1]} /></div></div>
-            ))}
-          </div>
-          <div className="pe-tip">
-            <a href="https://seaport.ncree.org/sederes/" target="_blank" rel="noopener" style={{ color: 'var(--cyan)', fontWeight: 600 }}>↗ Sederes</a> {t('look_up_site_sds_sd1_or_t0')}
-          </div>
-        </div>
-
-        {/* ── M2-A2 풍하중 ── */}
-        <div style={{ marginTop: 12, borderTop: '1px dashed var(--border)', paddingTop: 12 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '.82rem', color: 'var(--cyan)', fontWeight: 600 }}>
-            <input type="checkbox" checked={st.wind.on} onChange={e => setSt(s => ({ ...s, wind: { ...s.wind, on: e.target.checked } }))} /> 🌬 {t('apply_wind_simplified_stat')}
-          </label>
-          <div className="pe-grid" style={{ marginTop: 10 }}>
-            <div className="pe-f"><label>{t('wind_v10')}</label><div className="pe-in">
-              <input type="number" step="any" value={st.wind.V10} onChange={e => setSt(s => ({ ...s, wind: { ...s.wind, V10: e.target.value } }))} /><Unit u="m/s" /></div></div>
-            <div className="pe-f"><label>{t('exposure')}</label><div className="pe-in">
-              <select value={st.wind.exposure} onChange={e => setSt(s => ({ ...s, wind: { ...s.wind, exposure: e.target.value } }))}>
-                {['A', 'B', 'C'].map(x => <option key={x} value={x}>{x} {t('expo', x)}</option>)}
-              </select></div></div>
-            <div className="pe-f"><label>{t('gust_g')}</label><div className="pe-in">
-              <input type="number" step="any" value={st.wind.G} onChange={e => setSt(s => ({ ...s, wind: { ...s.wind, G: e.target.value } }))} /></div></div>
-            <div className="pe-f"><label>{t('force_cf')}</label><div className="pe-in">
-              <input type="number" step="any" value={st.wind.Cf} onChange={e => setSt(s => ({ ...s, wind: { ...s.wind, Cf: e.target.value } }))} /></div></div>
-          </div>
-          <div className="pe-tip">{t('simplified_qz_0_613_vz_wx_')}</div>
-        </div>
+        {/* ── M2-A1 지진 · M2-A2 풍하중 (설계기준 프로필) ── */}
+        <LateralSection g={prof.seismic} icon="🌐" st={st.seis} set={v => setSt(s => ({ ...s, seis: v }))} first />
+        <LateralSection g={prof.wind} icon="🌬" st={st.wind} set={v => setSt(s => ({ ...s, wind: v }))} />
 
         {/* ── M2-A3 전단벽 중앙코어 ── */}
         <div style={{ marginTop: 12, borderTop: '1px dashed var(--border)', paddingTop: 12 }}>

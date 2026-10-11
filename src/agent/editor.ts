@@ -2,16 +2,39 @@
    편집 카드 상태 ↔ 스펙 변환 — 바닐라 planEditor(초기값) / readPlanEditor(읽기) 의 순수 함수판.
    DOM 대신 EditorState 를 단일 출처로 사용. 입력값은 문자열로 보관(입력 중 상태 보존).
 ════════════════════════════════════════════════════════════ */
+import { profileOf, type LateralGroup } from '../codes'
 import { RC, type BuildingSpec, type Palette } from '../engine'
 import { editorPalette } from './plan'
 
 export type TopKey = 'buildings' | 'bayX' | 'bayY' | 'spanX' | 'spanY' | 'connectFloor' | 'gap'
 export const TOP_KEYS: TopKey[] = ['buildings', 'bayX', 'bayY', 'spanX', 'spanY', 'connectFloor', 'gap']
-export const SEIS_KEYS = ['SDS', 'SD1', 'T0', 'I', 'R', 'w0', 'liveRatio', 'Cs', 'V'] as const
-export const WIND_KEYS = ['V10', 'G', 'Cf'] as const
 
 export interface PalRow { key: number; H: string; B: string }
 export interface FgRow { key: number; role: string; from: string; to: string; h: string; use: string; col: string; beam: string; mat: string }
+
+export type LateralState = { on: boolean; vals: Record<string, string> }
+
+/** 프로필 필드 정의 → 입력 초기값 (number: 스펙값 ?? 기본, select: 빈값이면 기본) */
+function initLateral(g: LateralGroup, src: Record<string, any> | undefined, p: BuildingSpec): LateralState {
+  const s = src || {}
+  const vals: Record<string, string> = {}
+  for (const f of g.fields) {
+    const v = s[f.key]
+    vals[f.key] = f.kind === 'select' ? String(v == null || v === '' ? f.def(p) : v) : str(v ?? f.def(p))
+  }
+  return { on: !!s.on, vals }
+}
+
+/** 입력 → 스펙 객체 (number: 빈칸 제외 parseFloat, select: 문자열 그대로) */
+function readLateral(g: LateralGroup, st: LateralState): Record<string, any> {
+  const o: Record<string, any> = { on: st.on }
+  for (const f of g.fields) {
+    const v = st.vals[f.key] ?? ''
+    if (f.kind === 'select') o[f.key] = v
+    else if (v !== '') o[f.key] = parseFloat(v)
+  }
+  return o
+}
 
 export interface EditorState {
   top: Record<TopKey, string>
@@ -22,8 +45,9 @@ export interface EditorState {
   rows: FgRow[]           // 표시 순서 = 위(지붕) → 아래(지하)
   storyData: boolean
   diaMethod: 'story' | 'rigd'
-  seis: { on: boolean } & Record<(typeof SEIS_KEYS)[number], string>
-  wind: { on: boolean; exposure: string } & Record<(typeof WIND_KEYS)[number], string>
+  /* 횡하중 입력 — 항목은 설계기준 프로필의 fields 가 정의 (값은 문자열) */
+  seis: LateralState
+  wind: LateralState
   core: { on: boolean; thick: string }
 }
 
@@ -43,12 +67,10 @@ export function effectiveSel(pal: Palette, r: Pick<FgRow, 'col' | 'beam' | 'mat'
 
 export function initEditor(p: BuildingSpec): EditorState {
   const pal = editorPalette(p)
-  const matCat = Object.keys(RC.MATERIALS)
+  const prof = profileOf(p)
+  const matCat = Object.keys(prof.materials)
   pal.mats.forEach(m => { if (!matCat.includes(m)) matCat.unshift(m) })
-  const s: any = p.seismic || {}
-  const w: any = p.wind || {}
   const c: any = p.core || {}
-  const I0 = (p.bldgType === 'hospital' || p.bldgType === 'school') ? 1.25 : 1.0
   const rows = RC.specToGroupRows(p).slice().reverse().map(g => {
     const sel = effectiveSel(pal, { col: g.col || '', beam: g.beam || '', mat: g.mat || '' })
     return { key: newKey(), role: g.role, from: str(g.from), to: str(g.to), h: str(g.h), use: g.use, ...sel }
@@ -62,12 +84,8 @@ export function initEditor(p: BuildingSpec): EditorState {
     rows,
     storyData: p.storyData !== false,
     diaMethod: p.diaphragmMethod === 'rigd' ? 'rigd' : 'story',
-    seis: {
-      on: !!s.on,
-      SDS: str(s.SDS ?? 0.6), SD1: str(s.SD1 ?? 0.35), T0: str(s.T0), I: str(s.I ?? I0),
-      R: str(s.R ?? 4.5), w0: str(s.w0 ?? 12), liveRatio: str(s.liveRatio ?? 0.25), Cs: str(s.Cs), V: str(s.V),
-    },
-    wind: { on: !!w.on, exposure: w.exposure || 'B', V10: str(w.V10 ?? 42.5), G: str(w.G ?? 1.9), Cf: str(w.Cf ?? 1.3) },
+    seis: initLateral(prof.seismic, p.seismic, p),
+    wind: initLateral(prof.wind, p.wind, p),
     core: { on: !!c.on, thick: str(c.thick ?? 250) },
   }
 }
@@ -114,7 +132,8 @@ export function editorToSpec(st: EditorState, base: BuildingSpec): BuildingSpec 
   p.colName = pal.cols[0].name; p.colH = pal.cols[0].H; p.colB = pal.cols[0].B
   p.beamName = pal.beams[0].name; p.beamH = pal.beams[0].H; p.beamB = pal.beams[0].B
   p.matName = pal.mats[0]
-  const mt = RC.MATERIALS[pal.mats[0]]
+  const prof = profileOf(base)
+  const mt = prof.materials[pal.mats[0]]
   if (mt) { p.E = mt.E; p.poisn = mt.poisn; p.den = mt.den }
   // 표준층 표 → groups(층 구성·높이·단면·재료의 단일 출처). stories·h1·hTyp는 표를 따름.
   const rows = st.rows.map(r => ({ role: r.role, from: +r.from, to: +r.to, h: +r.h, use: r.use, ...effectiveSel(pal, r) }))
@@ -128,12 +147,10 @@ export function editorToSpec(st: EditorState, base: BuildingSpec): BuildingSpec 
   }
   p.storyData = st.storyData
   p.diaphragmMethod = st.diaMethod
-  const seis: any = { on: st.seis.on }
-  SEIS_KEYS.forEach(k => { if (st.seis[k] !== '') seis[k] = parseFloat(st.seis[k]) })
+  const seis = readLateral(prof.seismic, st.seis)
+  const wind = readLateral(prof.wind, st.wind)
+  prof.finalizeLateral?.(seis, wind)
   p.seismic = seis
-  const wind: any = { on: st.wind.on, exposure: st.wind.exposure }
-  WIND_KEYS.forEach(k => { if (st.wind[k] !== '') wind[k] = parseFloat(st.wind[k]) })
-  if (seis.I != null) wind.I = seis.I   // 用途係數 공유
   p.wind = wind
   const core: any = { on: st.core.on }
   if (st.core.thick !== '') core.thick = parseFloat(st.core.thick)

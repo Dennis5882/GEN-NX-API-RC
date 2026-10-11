@@ -2,6 +2,7 @@
    모델 생성·편집 액션 — 바닐라 ACTIONS 섹션 1:1 이전.
    엔진(RC.*)은 순수 계산, 여기서 MAPI 전송 + S.model 갱신 + 로그.
 ════════════════════════════════════════════════════════════ */
+import { profileOf } from '../codes'
 import { RC, type BuildingSpec } from '../engine'
 import { t, tl } from '../i18n'
 import { mapi } from '../mapi/client'
@@ -21,11 +22,6 @@ export async function setUnit(force = 'N', dist = 'MM'): Promise<void> {
   log(tl('unit', force, dist), 'ok')
 }
 
-/* M1.7: Taiwan material - concrete CNS560(RC) (live-verified). RC 전용 도구. */
-function cnsName(name: string): string {
-  return RC._MPA2CNS[name] || (RC._CNS_CONC.includes(name) ? name : 'C280')
-}
-
 export async function putSection(id: number, name: string, H: number, B: number): Promise<void> {
   await mapi('PUT', 'sect', { Assign: { [id]: { SECTTYPE: 'DBUSER', SECT_NAME: name,
     SECT_BEFORE: { SHAPE: 'SB', DATATYPE: 2, SECT_I: { vSIZE: [H, B, 0, 0, 0, 0, 0] },
@@ -34,11 +30,12 @@ export async function putSection(id: number, name: string, H: number, B: number)
 }
 
 /* 다중 단면·재료 일괄 등록 — id = 배열 index+1 (specSections 레지스트리와 일치) */
-async function putMaterials(mats: string[]): Promise<void> {
+async function putMaterials(p: BuildingSpec, mats: string[]): Promise<void> {
   const a: Record<number, any> = {}
+  const prof = profileOf(p)
   mats.forEach((name, i) => {
-    const shown = cnsName(name)
-    a[i + 1] = { TYPE: 'CONC', NAME: shown, DAMP_RAT: 0.05, PARAM: [{ P_TYPE: 1, STANDARD: 'CNS560(RC)', DB: shown }] }
+    const m = prof.concreteMatl(name)   // 기준별 재료 DB (대만: CNS560(RC))
+    a[i + 1] = { TYPE: 'CONC', NAME: m.NAME, DAMP_RAT: 0.05, PARAM: [{ P_TYPE: 1, STANDARD: m.STANDARD, DB: m.DB }] }
   })
   await mapi('PUT', 'matl', { Assign: a })
   S.model.matl = a[1] ? a[1].NAME : '-'
@@ -105,7 +102,8 @@ async function applyFloorLoads(p: BuildingSpec, f: any): Promise<void> {
   S.model.floorGroups = groups
   let no = S.model.nextLC || 2
   const lcTypeMap: Record<string, string> = { LL: 'L', LR: 'LR' }
-  const liveNeeded = [...new Set(uses.map(u => RC.FLOOR_USE[u].live as string))]
+  const floorUse = profileOf(p).floorUse
+  const liveNeeded = [...new Set(uses.map(u => floorUse[u].live))]
   for (const lc of liveNeeded) {
     await putLoadCase(no, lc, lcTypeMap[lc] || 'L')
     S.model.loadCases.push({ name: lc, type: lcTypeMap[lc] || 'L' })
@@ -115,7 +113,7 @@ async function applyFloorLoads(p: BuildingSpec, f: any): Promise<void> {
   const fbld: Record<number, any> = {}
   let fi = 1
   uses.forEach(u => {
-    const pr = RC.FLOOR_USE[u]
+    const pr = floorUse[u]
     fbld[fi++] = { NAME: u, DESC: '', ITEM: [
       { LCNAME: 'DL', FLOOR_LOAD: -(pr.sdl * 1e-3), OPT_SUB_BEAM_WEIGHT: true },
       { LCNAME: pr.live, FLOOR_LOAD: -(pr.liveVal * 1e-3), OPT_SUB_BEAM_WEIGHT: true },
@@ -134,9 +132,10 @@ async function applyFloorLoads(p: BuildingSpec, f: any): Promise<void> {
   log('▸ ' + t('floor_loads') + ' <b>' + (ai - 1) + '</b> (' + uses.join(', ') + ')', 'ok')
 }
 
-/* taiwanCombos (TWD-USD112) → shared/rc_engine.js */
+/* 하중조합 — 설계기준 프로필 (대만: taiwanCombos, TWD-USD112) */
 async function putCombos(): Promise<void> {
-  const combos: { name: string; desc: string; terms: [string, number][] }[] = RC.taiwanCombos(S.model.loadCases || [])
+  const prof = profileOf(S.model.spec)
+  const combos = prof.combos(S.model.loadCases || [])
   if (!combos.length) return
   const a: Record<number, any> = {}
   combos.forEach((cb, i) => {
@@ -145,7 +144,7 @@ async function putCombos(): Promise<void> {
   })
   await mapi('PUT', 'lcom-gen', { Assign: a })
   S.model.combos = combos.map(c => c.name)
-  log('▸ ' + t('load_combos_twd_usd112') + ' <b>' + combos.length + '</b>', 'ok')
+  log('▸ ' + t(prof.combosLogKey) + ' <b>' + combos.length + '</b>', 'ok')
 }
 
 /* db/STOR 층 데이터 PUT — 표준층 모델에서 Story Data 자동 생성(엔진 buildStoryData, 15필드 라이브 스키마).
@@ -178,7 +177,7 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
   const perNode: Record<string, { LCNAME: string; FX: number; FY: number }[]> = {}
   const push = (nid: number, it: { LCNAME: string; FX: number; FY: number }) => { (perNode[nid] = perNode[nid] || []).push(it) }
   if (useS) {
-    const r = RC.seismicStoryForces(p, { SDS: sp.SDS, SD1: sp.SD1, T0: sp.T0, I: sp.I, R: sp.R, w0: sp.w0, liveRatio: sp.liveRatio, Cs: sp.Cs, V: sp.V })
+    const r = profileOf(p).seismic.storyForces(p, sp)
     S.model.seismic = { T: r.T, Cs: r.Cs, V: r.V, Wtot: r.Wtot }
     await putLoadCase(no, 'EX', 'E'); S.model.loadCases.push({ name: 'EX', type: 'E' }); no++
     await putLoadCase(no, 'EY', 'E'); S.model.loadCases.push({ name: 'EY', type: 'E' }); no++
@@ -194,7 +193,7 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
       ` <b>V=${Math.round(r.V)} kN</b> · T=${r.T.toFixed(2)}s · Cs=${r.Cs.toFixed(3)} (EX·EY)`, 'ok')
   }
   if (useW) {
-    const r = RC.windStoryForces(p, { V10: wp.V10, exposure: wp.exposure, G: wp.G, Cf: wp.Cf, I: wp.I })
+    const r = profileOf(p).wind.storyForces(p, wp)
     S.model.wind = { Vx: r.Vx, Vy: r.Vy, V10: r.V10 }
     await putLoadCase(no, 'WX', 'W'); S.model.loadCases.push({ name: 'WX', type: 'W' }); no++
     await putLoadCase(no, 'WY', 'W'); S.model.loadCases.push({ name: 'WY', type: 'W' }); no++
@@ -225,7 +224,7 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
   if (clear) await clearModel()              // doc/new가 단위를 리셋하므로 setUnit은 그 다음
   await setUnit('N', 'MM')
   const R = RC.specSections(p)               // 다중 단면·재료 레지스트리 + 층별 배정
-  await putMaterials(R.mats)
+  await putMaterials(p, R.mats)
   await putSections(R.sections)
   await putNodes(f.nodes)
   const asg = (iz: number) => R.storyAssign[iz] || R.def

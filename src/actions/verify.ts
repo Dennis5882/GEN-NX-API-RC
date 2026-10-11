@@ -3,6 +3,7 @@
    ⚠ SSEIS/SWIND 는 KDS + USER TYPE 만 지원 → 대만은 USER TYPE 고정.
    ⚠ Gen GUI "Auto Generate Story Data" 선행 필수(순수 API + ope/STOR 만으론 Wrong Key).
 ════════════════════════════════════════════════════════════ */
+import { profileOf } from '../codes'
 import { RC } from '../engine'
 import { t, tv } from '../i18n'
 import { mapi } from '../mapi/client'
@@ -57,7 +58,7 @@ export async function actSseisVerify(spec?: any): Promise<string> {
   const sp = p.seismic
   if (!(sp && sp.on)) throw new Error(t('need_a_model_with_seismic_'))
   await setUnit('N', 'MM')
-  const r = RC.seismicStoryForces(p, { SDS: sp.SDS, SD1: sp.SD1, T0: sp.T0, I: sp.I, R: sp.R, w0: sp.w0, liveRatio: sp.liveRatio, Cs: sp.Cs, V: sp.V })
+  const r = profileOf(p).seismic.storyForces(p, sp)
   const reg = (await registeredStories()).filter(s => s.level > 0)
   if (!reg.length) throw new Error(t('err_sseis_nostory'))
   const mapped = mapToStories(r.forces, reg)
@@ -103,7 +104,7 @@ export async function actSwindVerify(spec?: any): Promise<string> {
   const wp = p.wind
   if (!(wp && wp.on)) throw new Error(t('need_a_model_with_wind_loa'))
   await setUnit('N', 'MM')
-  const r = RC.windStoryForces(p, { V10: wp.V10, exposure: wp.exposure, G: wp.G, Cf: wp.Cf, I: wp.I })
+  const r = profileOf(p).wind.storyForces(p, wp)
   const regAll = await registeredStories(true)
   const reg = regAll.filter(s => s.level > 0)
   if (!reg.length) throw new Error(t('err_swind_nostory'))
@@ -149,7 +150,7 @@ export async function actStoryWeightVerify(spec?: any): Promise<string> {
   const p = requireModel(spec)
   await setUnit('KN', 'MM')                                           // STORY_WEIGHT kN, STORY_LEVEL mm
   const sp = p.seismic || {}
-  const W = RC.seismicStoryWeights(p, { w0: sp.w0, liveRatio: sp.liveRatio })
+  const W = profileOf(p).seismic.storyWeights(p, sp)
   const elev = RC.storyElevations(p)
   const selfStories: { level: number; weight: number }[] = []
   for (let s = 1; s <= p.stories; s++) { if ((elev[s] || 0) > 0) selfStories.push({ level: elev[s], weight: W[s] || 0 }) }

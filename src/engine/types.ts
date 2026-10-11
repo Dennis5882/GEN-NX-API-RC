@@ -56,6 +56,8 @@ export interface BuildingSpec {
   beamH: number
   beamB: number
   bldgType?: BuildingTypeKey | null
+  /** 설계기준 프로필 id (src/codes) — 없으면 현재 선택 기준 */
+  code?: string
   podium?: number
   podiumUse?: string
   palette?: Palette
