@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { PROVIDERS } from '../agent/llm'
 import { setProvider, testConn, type TestOut } from '../agent/session'
-import { pick, t } from '../i18n'
+import { t } from '../i18n'
 import { S, notify, useStore, type Provider } from '../state/store'
 
 export type DrawerId = 'mapi' | 'llm' | null
@@ -81,7 +81,7 @@ function LlmDrawer({ open, onClose }: { open: boolean; onClose(): void }) {
           <label>{cfg.keyLabel}</label>
           <input type="password" value={s.provKey} placeholder={cfg.ph}
             onChange={e => { S.provKey = e.target.value; notify() }} />
-          <div className="hint" dangerouslySetInnerHTML={{ __html: pick(cfg.hint) }} />
+          <div className="hint" dangerouslySetInnerHTML={{ __html: t(`prov_hint_${s.provider}`) }} />
         </div>
         <div className="field">
           <label>MODEL</label>

@@ -1,8 +1,6 @@
 import { llmActive, setLang } from '../agent/session'
-import { LANGS, t, type Lang } from '../i18n'
+import { LANG_DEFS, t, type Lang } from '../i18n'
 import { useStore } from '../state/store'
-
-const LANG_LABEL: Record<Lang, string> = { ko: '한국어', en: 'English', zh: '繁體中文' }
 
 export function Header({ onOpenMapi, onOpenLlm }: { onOpenMapi(): void; onOpenLlm(): void }) {
   const s = useStore()
@@ -19,7 +17,7 @@ export function Header({ onOpenMapi, onOpenLlm }: { onOpenMapi(): void; onOpenLl
       <div className="spacer" />
       <div className="langsel">
         <select value={s.lang} onChange={e => setLang(e.target.value as Lang)} aria-label="Language">
-          {LANGS.map(l => <option key={l} value={l}>{LANG_LABEL[l]}</option>)}
+          {LANG_DEFS.map(d => <option key={d.code} value={d.code}>{d.label}</option>)}
         </select>
       </div>
       <div className={`pill${s.connected ? ' on' : ''}${s.connErr ? ' err' : ''}`} onClick={onOpenMapi}>

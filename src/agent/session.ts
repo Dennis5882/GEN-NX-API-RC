@@ -1,5 +1,5 @@
 /* 세션 액션 — 전송·언어·공급자·연결 테스트·대화 초기화 (바닐라 SEND / SETTINGS / I18N APPLY) */
-import { escapeHtml, t } from '../i18n'
+import { escapeHtml, htmlLang, t } from '../i18n'
 import type { Lang } from '../i18n/types'
 import { verifyConn } from '../mapi/client'
 import { S, notify, type Provider } from '../state/store'
@@ -39,7 +39,7 @@ export function clearChat(): void {
 export function setLang(l: Lang): void {
   S.lang = l
   try { localStorage.setItem('nx_lang', l) } catch { /* noop */ }
-  document.documentElement.lang = l === 'zh' ? 'zh-Hant' : l
+  document.documentElement.lang = htmlLang(l)
   S.conv = []
   draw3D()
   S.msgs = []; S.pendingBuild = null

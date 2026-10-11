@@ -217,12 +217,10 @@ const DEFAULT_SPEC={
   beamName:'B400x600', beamH:600, beamB:400
 };
 
+/* UI 문구(label/desc/tip)는 shared/i18n.js 의 bt_<type>_label|desc|tip 키 — 엔진은 순수 데이터만 */
 const BUILDING_TYPES = {
   apartment:{
     icon:'🏠',
-    label:{ko:'주거',en:'Residential',zh:'住宅'},
-    desc:{ko:'주거용 RC 라멘조 · 소형 스팬',en:'Residential RC frame · short spans',zh:'住宅用 RC 構架 · 小跨距'},
-    tip:{ko:'층수·동수를 바꿔 말할 수 있어요. 예) <code>25층 2동 주거</code>',en:'You can change stories and buildings. e.g. <code>build a 25 story 2 building residential</code>',zh:'可變更樓層數與棟數。例）<code>建立 25 層 2 棟住宅</code>'},
     buildings:1, bayX:4, bayY:3, spanX:6500, spanY:7000,
     stories:15, h1:2900, hTyp:2800, gap:14000, connectFloor:0,
     podium:1, podiumUse:'Commercial',
@@ -231,9 +229,6 @@ const BUILDING_TYPES = {
   },
   office:{
     icon:'🏢',
-    label:{ko:'사무',en:'Office',zh:'辦公'},
-    desc:{ko:'업무용 RC · 오픈플랜 대형 스팬',en:'Office RC · open-plan long spans',zh:'辦公用 RC · 開放式大跨距'},
-    tip:{ko:'층수·스팬을 조정할 수 있어요. 예) <code>20층 사무 스팬 10000</code>',en:'Adjust stories and span. e.g. <code>build a 20 story office span 10000</code>',zh:'可調整樓層數與跨距。例）<code>建立 20 層辦公 跨距 10000</code>'},
     buildings:1, bayX:4, bayY:3, spanX:9000, spanY:9000,
     stories:10, h1:4500, hTyp:4000, gap:0, connectFloor:0,
     podium:1, podiumUse:'Commercial',
@@ -242,9 +237,6 @@ const BUILDING_TYPES = {
   },
   commercial:{
     icon:'🏬',
-    label:{ko:'상가',en:'Commercial',zh:'商場'},
-    desc:{ko:'상업시설 RC · 대형 스팬 · 중활하중',en:'Commercial RC · large spans · heavy live load',zh:'商業設施 RC · 大跨距 · 重活載重'},
-    tip:{ko:'층수·스팬을 조정하세요. 예) <code>상가 6층</code>',en:'Adjust stories and spans. e.g. <code>build a 6 story mall</code>',zh:'可調整樓層與跨距。例）<code>建立 6 層商場</code>'},
     buildings:1, bayX:5, bayY:4, spanX:9000, spanY:9000,
     stories:6, h1:5000, hTyp:4500, gap:0, connectFloor:0,
     podium:1, podiumUse:'Commercial',
@@ -253,9 +245,6 @@ const BUILDING_TYPES = {
   },
   hospital:{
     icon:'🏥',
-    label:{ko:'병원',en:'Hospital',zh:'醫院'},
-    desc:{ko:'의료시설 RC · 중하중 설비층 대형 스팬',en:'Hospital RC · heavy MEP floors, large spans',zh:'醫療設施 RC · 重載設備層大跨距'},
-    tip:{ko:'층수를 바꿀 수 있어요. 예) <code>병원 12층</code>',en:'Change the number of stories. e.g. <code>build a 12 story hospital</code>',zh:'可變更樓層數。例）<code>建立 12 層醫院</code>'},
     buildings:1, bayX:4, bayY:4, spanX:8500, spanY:8500,
     stories:8, h1:4500, hTyp:4200, gap:0, connectFloor:0,
     podium:1, podiumUse:'Commercial',
@@ -264,9 +253,6 @@ const BUILDING_TYPES = {
   },
   school:{
     icon:'🏫',
-    label:{ko:'학교',en:'School',zh:'學校'},
-    desc:{ko:'교육시설 RC · 복도형 장방형 평면',en:'School RC · corridor-type rectangular plan',zh:'教育設施 RC · 走廊型長方形平面'},
-    tip:{ko:'층수를 바꿀 수 있어요. 예) <code>학교 4층</code>',en:'Change the number of stories. e.g. <code>build a 4 story school</code>',zh:'可變更樓層數。例）<code>建立 4 層學校</code>'},
     buildings:1, bayX:6, bayY:2, spanX:7200, spanY:8400,
     stories:5, h1:3800, hTyp:3600, gap:0, connectFloor:0,
     podium:1, podiumUse:'Office',

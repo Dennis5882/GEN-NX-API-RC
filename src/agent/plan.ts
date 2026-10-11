@@ -1,10 +1,10 @@
 /* 건물 규격 설명카드 HTML + 편집 카드용 팔레트 헬퍼 (바닐라 planSummary · floorCompoLine · editorPalette) */
 import { RC, type BuildingSpec, type Palette } from '../engine'
-import { pick, roleLbl, t, useLbl } from '../i18n'
+import { roleLbl, t, useLbl } from '../i18n'
 
-/** 건물유형 필드의 현재 언어 값 */
+/** 건물유형 문구 (사전 bt_<type>_label|desc|tip) */
 export function bt(typeKey: keyof typeof RC.BUILDING_TYPES, field: 'label' | 'desc' | 'tip'): string {
-  return pick(RC.BUILDING_TYPES[typeKey][field])
+  return t(`bt_${typeKey}_${field}`)
 }
 
 const rng = (r: { from: number; to: number }) => (r.from === r.to) ? `${r.from}F` : `${r.from}–${r.to}F`

@@ -42,10 +42,14 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 
 ## i18n 패턴
 
-- 모든 UI 문자열은 `t('key')` / `tl('log_key')` 로 호출. 하드코딩 금지.
-- 새 문자열 추가 = `shared/i18n.js`의 `ko:{}` / `en:{}` / `zh:{}` 블록에 동시 추가.
-- 언어 영속성: `localStorage('nx_lang')`. `S.lang` 초기화 시 IIFE로 읽음.
-- HTML 속성: `data-i18n`, `data-i18n-html`, `data-i18n-ph`, `data-i18n-title` → `applyStatic()`이 처리.
+- 모든 UI 문자열은 `t('key')` / `tl('log_key')` 로 호출. **키는 타입 검사됨**(`I18nKey`/`LogKey`, `src/i18n/keys.gen.ts` 자동 생성) — 오타는 컴파일 오류.
+- **UI 문구는 전부 `shared/i18n.js`에만** — GUIDE(`g_*`)·HELP(`help_html`)·공급자 키 힌트(`prov_hint_*`)·건물유형(`bt_<type>_label|desc|tip`) 포함. 코드/엔진에 `{ko,en,…}` 인라인 객체 금지.
+- 새 문자열 = `ko:{}` / `en:{}` / `'zh-TW':{}` 블록에 동시 추가 → `npm run i18n:check -- --write`(keys.gen.ts 갱신).
+- **언어 레지스트리** `src/i18n/types.ts` `LANG_DEFS` = 지원 언어 단일 출처(code·label·html lang). 언어 추가 = 여기 한 줄 + 사전 블록.
+- 대만 번체 코드 = **`zh-TW`**(구 `zh`는 `normalizeLang`이 localStorage 값 자동 변환). 폴백 = `en`.
+- `npm run i18n:check`(build·typecheck 에 포함): 함수 인자 수·타입 불일치, 폴백 누락, keys.gen 불일치 = 오류 / 일부 언어 키 누락 = 경고(`--strict` 시 오류).
+- 언어 영속성: `localStorage('nx_lang')`.
+- 미정리(차기): 로컬 NLP 정규식(`parse.ts`)과 LLM SYSTEM 프롬프트 응답언어 규칙은 ko/en/zh 전용 — 언어 추가 시 함께 확장 필요.
 
 ## 로컬 NLP 구조
 

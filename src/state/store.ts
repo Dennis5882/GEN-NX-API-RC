@@ -4,7 +4,7 @@
    액션 로직을 바닐라와 1:1 로 유지하기 위한 의도적 설계(mutable store).
 ════════════════════════════════════════════════════════════ */
 import { useSyncExternalStore } from 'react'
-import { LANGS, type Lang } from '../i18n/types'
+import { DEFAULT_LANG, normalizeLang, type Lang } from '../i18n/types'
 import type { BuildingSpec } from '../engine/types'
 
 export type PanelId = 'logP' | 'modelP' | 'viewP' | 'resP'
@@ -94,10 +94,9 @@ function emptyModel(): ModelState {
 
 function readLang(): Lang {
   try {
-    const l = localStorage.getItem('nx_lang')
-    if (l && (LANGS as readonly string[]).includes(l)) return l as Lang
+    return normalizeLang(localStorage.getItem('nx_lang')) ?? DEFAULT_LANG
   } catch { /* storage 차단 환경 */ }
-  return 'ko'
+  return DEFAULT_LANG
 }
 
 export const S = {

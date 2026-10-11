@@ -1,37 +1,30 @@
-/* i18n — 사전은 shared/i18n.js(window.I18N / window.LOGS) 단일 소스 유지.
-   t()/tl() 의미는 바닐라와 동일: 현재 언어(S.lang) → en 폴백, 함수값이면 인자 적용.
-   React 밖(액션)에서도 쓰이므로 plain 함수. 컴포넌트는 useStore() 로 언어 변경에 재렌더된다. */
+/* i18n — 사전은 shared/i18n.js(window.I18N / window.LOGS) 단일 소스.
+   t()/tl(): 현재 언어(S.lang) → FALLBACK_LANG(en) 폴백, 함수값이면 인자 적용.
+   React 밖(액션)에서도 쓰이므로 plain 함수. 컴포넌트는 useStore() 로 언어 변경에 재렌더된다.
+   ⚠ UI 문구는 전부 사전에 둔다 — 코드에 {ko,en,…} 인라인 객체를 만들지 말 것. */
 import '../../shared/i18n.js'
 import { S } from '../state/store'
-import type { Dict, Lang } from './types'
+import type { I18nKey, LogKey } from './keys.gen'
+import { FALLBACK_LANG, type Dict, type Lang } from './types'
 
-function lookup(dicts: Record<Lang, Dict>, key: string, args: unknown[]): any {
-  const d = dicts[S.lang] ?? dicts.en
-  let v = d[key]
-  if (v === undefined) v = dicts.en[key]
+function lookup(dicts: Partial<Record<Lang, Dict>>, key: string, args: unknown[]): any {
+  let v = dicts[S.lang]?.[key]
+  if (v === undefined) v = dicts[FALLBACK_LANG]?.[key]
+  if (v === undefined && import.meta.env?.DEV) console.warn(`[i18n] missing key: ${key}`)
   return typeof v === 'function' ? (v as (...a: unknown[]) => unknown)(...args) : v
 }
 
 /** UI 문자열 (HTML 포함 가능) */
-export function t(key: string, ...args: unknown[]): string {
+export function t(key: I18nKey, ...args: unknown[]): string {
   return lookup(window.I18N, key, args)
 }
 /** 배열/객체값 사전 항목 (pe, roles, uses, hdr_* …) */
-export function tv<T = any>(key: string): T {
+export function tv<T = any>(key: I18nKey): T {
   return lookup(window.I18N, key, [])
 }
 /** 활동 로그 메시지 */
-export function tl(key: string, ...args: unknown[]): string {
+export function tl(key: LogKey, ...args: unknown[]): string {
   return lookup(window.LOGS, key, args)
-}
-
-/** {ko,en,zh} 객체에서 현재 언어 값 (en 폴백) */
-export function pick<T>(o: Partial<Record<Lang, T>> | T): T {
-  if (o && typeof o === 'object' && ('en' in (o as object) || 'ko' in (o as object))) {
-    const r = o as Partial<Record<Lang, T>>
-    return (r[S.lang] !== undefined ? r[S.lang] : r.en) as T
-  }
-  return o as T
 }
 
 export function roleLbl(r: string): string { return tv<Record<string, string>>('roles')[r] || r }
@@ -42,4 +35,5 @@ export function escapeHtml(s: string): string {
 }
 
 export type { Lang } from './types'
-export { LANGS } from './types'
+export type { I18nKey, LogKey } from './keys.gen'
+export { LANGS, LANG_DEFS, htmlLang, normalizeLang } from './types'

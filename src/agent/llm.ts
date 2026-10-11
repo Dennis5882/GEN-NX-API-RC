@@ -15,18 +15,15 @@ import { S, type Provider } from '../state/store'
 import { addMsg, renderModelState, tab, thinking } from '../state/ui'
 import { extremum, statusBrief } from './results'
 
-export const PROVIDERS: Record<Provider, { label: string; keyLabel: string; ph: string; hint: Record<string, string>; models: string[]; def: string }> = {
+/* 키 발급 안내 문구는 사전 prov_hint_<provider> */
+export const PROVIDERS: Record<Provider, { label: string; keyLabel: string; ph: string; models: string[]; def: string }> = {
   claude: { label: 'Claude', keyLabel: 'ANTHROPIC API KEY', ph: 'sk-ant-…',
-    hint: { ko: 'claude.ai 로그인과 <b>별개</b>입니다. console.anthropic.com 에서 발급.', en: '<b>Separate</b> from claude.ai login. Get a key at console.anthropic.com.', zh: '與 claude.ai 登入<b>無關</b>。請至 console.anthropic.com 申請。' },
     models: ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5', 'claude-fable-5-1'], def: 'claude-sonnet-5-5' },
   gemini: { label: 'Gemini', keyLabel: 'GOOGLE AI STUDIO API KEY', ph: 'AIza…',
-    hint: { ko: 'aistudio.google.com → Get API key 에서 발급 (Gemini API).', en: 'Get a key at aistudio.google.com → Get API key (Gemini API).', zh: '於 aistudio.google.com → Get API key 申請（Gemini API）。' },
     models: ['gemini-3.8-flash', 'gemini-3.1-pro-preview', 'gemini-3.5-flash-lite'], def: 'gemini-3.8-flash' },
   gpt: { label: 'GPT', keyLabel: 'OPENAI API KEY', ph: 'sk-…',
-    hint: { ko: 'platform.openai.com → API keys 에서 발급.', en: 'Get a key at platform.openai.com → API keys.', zh: '於 platform.openai.com → API keys 申請。' },
     models: ['gpt-6-luna', 'gpt-6-astra'], def: 'gpt-6-luna' },
   deepseek: { label: 'DeepSeek', keyLabel: 'DEEPSEEK API KEY', ph: 'sk-…',
-    hint: { ko: 'platform.deepseek.com → API keys 에서 발급.', en: 'Get a key at platform.deepseek.com → API keys.', zh: '於 platform.deepseek.com → API keys 申請。' },
     models: ['deepseek-flash', 'deepseek-v4-pro'], def: 'deepseek-flash' },
 }
 

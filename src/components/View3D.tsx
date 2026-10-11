@@ -2,7 +2,7 @@
    S.preview(미리보기 스펙)가 있으면 그 형상, 없으면 현재 모델. S.viewNonce 변경 시 재플롯. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { RC } from '../engine'
-import { roleLbl, t } from '../i18n'
+import { roleLbl, t, type I18nKey } from '../i18n'
 import { S, useStore, type AppState } from '../state/store'
 import { draw3D } from '../state/ui'
 
@@ -216,10 +216,10 @@ export function View3D() {
     if (el && f && ids.length) void loadPlotly().then(P => P.restyle(el, { visible: on } as any, ids))
   }
 
-  const camBtn = (c: Cam, key: string) => (
+  const camBtn = (c: Cam, key: I18nKey) => (
     <button className={`vcam${cam === c ? ' on' : ''}`} onClick={() => onCam(c)}>{t(key)}</button>
   )
-  const togBtn = (k: VisKey, color: string, key: string) => (
+  const togBtn = (k: VisKey, color: string, key: I18nKey) => (
     <button className={`vtog ${vis[k] ? 'on' : 'off'}`} onClick={() => onToggle(k)}>
       <span className="swatch" style={{ background: color }} /><span>{t(key)}</span>
     </button>

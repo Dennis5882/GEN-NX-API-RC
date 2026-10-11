@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react'
 import { GUIDE, type GuideSection } from '../agent/guide'
 import { hint, quick } from '../agent/session'
-import { pick, t } from '../i18n'
+import { t } from '../i18n'
 import { useStore } from '../state/store'
 
 function Section({ sec }: { sec: GuideSection }) {
@@ -13,13 +13,13 @@ function Section({ sec }: { sec: GuideSection }) {
   return (
     <div className={`gsec${open ? '' : ' closed'}`}>
       <div className="gsec-hd" onClick={() => setOpen(o => !o)}>
-        <span>{sec.icon}</span><span style={{ flex: 1 }}>{pick(sec.label)}</span><span className="garrow">▾</span>
+        <span>{sec.icon}</span><span style={{ flex: 1 }}>{t(`g_${sec.id}`)}</span><span className="garrow">▾</span>
       </div>
       <div className="gsec-items" ref={itemsRef} style={{ maxHeight: maxH }}>
         {sec.items.map((it, i) => {
           if ('div' in it) return <div key={i} className="gsec-div" />
-          if ('note' in it) return <div key={i} className="gsec-note">{pick(it.note)}</div>
-          const label = pick(it.label), cmd = pick(it.cmd)
+          if ('note' in it) return <div key={i} className="gsec-note">{t(it.note)}</div>
+          const label = t(it.key), cmd = t(`${it.key}_cmd`)
           return (
             <button key={i} className="gcmd" title={cmd} onClick={() => (it.send ? quick(cmd) : hint(cmd))}>
               <i className="gicon">{it.icon}</i><span className="glabel">{label}</span>

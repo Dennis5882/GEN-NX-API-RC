@@ -1,8 +1,4 @@
 /* shared/rc_engine.js 공개 API 타입 — 이전하면서 any 를 구체 타입으로 교체해 나간다. */
-import type { Lang } from '../i18n/types'
-
-export type L3 = Record<Lang, string>
-
 export interface MaterialProps {
   E: number
   poisn: number
@@ -73,11 +69,9 @@ export interface BuildingSpec {
   [extra: string]: unknown
 }
 
+/** 건물유형 템플릿 — UI 문구는 사전 bt_<type>_* (엔진엔 데이터만) */
 export interface BuildingTypeTemplate extends Partial<BuildingSpec> {
   icon: string
-  label: L3
-  desc: L3
-  tip: L3
 }
 
 export interface SeismicZone { city: string; dist: string; SDS: number; SD1: number; T0?: number }

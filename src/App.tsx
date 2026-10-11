@@ -6,11 +6,11 @@ import { Guide } from './components/Guide'
 import { Header } from './components/Header'
 import { LogPanel, ModelPanel, ResultsPanel } from './components/Panels'
 import { View3D, onView3DTab } from './components/View3D'
-import { t } from './i18n'
+import { htmlLang, t, type I18nKey } from './i18n'
 import { useStore, type PanelId } from './state/store'
 import { addMsg, tab } from './state/ui'
 
-const TABS: { id: PanelId; key: string }[] = [
+const TABS: { id: PanelId; key: I18nKey }[] = [
   { id: 'logP', key: 'tab_log' },
   { id: 'modelP', key: 'tab_model' },
   { id: 'viewP', key: 'tab_3d' },
@@ -25,7 +25,7 @@ export function App() {
   const [guideCollapsed, setGuideCollapsed] = useState(false)
 
   useEffect(() => {
-    document.documentElement.lang = s.lang === 'zh' ? 'zh-Hant' : s.lang
+    document.documentElement.lang = htmlLang(s.lang)
     if (!greeted) { greeted = true; addMsg('bot', t('welcome')) }   // StrictMode 이중 실행 방지
   }, [s.lang])
 

@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "typecheck": "tsc -b",
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "build": "node scripts/i18n-check.mjs && tsc -b && vite build",
+    "typecheck": "node scripts/i18n-check.mjs && tsc -b",
     "preview": "vite preview"
   },
   "dependencies": {
