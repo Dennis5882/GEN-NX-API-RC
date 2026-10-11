@@ -45,12 +45,15 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 - **UI 언어와 독립된 축.** 기준 의존 로직(재료 DB·용도하중·하중조합·지진/풍 층력·층중량·응답스펙트럼·편집카드 지진/풍 입력항목·지역 프리셋)은 전부 `CodeProfile`(`src/codes/types.ts`)을 거친다. 액션/편집기에서 `RC.taiwanCombos`·`RC.seismicStoryForces` 등 **직접 호출 금지** → `profileOf(spec)` / `profile()`.
 - `TW`(`src/codes/tw.ts`) — `shared/rc_engine.js` 대만 구현을 감쌈(동작 불변, 등가성 하네스로 검증).
 - `CN`(`src/codes/cn.ts`, 2026-10-12) — **해석 범위만**(배근·도면 제외, 사용자 결정). 조합 GB 55001/55002(γG 1.3, γQ 1.5, γEh 1.4, 지진조합 방향별), 지진 GB 50011 底部剪力法(설방열도·분조·장지류별 select, 감쇠보정, δn, 최소전단계수 0.2αmax), 풍 GB 50009 wk=βz·μs·μz·w0, 응답스펙트럼 Gen NX 네이티브 `CH2010`, 질량원 활하중 0.5·不上人屋面 제외.
-  - 원문/리소스 검증: Ec·νc·αc(GB50010 KB), 재료기준명 `GB/T10(RC)`(Gen NX `IDS_DB_MATLCODE_CON_GB10`). **미검증(`unverified:true`, 편집카드에 경고)**: 활하중값·조합계수·αmax/Tg·μz·T1=0.08N·DB 등급표기 `C30`·CH2010 STR 값 — GB 50011/50009/55001/55002 원문 확보 시 대조.
+  - **원문 대조 완료(2026-10-12)** — KB `E:/MIDAS PROGRAM/COde/CN/knowledge/{gb50009-2012,gb50011-2010,gb55001-2021,gb55002-2021,gb50010-2010}/chunks.jsonl`: 활하중(55001 表4.2.2·4.2.8), γG·γQ(55001 3.1.13), 풍 ψc 0.6(50009 8.1.4), G_E 조합값(55002 表4.1.3), αmax·Tg(55002 表4.2.2), 곡선·감쇠(50011 5.1.5), Geq·δn(50011 5.2.1), γEh 1.4(55002 4.3.2 = 50011 2024 局部修订 5.4.1), μz(50009 表8.2.1 — 식이 표 재현), μs(表8.3.1-30), RC 단위중량 24~25(50009 附录A), Ec·νc·αc(50010).
+  - 원문 대조로 고친 것: **최소 지진전단계수 = 층별 검사 + 주기보정**(55002 4.2.3, 미달 시 전 층력 증폭), **경험주기 T1 = 0.25+0.53e-3·H²/∛B**(50009 F.2.2-1, B=평면 장변 → 보수적), **βz ≥ 1.2·w0 ≥ 0.30 강제**(55001 4.6.5·4.6.2).
+  - **Gen NX 라이브 확인 완료(2026-10-12)** → `unverified` 해제: 재료 `GB/T10(RC)`·`GB(RC)` + `C20~C80` 수용(`GB19(RC)`는 `C30` 거부), Gen DB 의 Ec = 10⁵/(2.2+34.7/fcu)(표값과 ≤1%), SPFC `CH2010` `EQ_` 은 `FREQUENT/MIDDLE/SCARCE` 대문자만, **생성 곡선이 앱 `alphaOf` 와 전 구간 일치**(감쇠 0.04~0.07 포함 4사례 오차 0), DCON `GB/T50010-10`·`GB50010-02` 수용, **SSEIS/SWIND 중국 코드 미지원**(Wrong Field). SPFC 는 PUT 키와 무관하게 1부터 재번호(이름으로 참조).
+  - 알려진 단순화: 기계실(表4.2.2-7) ψc 0.9 대신 0.7 일괄, 최소전단 미달 시 층별이 아닌 전체 동일 배율 증폭, 풍 지형·풍향 계수 1.0.
   - 기준 선택: 헤더 select(`setCode`, localStorage `nx_code`). 미선택이면 언어 추종(zh-CN→CN). 새 스펙은 `stampSpec()`로 `spec.code` 기록 + `adaptSpec`(대만 재료명→GB 근사 C280→C35 등). 기존 모델은 자기 `spec.code` 유지.
 - 대만 하드코딩 제거 지점: 빌드 메시지 조합 참조(`comboRefs`), 계수 표기(`coefLabel` Cs/α1), 동적해석 재산정 조건(`ready`), 질량원(`massLiveRatio`·`massLiveTypes`).
 - 편집카드 지진/풍 = 프로필 `fields`(number/select)·`presets`·`tipHtml` 로 렌더(`LateralSection`). 기준별로 입력 항목이 달라도 UI 코드 수정 불필요.
 - 기준 추가 = `src/codes/<id>.ts` + `PROFILES` 한 줄 + `CodeId` 유니온.
-- **CN(GB) 참고 메모**: Gen NX 라벨 `GB/T50010-10`, 철근 DB `GB 50917-13(RC)`/`GB/T10(RC)`, 강종 HPB300~HRB600 (`E:/AI Study/Rebar-repair/src/data/rcCodePresets.ts`). 응답스펙트럼은 `db/SPFC` `SPEC_CODE:"CH2010"`(GB50011-2010) **네이티브** 지원(`MIDAS-API/docs/manual/09_DB_Dynamic_Loads.md` 1-2-E). 콘크리트 재료 DB(STANDARD) 이름은 미확인 → 라이브 확인 필요. GB50010 원문 KB: `E:/MIDAS PROGRAM/COde/CN/knowledge/gb50010-2010/`(조문 503, chunks.jsonl). GB50011·GB50009 원문은 없음.
+- **CN(GB) 참고 메모**: Gen NX 라벨 `GB/T50010-10`, 철근 DB `GB 50917-13(RC)`/`GB/T10(RC)`, 강종 HPB300~HRB600 (`E:/AI Study/Rebar-repair/src/data/rcCodePresets.ts`). 응답스펙트럼은 `db/SPFC` `SPEC_CODE:"CH2010"`(GB50011-2010) **네이티브** 지원(`MIDAS-API/docs/manual/09_DB_Dynamic_Loads.md` 1-2-E). 콘크리트 재료 DB(STANDARD) 이름은 미확인 → 라이브 확인 필요. GB50010 원문 KB: `E:/MIDAS PROGRAM/COde/CN/knowledge/gb50010-2010/`(조문 503, chunks.jsonl). GB50011·50009·55001·55002 원문 KB 는 2026-10-12 추가됨(위 대조 완료 참조).
 
 
 ## i18n 패턴

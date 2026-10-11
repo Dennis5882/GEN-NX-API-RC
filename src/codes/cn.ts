@@ -3,18 +3,22 @@
    근거 체계: 조합 GB 55001-2021 / GB 55002-2021, 지진 GB 50011-2010(2016) 底部剪力法,
    풍 GB 50009-2012 wk=βz·μs·μz·w0, 재료 GB 50010-2010.
 
-   ✔ 원문 검증: 콘크리트 Ec(표 4.1.5)·νc=0.2(4.1.5)·αc=1e-5(4.1.8) — COde/CN/knowledge/gb50010-2010
-   ✔ Gen NX 리소스 확인: 재료기준 이름 "GB/T10(RC)", 응답스펙트럼 SPEC_CODE "CH2010"
-   ⚠ 미검증(원문 미보유, 지식 기반 — 원문 대조 전까지 학습·검토용):
-     GB 55001 활하중·조합계수, GB 50011 αmax/Tg/감쇠보정/δn/최소전단계수, GB 50009 μz,
-     경험주기 T1=0.08N, 재료 DB 등급 표기("C30"), CH2010 페이로드 STR 값(EQ_ 등) — 라이브 확인 필요
+   ✔ 원문 대조 완료(2026-10-12, COde/CN/knowledge — 비전 전사 KB):
+     GB 50010 표4.1.5 Ec·4.1.5 νc·4.1.8 αc / GB 50009 附录A 钢筋混凝土 24~25 kN/m³
+     GB 55001 3.1.13 γG·γQ, 表4.2.2·4.2.8 활하중·ψc / GB 50009 8.1.4 풍 ψc 0.6
+     GB 55002 表4.1.3 G_E 조합값계수, 表4.2.2-1·-2 αmax·Tg, 4.2.3 최소전단계수(층별·주기보정), 4.3.2 γG·γEh
+     GB 50011 5.1.5 곡선·감쇠보정, 5.2.1 Geq·δn (2024 局部修订 5.4.1 = 55002 와 일치)
+     GB 50009 表8.2.1 μz(식이 표 재현), 表8.3.1-30 μs, F.2.2 주기 / GB 55001 4.6.2 w0≥0.30, 4.6.5 βz≥1.2
+   ✔ Gen NX 라이브 확인(2026-10-12, v2.1 0612): 재료 "GB/T10(RC)"+"C20~C80" 수용(Ec 는 Gen DB 가 식 10⁵/(2.2+34.7/fcu) 로 산정,
+     표값과 ≤1% 차), CH2010 EQ_ "FREQUENT"(대문자만) 수용 + 생성 곡선이 alphaOf 와 4개 사례 전 구간 오차 0, DCON "GB/T50010-10" 수용.
+     SSEIS/SWIND 는 중국 코드 미지원(Wrong Field) → 정적 지진·풍은 자체 계산 + CNLD 경로 유지
 ════════════════════════════════════════════════════════════ */
 import { RC } from '../engine'
 import type { BuildingSpec, MaterialProps } from '../engine/types'
 import { t } from '../i18n'
 import type { CodeProfile, Combo, ParamField, StoryForce } from './types'
 
-/* ── 재료 — GB 50010-2010 표 4.1.5 Ec(N/mm²), νc 0.2. den: 철근콘크리트 25 kN/m³ → 질량밀도 t/mm³(미검증: GB 50009 부록 A) ── */
+/* ── 재료 — GB 50010-2010 표 4.1.5 Ec(N/mm²), νc 0.2. den: 철근콘크리트 25 kN/m³(GB 50009 附录A 24~25 상한) → 질량밀도 t/mm³ ── */
 const EC: Record<string, number> = { C20: 25500, C25: 28000, C30: 30000, C35: 31500, C40: 32500, C45: 33500, C50: 34500, C55: 35500, C60: 36000 }
 const DEN = 25e-6 / 9806.65   // 25 kN/m³ = 2.5e-5 N/mm³ ÷ g(mm/s²) ≈ 2.55e-9 t/mm³ (TW 엔진 den 과 같은 단위)
 const MATERIALS: Record<string, MaterialProps> = Object.fromEntries(
@@ -25,7 +29,8 @@ const TW2CN: Record<string, string> = { C210: 'C25', C245: 'C30', C280: 'C35', C
   C24: 'C30', C28: 'C35', C30: 'C30', C35: 'C35', C40: 'C40' }
 const toCN = (m: string | undefined) => (m && EC[m] ? m : (m && TW2CN[m]) || 'C30')
 
-/* ── 용도별 바닥하중 kN/m² — 활하중 GB 55001-2021 표 4.2.2 (미검증), SDL 은 마감 가정(대만과 동일 값) ── */
+/* ── 용도별 바닥하중 kN/m² — 활하중 GB 55001-2021 표 4.2.2·4.2.8, SDL 은 마감 가정(대만과 동일 값, 규범값 아님)
+   ψc 는 전부 0.7 로 조합(표값). 단 기계실(항목7)의 표 ψc 는 0.9 — 조합에서 종속 활하중일 때 0.7 사용은 비보수 소폭 ── */
 const FLOOR_USE: CodeProfile['floorUse'] = {
   Residential: { sdl: 1.5, live: 'LL', liveVal: 2.0 },   // 住宅
   Office: { sdl: 1.5, live: 'LL', liveVal: 2.5 },        // 办公楼
@@ -59,7 +64,7 @@ function gbCombos(loadCases: { name: string; type: string }[]): Combo[] {
   return defs.filter(d => d[1] && d[2].length).map((d, i) => ({ name: `gLCB${i + 1}`, desc: d[0], terms: d[2] }))
 }
 
-/* ── 지진 — GB 50011-2010 5.1.4~5.2.5 (미검증) ── */
+/* ── 지진 — GB 55002 4.2.2(αmax·Tg)·4.2.3(최소전단), GB 50011 5.1.5(곡선)·5.2.1(底部剪力法) ── */
 const INTENSITY: Record<string, { label: string; amax: number; sfi: string }> = {
   '6_005': { label: '6 (0.05g)', amax: 0.04, sfi: '0.05g' },
   '7_010': { label: '7 (0.10g)', amax: 0.08, sfi: '0.10g' },
@@ -117,17 +122,31 @@ function storyWeightsCN(p: BuildingSpec, sp: Record<string, any>): number[] {
   return W
 }
 
+/** 경험 기본주기 — GB 50009 F.2.2-1 (철근콘크리트 골조·골조-전단벽) T1 = 0.25 + 0.53e-3·H²/∛B
+    H 총높이(m), B 건물폭(m) — 1개 동 평면 장변 사용(주기를 짧게 → 底部剪力 보수적) */
+export function periodCN(p: BuildingSpec): number {
+  const elev = RC.storyElevations(p)
+  const H = (elev[elev.length - 1] || 0) / 1000
+  const Xp = RC.cumPos(RC.asSpans(p.spanX, p.bayX)), Yp = RC.cumPos(RC.asSpans(p.spanY, p.bayY))
+  const B = Math.max(Xp[Xp.length - 1] || 0, Yp[Yp.length - 1] || 0) / 1000
+  return 0.25 + 0.53e-3 * H * H / Math.cbrt(Math.max(B, 1))
+}
+
+/** 최소 지진전단계수 λ — GB 55002 表4.2.3 λ0(=0.2αmax 와 동일) × 주기 보정(4.2.3-3) */
+function lambdaMin(amax: number, T: number): number {
+  const f = T <= 3.5 ? 1 : T >= 5 ? 0.75 : (9.5 - T) / 6
+  return 0.2 * amax * f
+}
+
 function seismicCN(p: BuildingSpec, sp: Record<string, any>, opt: { T?: number } = {}) {
   const { it, Tg, zeta } = siteParams(sp)
   const W = storyWeightsCN(p, sp)
   const elev = RC.storyElevations(p)
   const Wtot = W.reduce((a, b) => a + (b || 0), 0)
-  /* 기본주기: 모달 → 직접입력 → 경험식 T1=0.08N (골조, 미검증) */
-  const T = opt.T ?? (sp.T > 0 ? sp.T : 0.08 * p.stories)
+  /* 기본주기: 모달 → 직접입력 → 경험식 GB 50009 F.2.2-1 */
+  const T = opt.T ?? (sp.T > 0 ? sp.T : periodCN(p))
   const a1 = alphaOf(T, it.amax, Tg, zeta)
-  let FEk = a1 * 0.85 * Wtot                                    // Geq = 0.85·ΣG_E
-  const lambda = 0.2 * it.amax                                   // 최소 지진전단계수(5.2.5) — 밑면에만 적용(간이)
-  if (FEk < lambda * Wtot) FEk = lambda * Wtot
+  let FEk = a1 * 0.85 * Wtot                                    // Geq = 0.85·ΣG_E (5.2.1)
   const dn = deltaN(T, Tg)
   let denom = 0
   for (let s = 1; s <= p.stories; s++) denom += (W[s] || 0) * (elev[s] || 0)
@@ -137,11 +156,19 @@ function seismicCN(p: BuildingSpec, sp: Record<string, any>, opt: { T?: number }
     if (s === p.stories) F += dn * FEk                           // ΔFn — 정상부 집중
     forces.push({ story: s, h: elev[s], w: W[s], F })
   }
-  /* Cs 자리에 α1(지진영향계수)을 둔다 — 화면 표기 coefLabel 'α1'. 최소전단계수 적용 결과는 V 에 반영 */
-  return { T, Cs: a1, V: FEk, Wtot, W, forces, Tg, deltaN: dn }
+  /* 최소 지진전단 — 층마다 V_Eki ≥ λ·Σ_{j≥i} G_j (GB 55002 4.2.3). 미달 시 전 층력을 같은 배율로 증폭 */
+  const lambda = lambdaMin(it.amax, T)
+  let eta = 1, Vi = 0, Gi = 0
+  for (let s = p.stories; s >= 1; s--) {
+    Vi += forces[s - 1].F; Gi += W[s] || 0
+    if (Vi > 0 && Vi < lambda * Gi) eta = Math.max(eta, lambda * Gi / Vi)
+  }
+  if (eta > 1) { forces.forEach(f => { f.F *= eta }); FEk *= eta }
+  /* Cs 자리에 α1(지진영향계수) — 화면 표기 coefLabel 'α1'. 최소전단 증폭은 V 에 반영 */
+  return { T, Cs: a1, V: FEk, Wtot, W, forces, Tg, deltaN: dn, lambda, lambdaScale: eta }
 }
 
-/* ── 풍 — GB 50009-2012 8.1.1·8.2.1 (미검증) ── */
+/* ── 풍 — GB 50009 8.1.1 wk=βz·μs·μz·w0, 表8.2.1 μz(아래 식이 표값을 반올림 일치로 재현). GB 55001 4.6.2·4.6.5 하한 ── */
 const TERRAIN: Record<string, { c: number; e: number; min: number }> = {
   A: { c: 1.284, e: 0.24, min: 1.09 }, B: { c: 1.0, e: 0.30, min: 1.0 }, C: { c: 0.544, e: 0.44, min: 0.65 }, D: { c: 0.262, e: 0.60, min: 0.51 },
 }
@@ -151,7 +178,10 @@ const muZ = (z: number, cat: string) => {
 }
 
 function windCN(p: BuildingSpec, wp: Record<string, any>) {
-  const w0 = wp.w0 != null ? wp.w0 : 0.45, mus = wp.mus != null ? wp.mus : 1.3, bz = wp.betaz != null ? wp.betaz : 1.0
+  /* GB 55001 강제: 기본풍압 ≥ 0.30 kN/m²(4.6.2), 주요 구조 풍하중 증폭계수 ≥ 1.2(4.6.5) */
+  const w0 = Math.max(0.30, wp.w0 != null ? wp.w0 : 0.45)
+  const bz = Math.max(1.2, wp.betaz != null ? wp.betaz : 1.2)
+  const mus = wp.mus != null ? wp.mus : 1.3                       // 表8.3.1-30 직사각형 +0.8/−0.5
   const cat = wp.terrain || 'B'
   const Xp = RC.cumPos(RC.asSpans(p.spanX, p.bayX)), Yp = RC.cumPos(RC.asSpans(p.spanY, p.bayY))
   const Lx = (Xp[Xp.length - 1] || 0) / 1000, Ly = (Yp[Yp.length - 1] || 0) / 1000
@@ -176,11 +206,10 @@ const num = (key: string, label: () => string, def: ParamField['def'], unit?: st
 export const CN: CodeProfile = {
   id: 'CN',
   designCode: 'GB/T50010-10',
-  unverified: true,
 
   materials: MATERIALS,
   defaultMat: 'C30',
-  /* Gen NX 재료기준 "GB/T10(RC)" (리소스 IDS_DB_MATLCODE_CON_GB10 확인), 등급 표기 "C30" 은 라이브 미확인 */
+  /* Gen NX 재료기준 "GB/T10(RC)" + 등급 "C30" 형식 — 라이브 확인 (GB19(RC) 는 "C30" 거부) */
   concreteMatl(name) {
     const g = toCN(name)
     return { TYPE: 'CONC', NAME: g, PARAM: [{ P_TYPE: 1, STANDARD: 'GB/T10(RC)', DB: g }] }
@@ -221,7 +250,7 @@ export const CN: CodeProfile = {
     ],
     storyForces: (p, sp, opt) => seismicCN(p, sp, opt),
     storyWeights: (p, sp) => storyWeightsCN(p, sp),
-    /* Gen NX 네이티브 GB50011-2010 스펙트럼 (SPEC_CODE CH2010, 매뉴얼 1-2-E) — STR 값 라이브 미확인 */
+    /* Gen NX 네이티브 GB50011-2010 스펙트럼 (SPEC_CODE CH2010) — 라이브 확인: EQ_ 대문자, 생성 곡선 = alphaOf */
     spectrum(sp) {
       const { it, grp, site, Tg, zeta } = siteParams(sp)
       return {
@@ -246,7 +275,7 @@ export const CN: CodeProfile = {
       { key: 'terrain', kind: 'select', label: () => t('cn_terrain'), def: () => 'B',
         options: () => ['A', 'B', 'C', 'D'].map(x => ({ value: x, label: `${x} ${t('cn_terrain_n', x)}` })) },
       num('mus', () => t('cn_mus'), () => 1.3),
-      num('betaz', () => t('cn_betaz'), () => 1.0),
+      num('betaz', () => t('cn_betaz'), () => 1.2),
     ],
     storyForces: (p, wp) => windCN(p, wp),
   },

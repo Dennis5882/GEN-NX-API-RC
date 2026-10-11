@@ -165,13 +165,13 @@ window.I18N = {
     bt_school_tip:"층수를 바꿀 수 있어요. 예) <code>학교 4층</code>",
     /* 설계기준 프로필 (2026-10) */
     code_label:'설계기준', code_TW:'대만 · TWN-USD112', code_CN:'중국 · GB (해석 범위)', kv_code:'설계기준',
-    code_unverified:'⚠ 원문 대조 전 계수 포함 — 학습·검토용',
+    code_unverified:'⚠ Gen NX 라이브 확인 전 항목 포함 (재료 DB 등급 표기·CH2010 스펙트럼 파라미터)',
     load_combos_gb:'하중조합 (GB 55001/55002)', response_spectrum_cn:'응답스펙트럼(GB50011 CH2010) RSX·RSY',
     cn_seis_toggle:'등가정적 지진 적용 (GB 50011 저부전단력법)',
-    cn_seis_tip:'설방열도·설계지진분조는 GB 50011 부록 A, 장지류별은 지반조사 기준. T1 빈칸 = 경험식 0.08N. ⚠ 계수(αmax·Tg·δn·최소전단계수)는 원문 대조 전.',
+    cn_seis_tip:'설방열도·설계지진분조는 GB 50011 부록 A, 장지류별은 지반조사 기준. T1 빈칸 = GB 50009 F.2.2 경험식. 최소 지진전단계수(GB 55002 4.2.3)는 층별 검사 — 미달 시 층력 증폭.',
     cn_intensity:'설방열도', cn_group:'설계지진분조', cn_group_n:n=>`제${n}조`, cn_site:'장지류별', cn_zeta:'감쇠비 ζ', cn_psil:'활하중 조합값계수 ψ', cn_t1:'T1 직접입력',
     cn_wind_toggle:'풍하중 적용 (GB 50009 wk=βz·μs·μz·w0)',
-    cn_wind_tip:'기본풍압 w0 는 GB 50009 부록 E(50년). βz 는 H>30m·T1>0.25s 일 때 산정 필요(기본 1.0). ⚠ μz 식은 원문 대조 전.',
+    cn_wind_tip:'기본풍압 w0 는 GB 50009 부록 E(50년), 하한 0.30 kN/㎡. 풍하중 증폭계수 βz 는 GB 55001 4.6.5 에 따라 1.2 미만이면 1.2 적용. μs 1.3 = 직사각형 평면(표 8.3.1).',
     cn_w0wind:'기본풍압 w0', cn_terrain:'지면조도', cn_terrain_n:x=>({A:'해안·호수',B:'전원·교외',C:'도시',D:'고밀 도심'})[x]||x, cn_mus:'체형계수 μs', cn_betaz:'풍진계수 βz',
   },
   en:{
@@ -326,13 +326,13 @@ window.I18N = {
     bt_school_tip:"Change the number of stories. e.g. <code>build a 4 story school</code>",
     /* design code profiles (2026-10) */
     code_label:'Design code', code_TW:'Taiwan · TWN-USD112', code_CN:'China · GB (analysis)', kv_code:'Design code',
-    code_unverified:'⚠ Includes factors not yet checked against the code text — for study/review',
+    code_unverified:'⚠ Includes items not yet confirmed on live Gen NX (material DB grade label, CH2010 spectrum parameters)',
     load_combos_gb:'Load combinations (GB 55001/55002)', response_spectrum_cn:'Response spectrum (GB50011 CH2010) RSX·RSY',
     cn_seis_toggle:'Apply equivalent static seismic (GB 50011 base shear method)',
-    cn_seis_tip:'Fortification intensity and design group: GB 50011 Appendix A; site class from the geotechnical report. Blank T1 = empirical 0.08N. ⚠ αmax·Tg·δn·minimum shear factor not yet checked against the code text.',
+    cn_seis_tip:'Fortification intensity and design group: GB 50011 Appendix A; site class from the geotechnical report. Blank T1 = GB 50009 F.2.2 empirical formula. Minimum seismic shear factor (GB 55002 4.2.3) is checked per story — forces are scaled up if short.',
     cn_intensity:'Fortification intensity', cn_group:'Design seismic group', cn_group_n:n=>`Group ${n}`, cn_site:'Site class', cn_zeta:'Damping ratio ζ', cn_psil:'Live load combination factor ψ', cn_t1:'T1 override',
     cn_wind_toggle:'Apply wind load (GB 50009 wk=βz·μs·μz·w0)',
-    cn_wind_tip:'Basic wind pressure w0 from GB 50009 Appendix E (50-year). βz must be computed when H>30 m and T1>0.25 s (default 1.0). ⚠ μz formula not yet checked against the code text.',
+    cn_wind_tip:'Basic wind pressure w0 from GB 50009 Appendix E (50-year), minimum 0.30 kN/㎡. Wind amplification βz is raised to 1.2 if lower (GB 55001 4.6.5). μs 1.3 = rectangular plan (Table 8.3.1).',
     cn_w0wind:'Basic wind pressure w0', cn_terrain:'Terrain roughness', cn_terrain_n:x=>({A:'Coast/lake',B:'Open country/suburb',C:'Urban',D:'Dense urban, high-rise'})[x]||x, cn_mus:'Shape coefficient μs', cn_betaz:'Wind vibration coefficient βz',
   },
   'zh-TW':{
@@ -487,13 +487,13 @@ window.I18N = {
     bt_school_tip:"可變更樓層數。例）<code>建立 4 層學校</code>",
     /* 設計規範 profile (2026-10) */
     code_label:'設計規範', code_TW:'台灣 · TWN-USD112', code_CN:'中國 · GB（分析範圍）', kv_code:'設計規範',
-    code_unverified:'⚠ 含尚未與規範原文核對之係數 — 僅供學習·檢核參考',
+    code_unverified:'⚠ 含尚未於 Gen NX 實機確認之項目（材料庫等級標示·CH2010 反應譜參數）',
     load_combos_gb:'載重組合 (GB 55001/55002)', response_spectrum_cn:'反應譜(GB50011 CH2010) RSX·RSY',
     cn_seis_toggle:'套用等效靜力地震 (GB 50011 底部剪力法)',
-    cn_seis_tip:'設防烈度·設計地震分組依 GB 50011 附錄 A，場地類別依地質調查。T1 留空 = 經驗式 0.08N。⚠ αmax·Tg·δn·最小剪力係數尚未與原文核對。',
+    cn_seis_tip:'設防烈度·設計地震分組依 GB 50011 附錄 A，場地類別依地質調查。T1 留空 = GB 50009 F.2.2 經驗式。最小地震剪力係數（GB 55002 4.2.3）逐層檢核，不足時放大層力。',
     cn_intensity:'設防烈度', cn_group:'設計地震分組', cn_group_n:n=>`第${['一','二','三'][n-1]||n}組`, cn_site:'場地類別', cn_zeta:'阻尼比 ζ', cn_psil:'活載重組合值係數 ψ', cn_t1:'T1 直接輸入',
     cn_wind_toggle:'套用風力載重 (GB 50009 wk=βz·μs·μz·w0)',
-    cn_wind_tip:'基本風壓 w0 依 GB 50009 附錄 E（50 年）。H>30m 且 T1>0.25s 時需計算 βz（預設 1.0）。⚠ μz 公式尚未與原文核對。',
+    cn_wind_tip:'基本風壓 w0 依 GB 50009 附錄 E（50 年），下限 0.30 kN/㎡。風振係數 βz 依 GB 55001 4.6.5 小於 1.2 時取 1.2。μs 1.3 = 矩形平面（表 8.3.1）。',
     cn_w0wind:'基本風壓 w0', cn_terrain:'地面粗糙度', cn_terrain_n:x=>({A:'海岸·湖岸',B:'田野·郊區',C:'市區',D:'密集市區·高層'})[x]||x, cn_mus:'體型係數 μs', cn_betaz:'風振係數 βz',
   },
   'zh-CN':{
@@ -648,13 +648,13 @@ window.I18N = {
     bt_school_tip:"可变更楼层数。例）<code>创建 4 层学校</code>",
     /* 设计规范 profile (2026-10) */
     code_label:'设计规范', code_TW:'台湾 · TWN-USD112', code_CN:'中国 · GB（分析范围）', kv_code:'设计规范',
-    code_unverified:'⚠ 含尚未与规范原文核对的系数 — 仅供学习·验算参考',
+    code_unverified:'⚠ 含尚未在 Gen NX 实机确认的项目（材料库等级标识·CH2010 反应谱参数）',
     load_combos_gb:'荷载组合 (GB 55001/55002)', response_spectrum_cn:'反应谱(GB50011 CH2010) RSX·RSY',
     cn_seis_toggle:'施加等效静力地震作用 (GB 50011 底部剪力法)',
-    cn_seis_tip:'设防烈度·设计地震分组按 GB 50011 附录 A，场地类别按勘察报告。T1 留空 = 经验公式 0.08N。⚠ αmax·Tg·δn·最小剪力系数尚未与原文核对。',
+    cn_seis_tip:'设防烈度·设计地震分组按 GB 50011 附录 A，场地类别按勘察报告。T1 留空 = GB 50009 F.2.2 经验公式。最小地震剪力系数（GB 55002 4.2.3）逐层验算，不足时放大楼层地震作用。',
     cn_intensity:'设防烈度', cn_group:'设计地震分组', cn_group_n:n=>`第${['一','二','三'][n-1]||n}组`, cn_site:'场地类别', cn_zeta:'阻尼比 ζ', cn_psil:'活荷载组合值系数 ψ', cn_t1:'T1 直接输入',
     cn_wind_toggle:'施加风荷载 (GB 50009 wk=βz·μs·μz·w0)',
-    cn_wind_tip:'基本风压 w0 按 GB 50009 附录 E（50 年）。H>30m 且 T1>0.25s 时需计算 βz（默认 1.0）。⚠ μz 公式尚未与原文核对。',
+    cn_wind_tip:'基本风压 w0 按 GB 50009 附录 E（50 年），不低于 0.30 kN/㎡。风振系数 βz 按 GB 55001 4.6.5 小于 1.2 时取 1.2。μs 1.3 = 矩形平面（表 8.3.1）。',
     cn_w0wind:'基本风压 w0', cn_terrain:'地面粗糙度', cn_terrain_n:x=>({A:'近海海面·海岛',B:'田野·乡村·郊区',C:'城市市区',D:'密集建筑群城市市区'})[x]||x, cn_mus:'体型系数 μs', cn_betaz:'风振系数 βz',
   }
 };

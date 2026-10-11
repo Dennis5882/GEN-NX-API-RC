@@ -1234,3 +1234,23 @@ Story(STOR/STRY)·Wind(WIND)·정적지진 생성·**모달 주기 numeric 회�
 
 > 교훈: **엔드포인트는 추측하지 말고 매뉴얼의 정확한 URI(대문자 코드: EIGV/POSL/SPFC/SPLC)를 쓸 것.**
 > 빈 바디 "Wrong Field"는 차단이 아니라 필수필드 누락 신호로 해석.
+
+---
+
+## 2026-10-12 — 중국(GB) 기준 API 지원 범위 라이브 탐침 (v2.1 Build 06/12/2026, 빈 모델, 시험 후 원복)
+
+| 항목 | 요청 | 결과 |
+|---|---|---|
+| 콘크리트 재료 | `db/MATL` `P_TYPE:1, STANDARD:"GB/T10(RC)", DB:"C30"` | ✅ 수용. C20·25·35·40·45·50·55·60·65·80 모두 수용 |
+| | `STANDARD:"GB(RC)"` + `C30` | ✅ 수용(구판 GB50010-02 계열) |
+| | `STANDARD:"GB19(RC)"` + `C30` / `"C 30"` / `"C30(GB)"` | ❌ `Unknown Error`(200) — 등급명 체계 다름 추정 |
+| | `DB:"C 30"`, `"C30(GB)"` | ❌ `Unknown Error` |
+| Ec | GET MATL 의 `ELAST`(kN/m²) | C20 25,412,000 · C30 29,791,000 · C60 35,992,000 · C80 37,968,000 = **10⁵/(2.2+34.7/fcu,k)** (GB50010 해설식). 표 4.1.5 값과 ≤1% 차 |
+| 응답스펙트럼 | `db/SPFC` `STR.SPEC_CODE:"CH2010"`, `SFI`, `SC_`(I0/II/III/IV), `EQ_`, `OPT.NSC`, `VAL.aTG/DP/MaxEQ/PERIOD`, `CALC_OPT:true` | ✅ `aFUNC`(102~104점) 자동 생성. **GB 50011 5.1.5 곡선(감쇠보정 포함)과 4사례 전 구간 상대오차 0** |
+| | `EQ_:"FREQUENT"`·`"MIDDLE"`·`"SCARCE"` | ✅ / `"Frequent"` ❌ `Unknown Error` — 대문자만 |
+| | PUT 키 901 | GET 시 키 `"1"` 로 재번호 → 함수는 **이름(NAME)으로 참조** |
+| RC 설계기준 | `db/DCON` `DGNCODE:"GB/T50010-10"` / `"GB50010-02"` | ✅ 수용 |
+| 정적 지진·풍 | `db/SSEIS` `SEIS_CODE` 중국 문자열, `db/SWIND` `WIND_CODE` 중국 문자열 | ❌ `Wrong Field`(무효 문자열과 동일 응답) — 기존 결론(KDS+USER TYPE 만) 유지 |
+
+→ 앱 CN 프로필: 재료 `GB/T10(RC)`+`C**`, 응답스펙트럼 `CH2010` 네이티브, 정적 지진·풍은 자체 계산 후 CNLD(대만과 같은 구조).
+
