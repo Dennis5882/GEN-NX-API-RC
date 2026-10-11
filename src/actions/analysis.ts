@@ -2,17 +2,17 @@
 import { profileOf } from '../codes'
 import { RC } from '../engine'
 import { t, tl } from '../i18n'
-import { mapi, verifyConn } from '../mapi/client'
+import { mapi } from '../mapi/client'
 import { S, type Table } from '../state/store'
 import { log, renderModelState, renderResults } from '../state/ui'
 import { putStoryCalc, setUnit } from './model'
 
-async function autoSavePath(): Promise<string> {
-  try {
-    const { j } = await verifyConn()
-    if (j && j.user) { const u = j.user.split('@')[0]; return `C:/Users/${u}/Documents/gen_rc_temp_${Date.now()}.mgbx` }
-  } catch { /* noop */ }
-  return `C:/Temp/gen_rc_temp_${Date.now()}.mgbx`
+/* 해석 전 자동 저장 경로 — C:/temp 고정 (사용자 지정 2026-10-12).
+   ⚠ 예전엔 MAPI 계정 이메일 앞부분으로 C:/Users/<id>/Documents 를 추정했으나, Windows 사용자 폴더명과 달라
+   Gen NX 에 "잘못된 경로" 모달이 떠 세션이 막혔다(경로는 Gen NX 가 실행 중인 PC 기준). */
+const AUTO_SAVE_DIR = 'C:/temp'
+function autoSavePath(): string {
+  return `${AUTO_SAVE_DIR}/gen_rc_temp_${Date.now()}.mgbx`
 }
 
 const NOT_ALLOWED = /not allowed|not permitted|허용되지|許可/i
@@ -20,7 +20,7 @@ const NOT_ALLOWED = /not allowed|not permitted|허용되지|許可/i
 async function runAnalysis(): Promise<void> {
   await setUnit('N', 'MM')
   log(tl('analRun'), 'info')
-  try { await mapi('POST', '/doc/saveas', { Argument: await autoSavePath() }) } catch { /* noop */ }
+  try { await mapi('POST', '/doc/saveas', { Argument: autoSavePath() }) } catch { /* noop */ }
   const analRes = await mapi('POST', '/doc/anal', {})
   /* doc/anal 은 거부 시 HTTP 200 + message 로 회신(에러필드 아님) → 메시지 직접 점검 */
   const analMsg = String((analRes && analRes.message) || '')
@@ -85,14 +85,20 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
       log('▸ ' + t('no_sds_sd1_rs_skipped'), 'warn')
     } else {
       await mapi('PUT', 'spfc', { Assign: { 1: ds.spfc } })
-      await mapi('PUT', 'splc', { Assign: { 1: RC.splcPayload('RSX', 'X', ds.name), 2: RC.splcPayload('RSY', 'Y', ds.name) } })
+      /* SPLC DIR 은 "XY"/"Z" 만 유효 — 단일축 "X"/"Y" 는 Wrong Field(MAPI_FINDINGS, 2026-10-12 라이브 재확인).
+         수평 방향은 ANGLE 로 구분: RSX 0°, RSY 90°. (바닐라는 "X"/"Y" 를 보내 RS 가 실패했음) */
+      const extra = prof.seismic.splcExtra ?? {}
+      await mapi('PUT', 'splc', { Assign: {
+        1: { ...RC.splcPayload('RSX', 'XY', ds.name), ANGLE: 0, ...extra },
+        2: { ...RC.splcPayload('RSY', 'XY', ds.name), ANGLE: 90, ...extra },
+      } })
       log('▸ ' + t(prof.seismic.spectrumLogKey) + ds.logSuffix, 'ok')
     }
   }
   /* 4) 해석 실행 — 동적해석은 라이선스/시트에 따라 막힐 수 있음("Analysis is not allowed"). */
   await setUnit('KN', 'M')
   log(tl('analRun'), 'info')
-  try { await mapi('POST', '/doc/saveas', { Argument: await autoSavePath() }) } catch { /* noop */ }
+  try { await mapi('POST', '/doc/saveas', { Argument: autoSavePath() }) } catch { /* noop */ }
   const analRes = await mapi('POST', '/doc/anal', {})
   const analMsg = String((analRes && analRes.message) || '')
   const notAllowed = NOT_ALLOWED.test(analMsg)

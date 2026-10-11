@@ -265,6 +265,8 @@ export const CN: CodeProfile = {
       }
     },
     spectrumLogKey: 'response_spectrum_cn',
+    /* 우발편심 ±5% — GB 50011 5.2.3 / 高规 4.3.3 실무 요구. Gen NX SPLC 네이티브(bACCECC) 라이브 확인 2026-10-12 */
+    splcExtra: { bACCECC: true, bACCECC_AUTO: true, ACCECC_PERCENT: 5, bACCECC_CONSIDER_GL: false, bACCECC_MINIMUM_TORSION: false, aACCECC_ECCEN_LIST: [] },
   },
 
   wind: {

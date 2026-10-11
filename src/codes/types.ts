@@ -76,6 +76,8 @@ export interface CodeProfile {
     /** 응답스펙트럼 — 입력 부족이면 null. spfc = db/SPFC 항목, name = SPLC 가 참조할 함수명 */
     spectrum(sp: Record<string, any>): SpectrumDef | null
     spectrumLogKey: I18nKey
+    /** SPLC(응답스펙트럼 하중케이스)에 덧붙일 항목 — 예: 중국 우발편심 5% (Gen NX bACCECC) */
+    splcExtra?: Record<string, any>
   }
   wind: LateralGroup & {
     storyForces(p: BuildingSpec, wp: Record<string, any>): WindResult

@@ -1254,3 +1254,16 @@ Story(STOR/STRY)·Wind(WIND)·정적지진 생성·**모달 주기 numeric 회�
 
 → 앱 CN 프로필: 재료 `GB/T10(RC)`+`C**`, 응답스펙트럼 `CH2010` 네이티브, 정적 지진·풍은 자체 계산 후 CNLD(대만과 같은 구조).
 
+---
+
+## 2026-10-12 — CN 시험 모델 라이브 통합 (앱 코드 경로 그대로: 빌드 → 정적해석 → 동적+RS → 층 테이블)
+
+- **SPLC `DIR`**: `"XY"`/`"Z"`만 유효 — `"X"`/`"Y"`는 `Wrong Field`(기존 기록 재확인). **바닐라부터 `actDynamic`이 `"X"`/`"Y"`를 보내 RS 해석이 항상 실패하던 버그** → `DIR:"XY"` + `ANGLE` 0°(RSX)/90°(RSY)로 수정, 라이브 통과.
+- **SPLC 우발편심(Gen NX 전용)**: `bACCECC:true, bACCECC_AUTO:true, ACCECC_PERCENT:5, bACCECC_CONSIDER_GL:false, bACCECC_MINIMUM_TORSION:false, aACCECC_ECCEN_LIST:[]` 수용·저장(GET 엔 리스트 생략).
+- **층 결과 테이블은 GUI 없이 동작**: 앱의 `db/STOR` + `ope/STOR`만으로 `STORY_DRIFT_X/Y`, `STORY_SHEAR_FORCE_COEFFICIENT`, `STORY_SHEAR_FOR_RS`, `TORSIONAL_IRREGULARITY_X`, `STIFFNESS_IRREGULARITY_X`, `WEIGHT_IRREGULARITY_X`, `STORY_MODE_SHAPE` 전부 데이터 반환(SSEIS/SWIND 의 GUI Auto Generate 의존과 다름). `LOAD_CASE_NAMES` 접미사 `RSX(RS)`·`EX(ST)`. 주의: 정적 케이스의 Load Case 열은 접미사 없이 `"EX"`.
+- `EIGENVALUEMODE` `SUB_TABLES`: `"EIGENVALUE ANALYSIS"`(주기) + `"MODAL PARTICIPATION MASSES PRINTOUT (1)"`(TRAN-X/Y·ROTN-Z MASS·SUM %) → 주기비 Tt/T1·유효질량계수 산출 가능.
+- `STORY_DRIFT_*`의 `Allowable Story Drift Ratio`는 0.015(Gen 기본) — GB 한계(골조 1/550)는 앱이 별도 판정해야 함.
+- **`ope/STOR` 이후 `post/table` → "no analysis result"**: ope/STOR 가 해석 결과를 무효화. 결과 회수는 반드시 ope/STOR 이전(기존 순서 규칙) 또는 재해석 후.
+- **자동저장 경로 모달**: `doc/saveas` 경로 `C:/Users/<MAPI 이메일 앞부분>/Documents/...`가 실제 Windows 사용자 폴더와 달라 Gen NX "잘못된 경로" 모달 → 해석이 모달 대기로 89.5s 지연(API 는 응답). `C:/temp` 고정 후 6.8s. 경로는 Gen NX 실행 PC 기준.
+- **모델 질량 과소(앱 모델링 결함, TW·CN 공통)**: Gen 층중량 ≈ 5,100 kN/층(5.3 kN/㎡) — 바닥하중이 마감(SDL)+활하중뿐이고 **슬래브 자중 누락**. 앱 정적 지진의 w0=12 kN/㎡ 가정과 불일치(정적 V 17,449 vs RS 밑면전단 2,708 kN). 해결 필요.
+

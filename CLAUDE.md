@@ -114,6 +114,9 @@ GUIDE 패널: `GUIDE` 배열 → `renderGuide()`. `send:true` 항목은 클릭 �
 - `db/STOR.STORY_LEVEL` PUT 무시 — `ope/STOR`이 노드 좌표에서 재계산(N-MM 단위 필수).
 - **SWIND USER TYPE**: `SCALE_FACTOR_X`, `SCALE_FACTOR_Y` 필수 포함.
 - `ope/STORPROP` = 현재 빌드(06/12/2026) 404 미탑재.
+- **층 결과 테이블(STORY_DRIFT·STORY_SHEAR_FORCE_COEFFICIENT·TORSIONAL/STIFFNESS/WEIGHT_IRREGULARITY 등)은 GUI 없이 동작** — `db/STOR`+`ope/STOR`만으로 충분(2026-10-12 라이브). SSEIS/SWIND 만 GUI Auto Generate 의존.
+- **SPLC `DIR`은 `"XY"`/`"Z"`만** — 수평 RSX/RSY 는 `ANGLE` 0°/90°. 우발편심 `bACCECC` 네이티브(Gen NX 전용).
+- **자동저장 `doc/saveas` = `C:/temp/…` 고정** — 사용자 폴더 추정 경로는 Gen NX 모달("잘못된 경로")로 해석을 막음.
 
 ### Story Calc 호출 순서
 ```
