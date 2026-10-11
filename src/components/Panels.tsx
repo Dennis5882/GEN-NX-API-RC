@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react'
 import { bt } from '../agent/plan'
 import { momentTable, resultStats } from '../agent/results'
+import { profileOf } from '../codes'
 import { RC } from '../engine'
 import { t } from '../i18n'
 import { S, notify, useStore, type ResultTab } from '../state/store'
@@ -67,6 +68,7 @@ export function ModelPanel() {
         <div className="stat"><div className="n">{height}</div><div className="l">{t('st_h')}</div></div>
       </div>
       <div className="scard"><h3>{t('sec_geom')}</h3>
+        <KV k={t('kv_code')} v={t(`code_${profileOf(sp).id}`)} hi />
         {sp.bldgType && <KV k={t('kv_type')} v={`${RC.BUILDING_TYPES[sp.bldgType].icon} ${bt(sp.bldgType, 'label')}`} hi />}
         <KV k={t('kv_bs')} v={`${sp.buildings} · ${sp.stories}`} hi />
         <KV k={t('kv_bay')} v={`${sp.bayX} × ${sp.bayY}`} />

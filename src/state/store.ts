@@ -93,6 +93,15 @@ function emptyModel(): ModelState {
   }
 }
 
+/** 설계기준 — 저장값 우선, 없으면 언어로 추정(zh-CN → CN, 그 외 TW) */
+function readCode(lang: Lang): CodeId {
+  try {
+    const c = localStorage.getItem('nx_code')
+    if (c === 'TW' || c === 'CN') return c
+  } catch { /* storage 차단 */ }
+  return lang === 'zh-CN' ? 'CN' : 'TW'
+}
+
 function readLang(): Lang {
   try {
     return normalizeLang(localStorage.getItem('nx_lang')) ?? DEFAULT_LANG
@@ -100,8 +109,10 @@ function readLang(): Lang {
   return DEFAULT_LANG
 }
 
+const initLang = readLang()
+
 export const S = {
-  lang: readLang(),
+  lang: initLang,
   /* MIDAS API — MAPI-Key 는 메모리에만(저장 금지) */
   baseUrl: 'https://moa-engineers.midasit.com:443/gen',
   mapiKey: '',
@@ -116,7 +127,9 @@ export const S = {
   provModel: 'claude-sonnet-5-5',
   conv: [] as ConvTurn[],
   /* 설계기준 (UI 언어와 독립) */
-  code: 'TW' as CodeId,
+  code: readCode(initLang),
+  /** 사용자가 기준을 직접 고른 적 있는지 — 없으면 언어 변경을 따라감 */
+  codeChosen: (() => { try { return localStorage.getItem('nx_code') != null } catch { return false } })(),
   /* 모델·결과 */
   model: emptyModel(),
   results: { react: null as Table | null, disp: null as Table | null, force: null as Table | null },

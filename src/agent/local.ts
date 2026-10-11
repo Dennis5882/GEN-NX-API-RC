@@ -4,6 +4,7 @@
 ════════════════════════════════════════════════════════════ */
 import { actAnalyze, actDynamic } from '../actions/analysis'
 import { actAddBracing, actAddLoad, actBuildFrame, actModifySection, actResizeSubset, clearModel } from '../actions/model'
+import { profileOf, stampSpec } from '../codes'
 import type { BuildingSpec } from '../engine'
 import { t } from '../i18n'
 import { S, notify } from '../state/store'
@@ -24,7 +25,7 @@ export async function handleLocal(txt: string): Promise<void> {
   const cmd = parseCommand(txt)
   switch (cmd.intent) {
     case 'build':
-      proposeBuild(cmd.params, !cmd.params.bldgType)
+      proposeBuild(stampSpec(cmd.params), !cmd.params.bldgType)
       return
     case 'clear': {
       const th = thinking()
@@ -115,10 +116,11 @@ export async function confirmBuild(p: BuildingSpec, buildId: number): Promise<vo
     th.remove()
     const e = S.model.cols.length + S.model.beams.length + S.model.links.length
     let msg = t('build_ok', p.buildings, p.stories, S.model.nodes.length, e)
+    const prof = profileOf(p)
     const sm = S.model.seismic
-    if (sm) msg += `<br><span style="color:var(--cyan)">🌐 ${t('seismic')}: V=${Math.round(sm.V)} kN · T=${sm.T.toFixed(2)}s · Cs=${sm.Cs.toFixed(3)} (EX·EY, cLCB5/7)</span>`
+    if (sm) msg += `<br><span style="color:var(--cyan)">🌐 ${t('seismic')}: V=${Math.round(sm.V)} kN · T=${sm.T.toFixed(2)}s · ${prof.seismic.coefLabel}=${sm.Cs.toFixed(3)} (EX·EY, ${prof.comboRefs.seismic})</span>`
     const wm = S.model.wind
-    if (wm) msg += `<br><span style="color:var(--cyan)">🌬 ${t('wind')}: Vx=${Math.round(wm.Vx)} · Vy=${Math.round(wm.Vy)} kN (WX·WY, cLCB4/6)</span>`
+    if (wm) msg += `<br><span style="color:var(--cyan)">🌬 ${t('wind')}: Vx=${Math.round(wm.Vx)} · Vy=${Math.round(wm.Vy)} kN (WX·WY, ${prof.comboRefs.wind})</span>`
     if (S.model.walls && S.model.walls.length) msg += `<br><span style="color:var(--cyan)">🧱 ${t('shear_wall_core')}: ${S.model.walls.length} ${t('panels_plate')}</span>`
     addMsg('bot', msg)
   } catch (e: any) { th.remove(); addMsg('bot', t('build_fail', e.message)) }

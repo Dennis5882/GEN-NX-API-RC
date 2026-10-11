@@ -68,9 +68,9 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   await setUnit('KN', 'M')
   /* 1) 질량원: 자중→질량(db/styp) + 바닥/절점/보하중→질량(db/LTOM: DL×1.0 + 활하중×liveF) */
   await mapi('PUT', 'styp', { Assign: { 1: { bSELFWEIGHT: true } } })
-  const liveF = (sp.massLiveRatio != null ? sp.massLiveRatio : 0.25)
+  const liveF = (sp.massLiveRatio != null ? sp.massLiveRatio : prof.seismic.massLiveRatio)
   const vLC: { LCNAME: string; FACTOR: number }[] = [{ LCNAME: 'DL', FACTOR: 1.0 }]
-  ;(S.model.loadCases || []).forEach(l => { if (l.type === 'L' || l.type === 'LR') vLC.push({ LCNAME: l.name, FACTOR: liveF }) })
+  ;(S.model.loadCases || []).forEach(l => { if (prof.seismic.massLiveTypes.includes(l.type)) vLC.push({ LCNAME: l.name, FACTOR: liveF }) })
   await mapi('PUT', 'ltom', { Assign: { 1: { DIR: 'XY', bNODAL: true, bBEAM: true, bFLOOR: true, GRAV: 9.806, vLC } } })
   log('▸ ' + t('massSrc', liveF), 'ok')
   /* 2) 고유치 해석 제어 (Subspace), 모드수 = clamp(층수×3, 6..30) */
@@ -107,7 +107,7 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   } catch (e: any) { log('▸ ' + t('period_retrieval_failed') + e.message, 'warn') }
   /* 6) 지진 Cs 재산정 (실주기 T₁ 피드백) */
   let fb: any = null
-  if (modal.T1 && sp.SDS > 0) {
+  if (modal.T1 && prof.seismic.ready(sp)) {
     const r = prof.seismic.storyForces(p, sp, { T: modal.T1 })
     const old = S.model.seismic
     fb = { Tdyn: modal.T1, Ta: (old && old.T) || null, CsOld: (old && old.Cs) || null, Cs: r.Cs, Vold: (old && old.V) || null, V: r.V }

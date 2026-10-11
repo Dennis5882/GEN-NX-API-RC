@@ -217,6 +217,7 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
         </div>
 
         {/* ── M2-A1 지진 · M2-A2 풍하중 (설계기준 프로필) ── */}
+        {prof.unverified && <div className="pe-tip" style={{ marginTop: 12, color: 'var(--amber)' }}>{t(`code_${prof.id}`)} — {t('code_unverified')}</div>}
         <LateralSection g={prof.seismic} icon="🌐" st={st.seis} set={v => setSt(s => ({ ...s, seis: v }))} first />
         <LateralSection g={prof.wind} icon="🌬" st={st.wind} set={v => setSt(s => ({ ...s, wind: v }))} />
 

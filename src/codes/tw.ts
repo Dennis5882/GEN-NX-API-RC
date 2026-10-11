@@ -15,17 +15,23 @@ export const TW: CodeProfile = {
   designCode: 'TWN-USD112',
 
   materials: RC.MATERIALS,
+  defaultMat: 'C280',
   /* M1.7: Taiwan material - concrete CNS560(RC) (live-verified). MPa 등급명은 CNS 표기로 정규화. */
   concreteMatl(name) {
     const shown = RC._MPA2CNS[name] || (RC._CNS_CONC.includes(name) ? name : 'C280')
-    return { NAME: shown, STANDARD: 'CNS560(RC)', DB: shown }
+    return { TYPE: 'CONC', NAME: shown, PARAM: [{ P_TYPE: 1, STANDARD: 'CNS560(RC)', DB: shown }] }
   },
+  comboRefs: { seismic: 'cLCB5/7', wind: 'cLCB4/6' },
 
   floorUse: RC.FLOOR_USE,
   combos: lc => RC.taiwanCombos(lc),
   combosLogKey: 'load_combos_twd_usd112',
 
   seismic: {
+    ready: sp => sp.SDS > 0,
+    coefLabel: 'Cs',
+    massLiveRatio: 0.25,
+    massLiveTypes: ['L', 'LR'],
     toggleKey: 'apply_equivalent_static_se',
     tipHtml: () => `<a href="https://seaport.ncree.org/sederes/" target="_blank" rel="noopener" style="color:var(--cyan);font-weight:600">↗ Sederes</a> ${t('look_up_site_sds_sd1_or_t0')}`,
     fields: [

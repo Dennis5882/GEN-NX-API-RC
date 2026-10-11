@@ -2,6 +2,7 @@
 import { escapeHtml, htmlLang, t } from '../i18n'
 import type { Lang } from '../i18n/types'
 import { verifyConn } from '../mapi/client'
+import type { CodeId } from '../codes/types'
 import { S, notify, type Provider } from '../state/store'
 import { addMsg, draw3D } from '../state/ui'
 import { PROVIDERS, handleLLM } from './llm'
@@ -39,11 +40,19 @@ export function clearChat(): void {
 export function setLang(l: Lang): void {
   S.lang = l
   try { localStorage.setItem('nx_lang', l) } catch { /* noop */ }
+  if (!S.codeChosen) S.code = l === 'zh-CN' ? 'CN' : 'TW'   // 기준을 직접 고르기 전엔 언어를 따라감
   document.documentElement.lang = htmlLang(l)
   S.conv = []
   draw3D()
   S.msgs = []; S.pendingBuild = null
   addMsg('bot', t('welcome'))
+}
+
+/** 설계기준 선택 — 이후 새로 만드는 모델에 적용(기존 모델은 자기 spec.code 유지) */
+export function setCode(id: CodeId): void {
+  S.code = id; S.codeChosen = true
+  try { localStorage.setItem('nx_code', id) } catch { /* noop */ }
+  notify()
 }
 
 export interface TestOut { cls: '' | 'ok' | 'err'; text: string }

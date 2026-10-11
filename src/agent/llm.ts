@@ -9,6 +9,7 @@
 import { actAnalyze } from '../actions/analysis'
 import { actAddBracing, actAddLoad, actBuildFrame, actModifySection, actResizeSubset, clearModel } from '../actions/model'
 import { actStoryWeightVerify, actSseisVerify, actSwindVerify } from '../actions/verify'
+import { stampSpec } from '../codes'
 import { RC, type BuildingSpec } from '../engine'
 import { escapeHtml, t } from '../i18n'
 import { S, type Provider } from '../state/store'
@@ -69,13 +70,14 @@ async function callTool(name: string, inp: any): Promise<string> {
   if (name === 'build_frame') {
     const base: any = inp.bldgType && RC.BUILDING_TYPES[inp.bldgType as keyof typeof RC.BUILDING_TYPES]
       ? { ...RC.BUILDING_TYPES[inp.bldgType as keyof typeof RC.BUILDING_TYPES], bldgType: inp.bldgType } : { ...RC.DEFAULT_SPEC }
-    const p: BuildingSpec = { ...base, ...inp }
+    let p: BuildingSpec = { ...base, ...inp }
     if (inp.colH || inp.colB) { p.colH = inp.colH || p.colH; p.colB = inp.colB || p.colB; p.colName = `C${p.colH}x${p.colB}` }
     if (inp.beamH || inp.beamB) { p.beamH = inp.beamH || p.beamH; p.beamB = inp.beamB || p.beamB; p.beamName = `B${p.beamB}x${p.beamH}` }
     if (inp.connectFloor === 0) p.connectFloor = 0
     // 가변 스팬(배열)이면 跨數 동기화
     if (Array.isArray(p.spanX)) p.bayX = p.spanX.length
     if (Array.isArray(p.spanY)) p.bayY = p.spanY.length
+    p = stampSpec(p)   // 현재 설계기준 기록 + 재료명 변환
     tab('logP'); await actBuildFrame(p)
     return `Built ${p.buildings} buildings x ${p.stories} stories. Nodes=${S.model.nodes.length}, elements=${S.model.cols.length + S.model.beams.length + S.model.links.length}. Self-weight load case 'DL' applied.`
   }

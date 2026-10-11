@@ -34,8 +34,7 @@ async function putMaterials(p: BuildingSpec, mats: string[]): Promise<void> {
   const a: Record<number, any> = {}
   const prof = profileOf(p)
   mats.forEach((name, i) => {
-    const m = prof.concreteMatl(name)   // 기준별 재료 DB (대만: CNS560(RC))
-    a[i + 1] = { TYPE: 'CONC', NAME: m.NAME, DAMP_RAT: 0.05, PARAM: [{ P_TYPE: 1, STANDARD: m.STANDARD, DB: m.DB }] }
+    a[i + 1] = { ...prof.concreteMatl(name), DAMP_RAT: 0.05 }   // 기준별 재료 DB (대만 CNS560(RC) · 중국 GB/T10(RC))
   })
   await mapi('PUT', 'matl', { Assign: a })
   S.model.matl = a[1] ? a[1].NAME : '-'
@@ -190,7 +189,7 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
       ns.forEach(nid => { push(nid, { LCNAME: 'EX', FX: per, FY: 0 }); push(nid, { LCNAME: 'EY', FX: 0, FY: per }) })
     }
     log('▸ ' + t('seismic_static') +
-      ` <b>V=${Math.round(r.V)} kN</b> · T=${r.T.toFixed(2)}s · Cs=${r.Cs.toFixed(3)} (EX·EY)`, 'ok')
+      ` <b>V=${Math.round(r.V)} kN</b> · T=${r.T.toFixed(2)}s · ${profileOf(p).seismic.coefLabel}=${r.Cs.toFixed(3)} (EX·EY)`, 'ok')
   }
   if (useW) {
     const r = profileOf(p).wind.storyForces(p, wp)

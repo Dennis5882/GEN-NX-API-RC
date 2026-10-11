@@ -163,6 +163,16 @@ window.I18N = {
     bt_school_label:"학교",
     bt_school_desc:"교육시설 RC · 복도형 장방형 평면",
     bt_school_tip:"층수를 바꿀 수 있어요. 예) <code>학교 4층</code>",
+    /* 설계기준 프로필 (2026-10) */
+    code_label:'설계기준', code_TW:'대만 · TWN-USD112', code_CN:'중국 · GB (해석 범위)', kv_code:'설계기준',
+    code_unverified:'⚠ 원문 대조 전 계수 포함 — 학습·검토용',
+    load_combos_gb:'하중조합 (GB 55001/55002)', response_spectrum_cn:'응답스펙트럼(GB50011 CH2010) RSX·RSY',
+    cn_seis_toggle:'등가정적 지진 적용 (GB 50011 저부전단력법)',
+    cn_seis_tip:'설방열도·설계지진분조는 GB 50011 부록 A, 장지류별은 지반조사 기준. T1 빈칸 = 경험식 0.08N. ⚠ 계수(αmax·Tg·δn·최소전단계수)는 원문 대조 전.',
+    cn_intensity:'설방열도', cn_group:'설계지진분조', cn_group_n:n=>`제${n}조`, cn_site:'장지류별', cn_zeta:'감쇠비 ζ', cn_psil:'활하중 조합값계수 ψ', cn_t1:'T1 직접입력',
+    cn_wind_toggle:'풍하중 적용 (GB 50009 wk=βz·μs·μz·w0)',
+    cn_wind_tip:'기본풍압 w0 는 GB 50009 부록 E(50년). βz 는 H>30m·T1>0.25s 일 때 산정 필요(기본 1.0). ⚠ μz 식은 원문 대조 전.',
+    cn_w0wind:'기본풍압 w0', cn_terrain:'지면조도', cn_terrain_n:x=>({A:'해안·호수',B:'전원·교외',C:'도시',D:'고밀 도심'})[x]||x, cn_mus:'체형계수 μs', cn_betaz:'풍진계수 βz',
   },
   en:{
     /* Phase1 errors+maps */ 'err_sseis_nostory':'No stories registered. SSEIS references Gen Story Manager stories — define them in the GUI Story tab (or Auto Generate) first (live-confirmed 0616).', 'err_level_mismatch':'Computed story levels do not match registered story levels (check units/elevations).', 'err_sseis_names':'SSEIS did not recognize some story names — must be seismic-load stories (above G.L.) matching registered names.', 'err_swind_nostory':'No stories registered. SWIND references Gen Story Manager stories — use a GUI Story-tab / Auto Generate model.', 'err_swind_names':'SWIND did not recognize stories — needs Gen Story Manager stories (GUI Auto Generate).', 'err_weight_nostory':'No stories registered — story weights come from Gen Story Manager stories (need GUI Story tab / Auto Generate).', 'err_sseis_names2':'SSEIS did not recognize stories — needs registered seismic-load stories (above G.L.).', 'err_weight_mismatch':'No story weights matched — registered story levels must match self elevations.', roles:{TYPICAL:'Typical',PODIUM:'Podium',TRANSFER:'Transfer',ROOF:'Roof',BASEMENT:'Basement'}, uses:{Residential:'Residential',Office:'Office',Commercial:'Commercial',School:'School',Hospital:'Hospital',Equipment:'Equipment',Roof:'Roof'},
@@ -314,6 +324,16 @@ window.I18N = {
     bt_school_label:"School",
     bt_school_desc:"School RC · corridor-type rectangular plan",
     bt_school_tip:"Change the number of stories. e.g. <code>build a 4 story school</code>",
+    /* design code profiles (2026-10) */
+    code_label:'Design code', code_TW:'Taiwan · TWN-USD112', code_CN:'China · GB (analysis)', kv_code:'Design code',
+    code_unverified:'⚠ Includes factors not yet checked against the code text — for study/review',
+    load_combos_gb:'Load combinations (GB 55001/55002)', response_spectrum_cn:'Response spectrum (GB50011 CH2010) RSX·RSY',
+    cn_seis_toggle:'Apply equivalent static seismic (GB 50011 base shear method)',
+    cn_seis_tip:'Fortification intensity and design group: GB 50011 Appendix A; site class from the geotechnical report. Blank T1 = empirical 0.08N. ⚠ αmax·Tg·δn·minimum shear factor not yet checked against the code text.',
+    cn_intensity:'Fortification intensity', cn_group:'Design seismic group', cn_group_n:n=>`Group ${n}`, cn_site:'Site class', cn_zeta:'Damping ratio ζ', cn_psil:'Live load combination factor ψ', cn_t1:'T1 override',
+    cn_wind_toggle:'Apply wind load (GB 50009 wk=βz·μs·μz·w0)',
+    cn_wind_tip:'Basic wind pressure w0 from GB 50009 Appendix E (50-year). βz must be computed when H>30 m and T1>0.25 s (default 1.0). ⚠ μz formula not yet checked against the code text.',
+    cn_w0wind:'Basic wind pressure w0', cn_terrain:'Terrain roughness', cn_terrain_n:x=>({A:'Coast/lake',B:'Open country/suburb',C:'Urban',D:'Dense urban, high-rise'})[x]||x, cn_mus:'Shape coefficient μs', cn_betaz:'Wind vibration coefficient βz',
   },
   'zh-TW':{
     /* Phase1 errors+maps */ 'err_sseis_nostory':'尚未登錄任何樓層。SSEIS 需參照 Gen Story Manager 的登錄樓層 — 請先於 GUI Story 分頁定義樓層（或使用 Auto Generate）。', 'err_level_mismatch':'計算樓層標高與登錄樓層不符（請確認單位及標高）。', 'err_sseis_names':'SSEIS 無法識別部分樓層名稱 — 須為地震樓層（G.L. 以上）且名稱需與登錄樓層一致。', 'err_swind_nostory':'尚未登錄任何樓層。SWIND 同樣需參照 Gen Story Manager 登錄樓層 — 請使用 GUI Story 分頁或 Auto Generate 模型。', 'err_swind_names':'SWIND 無法識別樓層 — 需要 Gen Story Manager 登錄樓層（GUI Auto Generate）。', 'err_weight_nostory':'尚未登錄任何樓層 — 樓層重量來自 Gen Story Manager 登錄樓層（需 GUI Story 分頁或 Auto Generate）。', 'err_sseis_names2':'SSEIS 無法識別樓層 — 需要已登錄的地震樓層（G.L. 以上）。', 'err_weight_mismatch':'樓層重量未能匹配 — 登錄樓層標高須與自算標高一致。', roles:{TYPICAL:'標準層',PODIUM:'裙樓',TRANSFER:'轉換層',ROOF:'屋頂',BASEMENT:'地下室'}, uses:{Residential:'住宅',Office:'辦公',Commercial:'商業',School:'學校',Hospital:'病房',Equipment:'設備層',Roof:'屋頂'},
@@ -465,6 +485,16 @@ window.I18N = {
     bt_school_label:"學校",
     bt_school_desc:"教育設施 RC · 走廊型長方形平面",
     bt_school_tip:"可變更樓層數。例）<code>建立 4 層學校</code>",
+    /* 設計規範 profile (2026-10) */
+    code_label:'設計規範', code_TW:'台灣 · TWN-USD112', code_CN:'中國 · GB（分析範圍）', kv_code:'設計規範',
+    code_unverified:'⚠ 含尚未與規範原文核對之係數 — 僅供學習·檢核參考',
+    load_combos_gb:'載重組合 (GB 55001/55002)', response_spectrum_cn:'反應譜(GB50011 CH2010) RSX·RSY',
+    cn_seis_toggle:'套用等效靜力地震 (GB 50011 底部剪力法)',
+    cn_seis_tip:'設防烈度·設計地震分組依 GB 50011 附錄 A，場地類別依地質調查。T1 留空 = 經驗式 0.08N。⚠ αmax·Tg·δn·最小剪力係數尚未與原文核對。',
+    cn_intensity:'設防烈度', cn_group:'設計地震分組', cn_group_n:n=>`第${['一','二','三'][n-1]||n}組`, cn_site:'場地類別', cn_zeta:'阻尼比 ζ', cn_psil:'活載重組合值係數 ψ', cn_t1:'T1 直接輸入',
+    cn_wind_toggle:'套用風力載重 (GB 50009 wk=βz·μs·μz·w0)',
+    cn_wind_tip:'基本風壓 w0 依 GB 50009 附錄 E（50 年）。H>30m 且 T1>0.25s 時需計算 βz（預設 1.0）。⚠ μz 公式尚未與原文核對。',
+    cn_w0wind:'基本風壓 w0', cn_terrain:'地面粗糙度', cn_terrain_n:x=>({A:'海岸·湖岸',B:'田野·郊區',C:'市區',D:'密集市區·高層'})[x]||x, cn_mus:'體型係數 μs', cn_betaz:'風振係數 βz',
   },
   'zh-CN':{
     /* Phase1 errors+maps */ 'err_sseis_nostory':'尚未注册任何楼层。SSEIS 需参照 Gen Story Manager 的注册楼层 — 请先在 GUI Story 选项卡定义楼层（或使用 Auto Generate）。', 'err_level_mismatch':'计算楼层标高与注册楼层不符（请确认单位及标高）。', 'err_sseis_names':'SSEIS 无法识别部分楼层名称 — 须为地震楼层（G.L. 以上）且名称需与注册楼层一致。', 'err_swind_nostory':'尚未注册任何楼层。SWIND 同样需参照 Gen Story Manager 注册楼层 — 请使用 GUI Story 选项卡或 Auto Generate 模型。', 'err_swind_names':'SWIND 无法识别楼层 — 需要 Gen Story Manager 注册楼层（GUI Auto Generate）。', 'err_weight_nostory':'尚未注册任何楼层 — 楼层重量来自 Gen Story Manager 注册楼层（需 GUI Story 选项卡或 Auto Generate）。', 'err_sseis_names2':'SSEIS 无法识别楼层 — 需要已注册的地震楼层（G.L. 以上）。', 'err_weight_mismatch':'楼层重量未能匹配 — 注册楼层标高须与自算标高一致。', roles:{TYPICAL:'标准层',PODIUM:'裙楼',TRANSFER:'转换层',ROOF:'屋顶',BASEMENT:'地下室'}, uses:{Residential:'住宅',Office:'办公',Commercial:'商业',School:'学校',Hospital:'病房',Equipment:'设备层',Roof:'屋顶'},
@@ -616,6 +646,16 @@ window.I18N = {
     bt_school_label:"学校",
     bt_school_desc:"教育设施 RC · 走廊型长方形平面",
     bt_school_tip:"可变更楼层数。例）<code>创建 4 层学校</code>",
+    /* 设计规范 profile (2026-10) */
+    code_label:'设计规范', code_TW:'台湾 · TWN-USD112', code_CN:'中国 · GB（分析范围）', kv_code:'设计规范',
+    code_unverified:'⚠ 含尚未与规范原文核对的系数 — 仅供学习·验算参考',
+    load_combos_gb:'荷载组合 (GB 55001/55002)', response_spectrum_cn:'反应谱(GB50011 CH2010) RSX·RSY',
+    cn_seis_toggle:'施加等效静力地震作用 (GB 50011 底部剪力法)',
+    cn_seis_tip:'设防烈度·设计地震分组按 GB 50011 附录 A，场地类别按勘察报告。T1 留空 = 经验公式 0.08N。⚠ αmax·Tg·δn·最小剪力系数尚未与原文核对。',
+    cn_intensity:'设防烈度', cn_group:'设计地震分组', cn_group_n:n=>`第${['一','二','三'][n-1]||n}组`, cn_site:'场地类别', cn_zeta:'阻尼比 ζ', cn_psil:'活荷载组合值系数 ψ', cn_t1:'T1 直接输入',
+    cn_wind_toggle:'施加风荷载 (GB 50009 wk=βz·μs·μz·w0)',
+    cn_wind_tip:'基本风压 w0 按 GB 50009 附录 E（50 年）。H>30m 且 T1>0.25s 时需计算 βz（默认 1.0）。⚠ μz 公式尚未与原文核对。',
+    cn_w0wind:'基本风压 w0', cn_terrain:'地面粗糙度', cn_terrain_n:x=>({A:'近海海面·海岛',B:'田野·乡村·郊区',C:'城市市区',D:'密集建筑群城市市区'})[x]||x, cn_mus:'体型系数 μs', cn_betaz:'风振系数 βz',
   }
 };
 
