@@ -40,6 +40,15 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 3. **로컬 전용(비커밋)**: `GEN_NX_NEXTBUILD_REVERIFY.md`, `*.pptx/xlsx/docx`, 스크린샷, `archive/` 덤프.
 4. 커밋/푸시는 사용자가 명시적으로 요청할 때만.
 
+## 설계기준 프로필 (2026-10-11, `src/codes/`)
+
+- **UI 언어와 독립된 축.** 기준 의존 로직(재료 DB·용도하중·하중조합·지진/풍 층력·층중량·응답스펙트럼·편집카드 지진/풍 입력항목·지역 프리셋)은 전부 `CodeProfile`(`src/codes/types.ts`)을 거친다. 액션/편집기에서 `RC.taiwanCombos`·`RC.seismicStoryForces` 등 **직접 호출 금지** → `profileOf(spec)` / `profile()`.
+- 현재 `TW`(`src/codes/tw.ts`)만 — `shared/rc_engine.js` 대만 구현을 감쌈(동작 불변, 등가성 하네스로 검증). 선택값 `S.code`, 모델별 `spec.code`(없으면 현재 선택).
+- 편집카드 지진/풍 = 프로필 `fields`(number/select)·`presets`·`tipHtml` 로 렌더(`LateralSection`). 기준별로 입력 항목이 달라도 UI 코드 수정 불필요.
+- 기준 추가 = `src/codes/<id>.ts` + `PROFILES` 한 줄 + `CodeId` 유니온.
+- **CN(GB) 준비 메모**: Gen NX 라벨 `GB/T50010-10`, 철근 DB `GB 50917-13(RC)`/`GB/T10(RC)`, 강종 HPB300~HRB600 (`E:/AI Study/Rebar-repair/src/data/rcCodePresets.ts`). 응답스펙트럼은 `db/SPFC` `SPEC_CODE:"CH2010"`(GB50011-2010) **네이티브** 지원(`MIDAS-API/docs/manual/09_DB_Dynamic_Loads.md` 1-2-E). 콘크리트 재료 DB(STANDARD) 이름은 미확인 → 라이브 확인 필요. GB50010 원문 KB: `E:/MIDAS PROGRAM/COde/CN/knowledge/gb50010-2010/`(조문 503, chunks.jsonl). GB50011·GB50009 원문은 없음.
+
+
 ## i18n 패턴
 
 - 모든 UI 문자열은 `t('key')` / `tl('log_key')` 로 호출. **키는 타입 검사됨**(`I18nKey`/`LogKey`, `src/i18n/keys.gen.ts` 자동 생성) — 오타는 컴파일 오류.
@@ -47,6 +56,10 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 - 새 문자열 = `ko:{}` / `en:{}` / `'zh-TW':{}` 블록에 동시 추가 → `npm run i18n:check -- --write`(keys.gen.ts 갱신).
 - **언어 레지스트리** `src/i18n/types.ts` `LANG_DEFS` = 지원 언어 단일 출처(code·label·html lang). 언어 추가 = 여기 한 줄 + 사전 블록.
 - 대만 번체 코드 = **`zh-TW`**(구 `zh`는 `normalizeLang`이 localStorage 값 자동 변환). 폴백 = `en`.
+- **구조 용어 기준(오라클)** — 직역 금지, 아래 출처의 표기를 따른다:
+  - **zh-CN**: Gen NX 간체 UI 리소스 `E:/MIDAS PROGRAM/MIDAS GEN NX/Language/Chinese/*_ch.json`(UTF-8 평면 키, 15만 항목) — 출현 빈도 0인 표기는 의심. 보조: `E:/AI Study/Rebar-repair/docs/Structural_Engineer_zh-CN_Glossary_3000.json`.
+  - **zh-TW**: `E:/AI Study/MIDAS-GEN-NX-UI-Local/glossary/glossary.json`(확정 용어 238 + 대륙→대만 34쌍) + 검수 완료 UI `output/Chinese(Traditional)/` + 대만 규범 용어집(`台湾建筑物耐震规范.json`, `tw2014_wind_glossary_*.json`). **설치된 Gen NX `Chinese(Traditional)` 리소스는 부정확 — 기준으로 쓰지 말 것.**
+  - 확정 반영(2026-10): Brace 支撑/支撐, Element 单元/單元, Member 构件/構件, BEAMFORCE 梁单元内力/梁單元內力, Displacement 位移(TW 도 位移, 變位는 Drift), Rigid Link 刚性连接/剛性連結, Stiffness 勁度(TW), Accidental torsion 偶然扭转/意外扭矩, TW 풍 G=陣風反應因子·V10=基本設計風速. TW 규범 원문 용어 유지: 用途係數·工址·地況.
 - **간체 `zh-CN`(2026-10)**: 사전은 zh-TW 블록을 OpenCC `tw2sp` + 구조 용어집(荷载·截面·构件·位移·框架·跨度·层高·振型…) + 대륙식 후처리(列→行, 登录→注册, 分页→选项卡 등)로 생성 후 검수. **현지 엔지니어 검수 전 초안.**
 - **언어 ≠ 설계기준**: zh-CN 은 UI 언어일 뿐, 설계 로직은 여전히 대만(TWN-USD112). GB 기준은 별도 '설계기준 프로필' 작업(차기).
 - 로컬 NLP: `parse.ts` `normalizeZh()` 가 간체 전용 글자→번체 + 대륙 어휘(创建→建立, 添加→新增, 运行→执行…) 정규화 후 기존 번체 정규식 사용 → **정규식엔 번체만 추가**하면 간체도 인식.

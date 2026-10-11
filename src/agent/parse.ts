@@ -78,7 +78,7 @@ export function parseCommand(txt: string): Command {
     const isEdit = /키워|키우|늘려|줄여|바꿔|변경|수정|추가|보강|加大|放大|增大|加粗|加強|縮小|改成|改為|變更|修改|新增|增加|補強|加上|加裝|change|resize|modify|add|increase|enlarge|bigger|larger|reduce|smaller|set|make/.test(t)
     const size = t.match(/(\d{3,4})\s*[x×]\s*(\d{3,4})/)
     const floors = parseFloors(t)
-    if (/가새|브레이싱|斜撐|交叉撐|斜撐構材|brace|bracing/.test(t)) {
+    if (/가새|브레이싱|斜撐|交叉撐|斜撐構材|支撐|brace|bracing/.test(t)) {
       const bld = (num(/(\d+)\s*동|第?\s*(\d+)\s*棟|building\s*(\d+)/, t) || 1)
       return { intent: 'add_bracing', building: Math.max(0, bld - 1), floors: floors.length ? floors : null }
     }
