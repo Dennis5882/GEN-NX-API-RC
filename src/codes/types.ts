@@ -6,7 +6,7 @@
 import type { BuildingSpec, MaterialProps } from '../engine/types'
 import type { I18nKey } from '../i18n'
 
-export type CodeId = 'TW' | 'CN'
+export type CodeId = 'TW' | 'CN' | 'KR'
 
 /** 편집 카드 입력 항목 — number(숫자 입력) / select(선택) */
 export interface ParamField {
@@ -126,7 +126,7 @@ export interface CodeProfile {
   /** 심사 지표(审图) — 동적해석 뒤 Gen 층 결과 테이블로 산정. 없으면 패널 미표시 */
   review?: {
     tables(ctx: { rs: boolean }): ReviewTable[]
-    evaluate(p: BuildingSpec, sp: Record<string, any>, data: Record<string, any>, ctx: { rs: boolean; T1: number | null }): ReviewItem[]
+    evaluate(p: BuildingSpec, sp: Record<string, any>, data: Record<string, any>, ctx: { rs: boolean; T1: number | null; rsChk?: any }): ReviewItem[]
   }
   /** 원문 대조 전 값이 포함됐는지 — UI 에 '미검증' 표시 */
   unverified?: boolean

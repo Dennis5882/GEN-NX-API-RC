@@ -145,6 +145,11 @@ async function putCombos(): Promise<void> {
     a[i + 1] = { NAME: cb.name, ACTIVE: 'ACTIVE', iTYPE: 0, DESC: cb.desc,
       vCOMB: cb.terms.map(([lc, fac, anal]) => ({ ANAL: anal || 'ST', LCNAME: lc, FACTOR: fac })) }
   })
+  /* 이전 등록보다 조합 수가 줄면(예: KR 정적 21 → RS 17) 옛 번호가 남아 정적 조합이 섞임 → 먼저 비우고 PUT.
+     ⚠ DELETE lcom-gen 은 Assign 번호를 무시하고 전체를 지움(라이브 2026-10-12) — 그래서 PUT 앞에서만 호출 */
+  if ((S.model.combos || []).length > combos.length) {
+    try { await mapi('DELETE', 'lcom-gen', {}) } catch { /* noop */ }
+  }
   await mapi('PUT', 'lcom-gen', { Assign: a })
   S.model.combos = combos.map(c => c.name)
   log('▸ ' + t(prof.combosLogKey) + ' <b>' + combos.length + '</b>', 'ok')

@@ -104,7 +104,7 @@ function emptyModel(): ModelState {
 function readCode(lang: Lang): CodeId {
   try {
     const c = localStorage.getItem('nx_code')
-    if (c === 'TW' || c === 'CN') return c
+    if (c === 'TW' || c === 'CN' || c === 'KR') return c
   } catch { /* storage 차단 */ }
   return lang === 'zh-CN' ? 'CN' : 'TW'
 }

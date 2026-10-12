@@ -39,7 +39,7 @@ export async function actReview(): Promise<string> {
         UNIT: { FORCE: 'KN', DIST: 'M' }, STYLES: { FORMAT: 'Fixed', PLACE: 5 }, ...(tb.lcs ? { LOAD_CASE_NAMES: tb.lcs } : {}) } })
     } catch (e: any) { log('▸ ' + t('rv_fetch_failed') + tb.type + ' — ' + e.message, 'warn') }
   }
-  const items = prof.review.evaluate(p, p.seismic || {}, data, { rs, T1: dyn.T1 ?? null })
+  const items = prof.review.evaluate(p, p.seismic || {}, data, { rs, T1: dyn.T1 ?? null, rsChk: dyn.rsChk })
   S.review = { items, rs }
   notify()
   return reviewHtml(items, rs)

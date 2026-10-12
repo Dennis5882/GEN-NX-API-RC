@@ -2,10 +2,11 @@
 import type { BuildingSpec } from '../engine/types'
 import { S } from '../state/store'
 import { CN } from './cn'
+import { KR } from './kr'
 import { TW } from './tw'
 import type { CodeId, CodeProfile } from './types'
 
-export const PROFILES: Record<CodeId, CodeProfile> = { TW, CN }
+export const PROFILES: Record<CodeId, CodeProfile> = { TW, CN, KR }
 export const CODE_IDS = Object.keys(PROFILES) as CodeId[]
 
 /** 현재 선택된 기준 */

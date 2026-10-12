@@ -52,6 +52,15 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
   - **GB 50223-2008 KB 추가 후(2026-10-12)**: 지진 입력 `category`(抗震设防类别 auto/B/C) — auto = 병원(4.0.3-2)·학교(6.0.8) → 乙类, 그 외 丙类(3.0.4·6.0.12). 乙类 = 내진조치 열도 +1도로 抗震等级 산정(GB 55002 2.3.2-2), 9度+1 → 特一级(JGJ 3 3.9.3), 올린 열도의 표 높이 상한 초과 → warn(GB 50011 6.1.3-4). **지진작용은 불변**(해석 영향 없음, 심사 지표 抗震等级·混凝土强度等级만). 甲·丁类·대형 상가 규모 판정은 미구현(사용자가 B 선택).
   - 알려진 단순화: 기계실(表4.2.2-7) ψc 0.9 대신 0.7 일괄, 최소전단 미달 시 층별이 아닌 전체 동일 배율 증폭, 풍 지형·풍향 계수 1.0.
   - 기준 선택: 헤더 select(`setCode`, localStorage `nx_code`). 미선택이면 언어 추종(zh-CN→CN). 새 스펙은 `stampSpec()`로 `spec.code` 기록 + `adaptSpec`(대만 재료명→GB 근사 C280→C35 등). 기존 모델은 자기 `spec.code` 유지.
+- `KR`(`src/codes/kr.ts` + `krReview.ts`, 2026-10-12) — **해석 범위**(TW·CN 과 같은 수준, 배근·도면 제외). 원문 KB `E:/MIDAS PROGRAM/COde/KR/knowledge`(KCSC OpenAPI, 26기준).
+  - 중요도 KDS 41 10 05 3.(특·1·2·3, 자동 = 종합병원 특 / 학교·5층 이상 아파트·연면적 5,000㎡ 이상 판매 1 / 그 외 2) → 41 17 00 표 2.2-1 내진등급·I_E, 풍 I_W 표 5.5-5(초고층 1.05).
+  - 지진 41 17 00: S = 2.0Z(구역 I 0.22·II 0.14, Z 는 KDS 17 10 00 — KB 미보유 통상값) 또는 위험도지도 직접, 지반 S1~S5(기본 S4, 4.1.1③), Fa·Fv 표 4.2-1·4.2-2 보간, S_DS·S_D1(4.2.2), 스펙트럼 4.2.1(T_L 5s), 내진설계범주 5.2, 시스템 표 6.2-1(RC 10종 R·Ω0·Cd·범주 D 높이제한), Cs 7.2.2(상·하한), Ta 7.2.4(골조 0.0466hn^0.9 / 벽 0.0488hn^0.75), Cu 표 7.2-1, k 7.2.5, W 7.2.1(창고 활하중 25%), 우발편심 5%(7.2.6.4).
+  - 동적 7.1: 범주 C 정형 ≥70m·21층 / 비정형 ≥20m·6층, D 정형 ≥70m / 비정형 >20m·5층 → RS 주 해석. RS 는 Gen 네이티브 `KDS(41-17-00:2019)` SPFC(IE·R_ 1.0 = 탄성 곡선) + SPLC SCALE I_E/R(7.3-3), V_t < 0.85V 이면 C_m(7.3.3.5).
+  - 조합 41 12 00 1.7.1(풍 1.0W — 500년 강도설계 5.1.3), 지진 직교 100%+30%(8.1.3.3)를 범주 무관 항상 포함(정적 ±, RS +). 풍 5.: V_H = V0·K_zr(H)·I_W(K_D·K_zt 1.0), q_H = ½ρV_H², 표 5.7-1 풍상 0.8k_z(+0.05 D/B>1)·풍하 −0.5/−0.35, G_D 5.6.1(n_D ≤1Hz, β 골조 0.5/코어 1.0, 균등질량 M/M* = 2β+1)·5.6.2. n_D 기본 1/Ta, ζ_D 기본 0.02(KDS 에 수치 없음).
+  - 재료 `KS19(RC)` + C21~C60, Ec = 8500∛(fck+Δf)(KDS 14 20 10 4.3.3), 단위중량 24 kN/m³(실무값). 사무실 칸막이: 활하중 +1.0(3.2.3) + SDL +0.5(7.2.1② 지진중량 = 동적 질량 일치, 중력은 0.5 보수적).
+  - 검토 지표: 내진설계범주·시스템 높이(범주 D)·해석법(7.1)·층간변위 Δ = Cd·δe/I_E ≤ 0.010/0.015/0.020h(RS 는 C_m 제외)·비틀림 비정형 H-1(>1.2)·유효질량 90%·C_m. P-Δ·A_x 미반영.
+  - **Gen NX 라이브 확인(2026-10-12)**: 재료 `KS19(RC)` C18~C80 수용·Ec 앱 식과 −0.08%(매뉴얼 예시 `KS21(RC)` 는 이 빌드에서 Unknown Error, `KS01(RC)` 는 구 기준 Ec), 네이티브 KDS SPFC 곡선 = S_a·IE/R_(오차 0%), DCON `KDS 41 20 : 2022` 수용. 사무 10층(RS 지정)·25층(7.1 자동 RS) 전체 흐름: Gen 층중량 = 앱 산정 0.6% 이내, 0.85V 보정 후 1층 전단 = 0.85V 정확, 검토 지표 11항목. 검증 `krtest.mjs`(식 독립 재구현 76/76)·`kre2e.mjs`(가짜 MIDAS) — scratchpad.
+  - 기준 자동 선택은 그대로(zh-CN→CN, 그 외 TW) — 한국어 UI 라도 KR 은 헤더에서 직접 선택(도움말 예시 재료 C350 이 TW 등급이라).
 - 대만 하드코딩 제거 지점: 빌드 메시지 조합 참조(`comboRefs`), 계수 표기(`coefLabel` Cs/α1), 동적해석 재산정 조건(`ready`), 질량원(`massLiveRatio`·`massLiveTypes`).
 - 편집카드 지진/풍 = 프로필 `fields`(number/select)·`presets`·`tipHtml` 로 렌더(`LateralSection`). 기준별로 입력 항목이 달라도 UI 코드 수정 불필요.
 - 기준 추가 = `src/codes/<id>.ts` + `PROFILES` 한 줄 + `CodeId` 유니온.
@@ -135,6 +144,7 @@ GUIDE 패널: `GUIDE` 배열(`src/agent/guide.ts`) → `Guide.tsx`. **클릭 = �
 - **SWIND USER TYPE**: `SCALE_FACTOR_X`, `SCALE_FACTOR_Y` 필수 포함.
 - `ope/STORPROP` = 현재 빌드(06/12/2026) 404 미탑재.
 - **층 결과 테이블(STORY_DRIFT·STORY_SHEAR_FORCE_COEFFICIENT·TORSIONAL/STIFFNESS/WEIGHT_IRREGULARITY 등)은 GUI 없이 동작** — `db/STOR`+`ope/STOR`만으로 충분(2026-10-12 라이브). SSEIS/SWIND 만 GUI Auto Generate 의존.
+- **`DELETE db/LCOM-GEN` 은 Assign 번호를 무시하고 조합 전체를 지움**(2026-10-12 라이브) → `putCombos` 는 조합 수가 줄 때만 PUT 앞에서 전체 DELETE.
 - **SPLC `DIR`은 `"XY"`/`"Z"`만** — 수평 RSX/RSY 는 `ANGLE` 0°/90°. 우발편심 `bACCECC` 네이티브(Gen NX 전용).
 - **자동저장 `doc/saveas` = `C:/temp/…` 고정** — 사용자 폴더 추정 경로는 Gen NX 모달("잘못된 경로")로 해석을 막음.
 
@@ -180,7 +190,7 @@ T₁은 `EIGENVALUEMODE` 테이블에서 회수 (`PARTICIPATIONVECTORMODE` 아�
 
 ## 현재 빌드 버전
 MIDAS GEN NX 2026 (v2.1), Build **06/12/2026**.  
-도구 버전: **`package.json` version 이 단일 출처**(현재 `3.5.0`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
+도구 버전: **`package.json` version 이 단일 출처**(현재 `3.6.0`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
 
 ## 개발 환경 주의
 - Node.js v24 / npm 설치됨 (winget, 2026-10 확인). 엔진 스모크 테스트는 node ESM으로 가능.
