@@ -15,7 +15,7 @@ import { resultBrief, statusBrief } from './results'
 
 
 /** 빌드 확인 카드 생성 (건물유형 → 설명카드 / 자유골조 → 편집카드) */
-function proposeBuild(p: BuildingSpec, editable: boolean): void {
+export function proposeBuild(p: BuildingSpec, editable: boolean): void {
   S.pendingBuild = p
   S.pendingBuildId++
   addPlanMsg({ intro: t(editable ? 'plan_intro_custom' : 'plan_intro_tpl'), spec: p, editable, buildId: S.pendingBuildId, epoch: S.buildEpoch })

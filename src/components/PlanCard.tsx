@@ -8,6 +8,7 @@ import { t } from '../i18n'
 import { S, useStore, type ChatMsg } from '../state/store'
 import { draw3D, previewSpec, tab } from '../state/ui'
 import { PlanEditor } from './PlanEditor'
+import { plainIcons } from './icons'
 
 type PlanMsg = Extract<ChatMsg, { kind: 'plan' }>
 
@@ -44,7 +45,7 @@ export function PlanCard({ msg }: { msg: PlanMsg }) {
 
   return (
     <>
-      <span dangerouslySetInnerHTML={{ __html: msg.intro }} />
+      <span dangerouslySetInnerHTML={{ __html: plainIcons(msg.intro) }} />
       {editing && st
         ? <PlanEditor base={msg.spec} st={st} setSt={update} disabled={!live} />
         : <div dangerouslySetInnerHTML={{ __html: planSummaryHTML(msg.spec) }} />}

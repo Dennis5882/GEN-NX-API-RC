@@ -4,6 +4,7 @@ import { S, nextId, notify, type ChatMsg, type LogType, type PanelId } from './s
 import type { BuildingSpec } from '../engine/types'
 
 function nowTs(): string { return new Date().toTimeString().slice(0, 8) }
+const hm = () => new Date().toTimeString().slice(0, 5)
 
 /** 활동 로그. err 는 이스케이프(바닐라 동일), 나머지는 HTML 허용. */
 export function log(msg: string, type: LogType = 'api'): void {
@@ -12,12 +13,12 @@ export function log(msg: string, type: LogType = 'api'): void {
 }
 
 export function addMsg(role: 'user' | 'bot', html: string): void {
-  S.msgs.push({ id: nextId(), role, kind: 'html', html })
+  S.msgs.push({ id: nextId(), ts: hm(), role, kind: 'html', html })
   notify()
 }
 
 export function addPlanMsg(m: Omit<Extract<ChatMsg, { kind: 'plan' }>, 'id' | 'role' | 'kind'>): void {
-  S.msgs.push({ id: nextId(), role: 'bot', kind: 'plan', ...m })
+  S.msgs.push({ id: nextId(), ts: hm(), role: 'bot', kind: 'plan', ...m })
   notify()
 }
 

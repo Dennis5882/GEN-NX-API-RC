@@ -5,14 +5,21 @@ import { clearChat, llmActive, registerComposer, send } from '../agent/session'
 import { t } from '../i18n'
 import { S, useStore, type ChatMsg } from '../state/store'
 import { PlanCard } from './PlanCard'
+import { plainIcons } from './icons'
 
+/* 메시지 = 작업 로그 행: 작성자·시각 머리줄 + 본문(사용자 = 명령줄, 에이전트 = 보고 패널) */
 function Message({ m }: { m: ChatMsg }) {
-  const who = m.role === 'user' ? 'YOU' : 'AGENT'
+  const who = m.role === 'user' ? t('who_user') : t('who_agent')
   let body
   if (m.kind === 'thinking') body = <div className="bubble"><span className="typing"><span /><span /><span /></span></div>
   else if (m.kind === 'plan') body = <div className="bubble"><PlanCard msg={m} /></div>
-  else body = <div className="bubble" dangerouslySetInnerHTML={{ __html: m.html }} />
-  return <div className={`msg ${m.role}`}><div className="who">{who}</div>{body}</div>
+  else body = <div className="bubble" dangerouslySetInnerHTML={{ __html: plainIcons(m.html) }} />
+  return (
+    <div className={`msg ${m.role}`}>
+      {m.kind !== 'thinking' && <div className="who"><span className="who-n">{who}</span>{m.ts && <span className="who-t">{m.ts}</span>}</div>}
+      {body}
+    </div>
+  )
 }
 
 function Composer() {

@@ -1,24 +1,35 @@
 /* 3D VIEW — v2 (바닐라 plot3D 1:1). Plotly 는 동적 import 로 첫 화면 번들에서 분리.
    S.preview(미리보기 스펙)가 있으면 그 형상, 없으면 현재 모델. S.viewNonce 변경 시 재플롯. */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { RC } from '../engine'
 import { roleLbl, t, type I18nKey } from '../i18n'
-import { S, notify, useStore, type AppState } from '../state/store'
+import { S, notify, useStore, type AppState, type CamId, type VisKey } from '../state/store'
 
 type Plotly = typeof import('plotly.js-dist-min')
-type VisKey = 'col' | 'beam' | 'node' | 'floor'
 
 let plotlyP: Promise<Plotly> | null = null
 const loadPlotly = () => (plotlyP ??= import('plotly.js-dist-min').then(m => ((m as any).default ?? m) as Plotly))
 
-const ROLE_C3: Record<string, string> = { TYPICAL: '#4cc2ff', PODIUM: '#ffb454', ROOF: '#5ee6a8', TRANSFER: '#ff6b6b', BASEMENT: '#9b8cff' }
+/* 3D 색 = 현재 테마의 CSS 변수(app.css --p-*) — 플롯할 때마다 읽어 테마 전환에 따라감 */
+function palette() {
+  const cs = getComputedStyle(document.documentElement)
+  const v = (n: string, fb: string) => cs.getPropertyValue(n).trim() || fb
+  return {
+    role: { TYPICAL: v('--p-typ', '#4cc2ff'), PODIUM: v('--p-pod', '#ffb454'), ROOF: v('--p-roof', '#5ee6a8'), TRANSFER: v('--p-trans', '#ff6b6b'), BASEMENT: v('--p-base', '#9b8cff') } as Record<string, string>,
+    link: v('--amber', '#ffb454'), brace: v('--violet', '#9b8cff'), wall: v('--violet', '#9b8cff'),
+    node: v('--p-node', '#445069'), sup: v('--p-sup', '#ff6b6b'), supBd: v('--p-sup-bd', '#ff9999'), floor: v('--p-floor', 'rgba(68,80,105,0.35)'),
+    axis: v('--p-axis', '#445069'), grid: v('--p-grid', '#1a2538'), scene: v('--p-scene', 'rgba(10,14,26,0.4)'),
+    legend: v('--p-legend', 'rgba(0,0,0,0.85)'), legendBd: v('--p-legend-bd', 'rgba(31,42,61,0.5)'), txt: v('--p-txt', '#c9d4e8'),
+  }
+}
+type Pal = ReturnType<typeof palette>
 const CAMS = {
   iso: { eye: { x: 1.6, y: 1.6, z: 1.1 } },
-  front: { eye: { x: 0, y: -2.5, z: 0.4 } },
-  side: { eye: { x: -2.5, y: 0, z: 0.4 } },
-  top: { eye: { x: 0.001, y: 0.001, z: 2.5 } },
-} as const
-type Cam = keyof typeof CAMS
+  front: { eye: { x: 0, y: -2.5, z: 0 } },    // 정면 입면(X–Z) — 정투영이라 수평 시점
+  side: { eye: { x: -2.5, y: 0, z: 0 } },     // 측면 입면(Y–Z)
+  top: { eye: { x: 0, y: 0, z: 2.5 }, up: { x: 0, y: 1, z: 0 } },   // 평면: X 가로·Y 세로
+} as const satisfies Record<CamId, unknown>
+type Cam = CamId
 const FONT = 'IBM Plex Mono, Noto Sans KR, Noto Sans TC, Noto Sans SC'
 
 /** 표시할 형상 — 미리보기 스펙이면 buildFrame, 아니면 현재 모델 */
@@ -30,16 +41,17 @@ function frameOf(s: AppState): any | null {
     baseNodes: m.baseNodes, elev: m.elev, spec: m.spec }
 }
 
-function gax(title: string) {
+function gax(title: string, P: Pal) {
   return {
-    title: { text: title, font: { color: '#445069', size: 10, family: FONT } },
-    color: '#445069', gridcolor: '#1a2538', zerolinecolor: '#1a2538',
-    backgroundcolor: 'rgba(10,14,26,0.4)', showbackground: true,
-    tickfont: { color: '#445069', size: 9, family: FONT },
+    title: { text: title, font: { color: P.axis, size: 10, family: FONT } },
+    color: P.axis, gridcolor: P.grid, zerolinecolor: P.grid,
+    backgroundcolor: P.scene, showbackground: true,
+    tickfont: { color: P.axis, size: 9, family: FONT },
   }
 }
 
-function buildTraces(f: any, vis: Record<VisKey, boolean>) {
+function buildTraces(f: any, vis: Record<VisKey, boolean>, P: Pal) {
+  const ROLE_C3 = P.role
   const byId: Record<number, { x: number; y: number; z: number }> = {}
   ;(f.nodes || []).forEach((n: any) => { byId[n.id] = n })
   const O = { x: 0, y: 0, z: 0 }
@@ -66,14 +78,14 @@ function buildTraces(f: any, vis: Record<VisKey, boolean>) {
     const o = colByRole[r]; if (!o) return
     idx.col.push(traces.length)
     traces.push({ type: 'scatter3d', mode: 'lines', name: roleLbl(r), x: o.x, y: o.y, z: o.z, visible: vis.col,
-      line: { color: ROLE_C3[r] || '#4cc2ff', width: 4 }, hoverinfo: 'skip' })
+      line: { color: ROLE_C3[r] || P.role.TYPICAL, width: 4 }, hoverinfo: 'skip' })
   })
   // 보: 같은 역할 색(범례 중복 방지 showlegend:false)
   Object.keys(beamByRole).forEach(r => {
     const o = beamByRole[r]
     idx.beam.push(traces.length)
     traces.push({ type: 'scatter3d', mode: 'lines', name: t('show_beam'), showlegend: false, x: o.x, y: o.y, z: o.z, visible: vis.beam,
-      line: { color: ROLE_C3[r] || '#38e1d6', width: 2 }, hoverinfo: 'skip' })
+      line: { color: ROLE_C3[r] || P.role.TYPICAL, width: 2 }, hoverinfo: 'skip' })
   })
 
   /* ── 3. Connecting beams · 4. Braces ── */
@@ -82,8 +94,8 @@ function buildTraces(f: any, vis: Record<VisKey, boolean>) {
     ;(list || []).forEach(([a, b]) => seg(o, byId[a] || O, byId[b] || O))
     if (o.x.length) traces.push({ type: 'scatter3d', mode: 'lines', name, ...o, line: { color, width }, hoverinfo: 'skip' })
   }
-  edges(f.links, t('vs_link'), '#ffb454', 5)
-  edges(f.braces, t('vs_brace'), '#9b8cff', 4)
+  edges(f.links, t('vs_link'), P.link, 5)
+  edges(f.braces, t('vs_brace'), P.brace, 4)
 
   /* ── 4b. Shear-wall / core panels (PLATE) — 반투명 면 ── */
   const wn = f.walls || []
@@ -97,7 +109,7 @@ function buildTraces(f: any, vis: Record<VisKey, boolean>) {
       ii.push(base, base); jj.push(base + 1, base + 2); kk.push(base + 2, base + 3); base += 4
     })
     if (base) traces.push({ type: 'mesh3d', name: t('shear_wall'), x: vx, y: vy, z: vz, i: ii, j: jj, k: kk,
-      color: '#9b8cff', opacity: 0.32, flatshading: true, hoverinfo: 'skip' })
+      color: P.wall, opacity: 0.32, flatshading: true, hoverinfo: 'skip' })
   }
 
   /* ── 5. Node markers · 6. Support markers ── */
@@ -109,7 +121,7 @@ function buildTraces(f: any, vis: Record<VisKey, boolean>) {
     traces.push({ type: 'scatter3d', mode: 'markers', name: t('show_node'),
       x: regNodes.map((n: any) => n.x), y: regNodes.map((n: any) => n.y), z: regNodes.map((n: any) => n.z), visible: vis.node,
       text: regNodes.map((n: any) => `N${n.id}  (${n.x.toFixed(0)}, ${n.y.toFixed(0)}, ${n.z.toFixed(0)})`),
-      hovertemplate: '%{text}<extra></extra>', marker: { size: 2.5, color: '#445069', opacity: 0.85 } })
+      hovertemplate: '%{text}<extra></extra>', marker: { size: 2.5, color: P.node, opacity: 0.85 } })
   }
   if (supNodes.length) {
     idx.node.push(traces.length)
@@ -117,7 +129,7 @@ function buildTraces(f: any, vis: Record<VisKey, boolean>) {
       x: supNodes.map((n: any) => n.x), y: supNodes.map((n: any) => n.y), z: supNodes.map((n: any) => n.z), visible: vis.node,
       text: supNodes.map((n: any) => `Fixed  N${n.id}  (${n.x.toFixed(0)}, ${n.y.toFixed(0)}, 0)`),
       hovertemplate: '%{text}<extra></extra>',
-      marker: { size: 5, color: '#ff6b6b', symbol: 'diamond', opacity: 1, line: { color: '#ff9999', width: 1 } } })
+      marker: { size: 5, color: P.sup, symbol: 'diamond', opacity: 1, line: { color: P.supBd, width: 1 } } })
   }
 
   /* ── 7. Floor outline rectangles ── */
@@ -138,18 +150,19 @@ function buildTraces(f: any, vis: Record<VisKey, boolean>) {
     if (flx.length) {
       idx.floor.push(traces.length)
       traces.push({ type: 'scatter3d', mode: 'lines', name: t('show_floor'), x: flx, y: fly, z: flz, visible: vis.floor,
-        line: { color: 'rgba(68,80,105,0.35)', width: 1 }, hoverinfo: 'skip' })
+        line: { color: P.floor, width: 1 }, hoverinfo: 'skip' })
     }
   }
   return { traces, idx }
 }
 
-const LAYOUT = {
+const layout = (P: Pal) => ({
   paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', showlegend: true,
-  legend: { font: { color: '#c9d4e8', family: FONT, size: 10 }, orientation: 'h', x: 0, y: 1.03,
-    bgcolor: 'rgba(0,0,0,0.85)', bordercolor: 'rgba(31,42,61,0.5)', borderwidth: 1 },
+  legend: { font: { color: P.txt, family: FONT, size: 10 }, orientation: 'h', x: 0, y: 1.03,
+    bgcolor: P.legend, bordercolor: P.legendBd, borderwidth: 1 },
   margin: { l: 0, r: 0, t: 28, b: 0 },
-}
+  modebar: { bgcolor: 'rgba(0,0,0,0)', color: P.axis, activecolor: P.txt },
+})
 const CONFIG = {
   responsive: true, displayModeBar: true, modeBarButtonsToRemove: ['resetCameraLastSave3d', 'hoverClosest3d'],
   displaylogo: false, toImageButtonOptions: { format: 'png', filename: 'gen_nx_model', scale: 2 },
@@ -178,8 +191,7 @@ export function View3D() {
   const s = useStore()
   const plotRef = useRef<HTMLDivElement>(null)
   const idxRef = useRef<Record<VisKey, number[]>>({ col: [], beam: [], node: [], floor: [] })
-  const [vis, setVis] = useState<Record<VisKey, boolean>>({ col: true, beam: true, node: true, floor: true })
-  const [cam, setCam] = useState<Cam>('iso')
+  const { cam, vis, zoom } = s.view3d
   const visible = s.panel === 'viewP'
   /* 형상은 draw3D()/previewSpec() 시점(viewNonce)에만 갱신 — 바닐라와 동일 */
   const f = useMemo(() => frameOf(S), [s.viewNonce])
@@ -192,28 +204,35 @@ export function View3D() {
     void loadPlotly().then(Plotly => {
       if (!alive) return
       if (!f) { Plotly.purge(el); return }
-      const { traces, idx } = buildTraces(f, vis)
+      const P = palette()
+      const { traces, idx } = buildTraces(f, vis, P)
       idxRef.current = idx
       void Plotly.newPlot(el, traces, {
-        ...LAYOUT,
-        scene: { aspectmode: 'data', xaxis: gax('X'), yaxis: gax('Y'), zaxis: gax('Z'), camera: CAMS[cam], bgcolor: 'rgba(0,0,0,0)' },
+        ...layout(P),
+        scene: { ...sceneOf(f, cam, zoom), xaxis: gax('X', P), yaxis: gax('Y', P), zaxis: gax('Z', P), camera: camOf(cam, zoom), bgcolor: 'rgba(0,0,0,0)' },
       } as any, CONFIG as any)
     })
     return () => { alive = false }
     // vis/cam 은 restyle/relayout 으로 처리 — 재플롯 트리거에서 제외
-  }, [s.viewNonce, s.lang, visible])
+  }, [s.viewNonce, s.lang, s.theme, visible])
 
-  function onCam(c: Cam) {
-    setCam(c)
+  /* 카메라·표시 변경은 재플롯 없이 relayout/restyle (버튼·LLM 공통 — store 변경을 따라감) */
+  useEffect(() => {
     const el = plotRef.current
-    if (el && f) void loadPlotly().then(P => P.relayout(el, { 'scene.camera': CAMS[c] } as any))
-  }
-  function onToggle(k: VisKey) {
-    const on = !vis[k]
-    setVis(v => ({ ...v, [k]: on }))
-    const el = plotRef.current, ids = idxRef.current[k]
-    if (el && f && ids.length) void loadPlotly().then(P => P.restyle(el, { visible: on } as any, ids))
-  }
+    if (!visible || !el || !f) return
+    const sc = sceneOf(f, cam, zoom)
+    void loadPlotly().then(P => P.relayout(el, { 'scene.camera': camOf(cam, zoom), 'scene.aspectmode': sc.aspectmode, ...(sc.aspectratio ? { 'scene.aspectratio': sc.aspectratio } : {}) } as any))
+  }, [cam, zoom])
+  useEffect(() => {
+    const el = plotRef.current
+    if (!visible || !el || !f) return
+    void loadPlotly().then(P => (Object.keys(vis) as VisKey[]).forEach(k => {
+      const ids = idxRef.current[k]; if (ids.length) P.restyle(el, { visible: vis[k] } as any, ids)
+    }))
+  }, [vis.col, vis.beam, vis.node, vis.floor])
+
+  const onCam = (c: Cam) => setView({ cam: c, zoom: 1 })
+  const onToggle = (k: VisKey) => setView({ vis: { [k]: !vis[k] } })
 
   const camBtn = (c: Cam, key: I18nKey) => (
     <button className={`vcam${cam === c ? ' on' : ''}`} onClick={() => onCam(c)}>{t(key)}</button>
@@ -231,8 +250,8 @@ export function View3D() {
         {camBtn('iso', 'cam_iso')}{camBtn('front', 'cam_front')}{camBtn('side', 'cam_side')}{camBtn('top', 'cam_top')}
         <span className="vsep" />
         <span className="vlbl">{t('show')}</span>
-        {togBtn('col', '#2faadc', 'show_col')}{togBtn('beam', '#38e1d6', 'show_beam')}
-        {togBtn('node', '#6b7a99', 'show_node')}{togBtn('floor', '#2a3a55', 'show_floor')}
+        {togBtn('col', 'var(--p-typ)', 'show_col')}{togBtn('beam', 'var(--cyan)', 'show_beam')}
+        {togBtn('node', 'var(--p-node)', 'show_node')}{togBtn('floor', 'var(--p-floor)', 'show_floor')}
       </div>
       <div id="plot">
         {/* Plotly 전용 노드(React 자식 없음) — 빈 상태 안내는 형제 요소로 */}
@@ -242,6 +261,28 @@ export function View3D() {
       <div className="view-stats"><ViewStats f={f} /></div>
     </>
   )
+}
+
+/* 입면(front/side)·평면(top) = 정투영(도면처럼 왜곡 없음), iso = 원근. zoom = 카메라 거리 배율 —
+   Plotly 정투영은 카메라 거리를 무시하므로 확대는 sceneOf 의 aspectratio 배율로 처리 */
+const camOf = (c: Cam, zoom: number) => {
+  const e = CAMS[c].eye, up = 'up' in CAMS[c] ? CAMS[c].up : { x: 0, y: 0, z: 1 }
+  return { eye: { x: e.x * zoom, y: e.y * zoom, z: e.z * zoom }, up, projection: { type: c === 'iso' ? 'perspective' : 'orthographic' } }
+}
+
+/** 축 비율 — iso 는 data 비율 그대로, 정투영은 data 비율 × (기본 1.6 / zoom) 으로 화면을 채우고 확대 */
+function sceneOf(f: any, c: Cam, zoom: number): Record<string, any> {
+  if (c === 'iso' || !f?.nodes?.length) return { aspectmode: 'data' }
+  const ext = (k: 'x' | 'y' | 'z') => { const v = f.nodes.map((n: any) => n[k]); return Math.max(...v) - Math.min(...v) || 1 }
+  const d = { x: ext('x'), y: ext('y'), z: ext('z') }, m = Math.max(d.x, d.y, d.z), k = 1.6 / zoom
+  return { aspectmode: 'manual', aspectratio: { x: d.x / m * k, y: d.y / m * k, z: d.z / m * k } }
+}
+
+/** 3D 뷰 조작 — 카메라(cam 지정 시 zoom 1 로 리셋 가능)·확대 배율·표시 항목 일부만 바꿔도 됨 */
+export function setView(o: { cam?: Cam; zoom?: number; vis?: Partial<Record<VisKey, boolean>> }): void {
+  const v = S.view3d
+  S.view3d = { cam: o.cam ?? v.cam, zoom: Math.min(4, Math.max(0.25, o.zoom ?? v.zoom)), vis: { ...v.vis, ...(o.vis || {}) } }
+  notify()
 }
 
 /** 3D 탭 클릭 = 다시 그리기만 — 미리보기(빌드 전 확인 카드)는 유지. 빌드·편집 액션이 draw3D() 로 미리보기를 끝낸다.

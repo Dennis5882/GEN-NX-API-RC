@@ -25,16 +25,15 @@ function sectionCompoLine(p: BuildingSpec): string {
 export function typeHeadHTML(p: BuildingSpec, openTag: string): string {
   const k = p.bldgType
   if (!k) return ''
-  return `${openTag}<span style="font-size:1.4rem;line-height:1">${RC.BUILDING_TYPES[k].icon}</span>` +
-    `<div><span style="color:var(--cyan);font-weight:700">${bt(k, 'label')}</span>` +
-    `<span style="color:var(--muted);font-size:.82em;margin-left:7px">${bt(k, 'desc')}</span></div></div>`
+  return `${openTag}<div><span class="plan-type">${bt(k, 'label')}</span>` +
+    `<span class="plan-desc">${bt(k, 'desc')}</span></div></div>`
 }
 
 export function planSummaryHTML(p: BuildingSpec): string {
   const k = p.bldgType
   const header = typeHeadHTML(p,
-    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;padding-bottom:8px;border-bottom:1px dashed rgba(255,255,255,.06)">')
-  const tip = k ? `<div style="margin-top:8px;font-size:.78em;color:var(--dim)">${bt(k, 'tip')}</div>` : ''
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;padding-bottom:8px;border-bottom:1px dashed var(--line2)">')
+  const tip = k ? `<div class="plan-tip">${bt(k, 'tip')}</div>` : ''
   const sec = sectionCompoLine(p)
   return `<div class="plan">${header}` +
     t('ps_bs', p.buildings, p.stories) +
@@ -43,8 +42,8 @@ export function planSummaryHTML(p: BuildingSpec): string {
     t('ps_cb', p.colName, p.beamName) +
     (p.buildings >= 2 ? t('ps_link', p.connectFloor, p.gap) : '') +
     t('ps_mat', p.matName) +
-    `<div style="margin-top:7px;font-size:.8em;color:var(--cyan);line-height:1.5">▤ ${t('floor_make_up')}: ${floorCompoLine(p)}</div>` +
-    (sec ? `<div style="margin-top:6px;font-size:.78em;color:var(--amber);line-height:1.5">◫ ${t('section_zones')}<br>${sec}</div>` : '') +
+    `<div class="plan-sub"><span class="k">${t('floor_make_up')}</span> ${floorCompoLine(p)}</div>` +
+    (sec ? `<div class="plan-sub"><span class="k">${t('section_zones')}</span><br>${sec}</div>` : '') +
     tip + `</div>`
 }
 

@@ -154,6 +154,13 @@ T₁은 `EIGENVALUEMODE` 테이블에서 회수 (`PARTICIPATIONVECTORMODE` 아�
 ### Gemini 스키마
 `functionDeclarations`의 type은 단일 string 필수. `gSchema()` 재귀 정규화로 union type 변환(Gemini 분기만 적용).
 
+### LLM 도구·프롬프트 (2026-10-12, `src/agent/llm.ts`)
+- **`tools()`·`system()` 은 요청마다 현재 프로필에서 생성** — build_frame/update_spec 의 `seismic`·`wind` 스키마 = 프로필 `fields`(키·라벨·단위·select 선택지·기본값), `matName` enum = 프로필 재료 카탈로그, 시스템 프롬프트 = 기준 요약(`CODE_BRIEF`) + 현재 모델·연결 상태. 기준/필드 추가 시 LLM 쪽 수정 불필요(`CODE_BRIEF` 한 줄만).
+- 도구 26 — Gen NX: build_frame·update_spec(스펙 병합 재생성)·modify_section·resize_subset·add_load·add_bracing·run_analysis·run_dynamic(rs)·review_indicators·get_result·get_status·set_design_code·clear_model·verify_*. 동적·심사 결과 HTML 은 채팅에 그대로 남기고 LLM 에는 평문.
+- **웹 UI 제어(Gen NX 불필요)**: propose_model(확인 카드+3D 미리보기)·confirm_build, set_view(카메라 iso/front/side/top·확대·표시 항목 — `S.view3d` 를 툴바 버튼과 공유, `View3D.setView`), show_results·query_results(결과 표를 kN·kN·m·mm 로 읽기 — 열 최대·상위 N·절점/요소·하중케이스 필터), get_dynamic·get_review, set_theme, show_panel.
+- 3D 뷰: 입면·평면 = 정투영(front/side 수평 시점, top 은 X 가로), 정투영 확대는 aspectratio 배율(Plotly 정투영은 카메라 거리 무시).
+- 검증: 가짜 Claude + 가짜 MIDAS 로 CN 기준 전환→빌드(8度·III类)→정적→RS→审图→update_spec 연쇄(scratchpad `llme2e.mjs`), Gemini 스키마 정규화·GPT/DeepSeek 생성 확인.
+
 ### LLM 공급자 (2026-10 공식 문서 확인, `src/agent/llm.ts`)
 - 기본 모델: Claude `claude-sonnet-5-5` · Gemini `gemini-3.8-flash` · GPT `gpt-6-luna` · DeepSeek `deepseek-flash`.
 - **GPT**: Chat Completions 도구호출은 `gpt-6-luna` + `reasoning_effort:'none'`에서만. `gpt-6.1-sol`은 Chat Completions 도구호출 미지원 → 목록 제외. `gpt-6-astra`는 문서상 미확정.
@@ -171,7 +178,7 @@ T₁은 `EIGENVALUEMODE` 테이블에서 회수 (`PARTICIPATIONVECTORMODE` 아�
 
 ## 현재 빌드 버전
 MIDAS GEN NX 2026 (v2.1), Build **06/12/2026**.  
-도구 버전: **`package.json` version 이 단일 출처**(현재 `3.2.2`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
+도구 버전: **`package.json` version 이 단일 출처**(현재 `3.3.0`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
 
 ## 개발 환경 주의
 - Node.js v24 / npm 설치됨 (winget, 2026-10 확인). 엔진 스모크 테스트는 node ESM으로 가능.

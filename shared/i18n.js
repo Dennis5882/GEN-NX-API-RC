@@ -169,7 +169,7 @@ window.I18N = {
     bt_school_desc:"교육시설 RC · 복도형 장방형 평면",
     bt_school_tip:"층수를 바꿀 수 있어요. 예) <code>학교 4층</code>",
     /* 설계기준 프로필 (2026-10) */
-    code_label:'설계기준', code_TW:'대만 · TWN-USD112', code_CN:'중국 · GB (해석 범위)', kv_code:'설계기준',
+    theme_label:'테마', theme_cyber:'시안', theme_navy:'흑·곤 다크', theme_light:'백·곤 라이트', who_user:'사용자', who_agent:'Gen NX Agent', code_label:'설계기준', code_TW:'TWN-USD112', code_CN:'GB 50010-2010', kv_code:'설계기준',
     code_unverified:'⚠ Gen NX 라이브 확인 전 항목 포함 (재료 DB 등급 표기·CH2010 스펙트럼 파라미터)',
     load_combos_gb:'하중조합 (GB 55001/55002)', response_spectrum_cn:'응답스펙트럼(GB50011 CH2010) RSX·RSY',
     cn_seis_toggle:'등가정적 지진 적용 (GB 50011 저부전단력법)',
@@ -335,7 +335,7 @@ window.I18N = {
     bt_school_desc:"School RC · corridor-type rectangular plan",
     bt_school_tip:"Change the number of stories. e.g. <code>build a 4 story school</code>",
     /* design code profiles (2026-10) */
-    code_label:'Design code', code_TW:'Taiwan · TWN-USD112', code_CN:'China · GB (analysis)', kv_code:'Design code',
+    theme_label:'Theme', theme_cyber:'Cyan', theme_navy:'Dark navy', theme_light:'Light navy', who_user:'User', who_agent:'Gen NX Agent', code_label:'Design code', code_TW:'TWN-USD112', code_CN:'GB 50010-2010', kv_code:'Design code',
     code_unverified:'⚠ Includes items not yet confirmed on live Gen NX (material DB grade label, CH2010 spectrum parameters)',
     load_combos_gb:'Load combinations (GB 55001/55002)', response_spectrum_cn:'Response spectrum (GB50011 CH2010) RSX·RSY',
     cn_seis_toggle:'Apply equivalent static seismic (GB 50011 base shear method)',
@@ -501,7 +501,7 @@ window.I18N = {
     bt_school_desc:"教育設施 RC · 走廊型長方形平面",
     bt_school_tip:"可變更樓層數。例）<code>建立 4 層學校</code>",
     /* 設計規範 profile (2026-10) */
-    code_label:'設計規範', code_TW:'台灣 · TWN-USD112', code_CN:'中國 · GB（分析範圍）', kv_code:'設計規範',
+    theme_label:'主題', theme_cyber:'青色', theme_navy:'黑·藏青 深色', theme_light:'白·藏青 淺色', who_user:'使用者', who_agent:'Gen NX Agent', code_label:'設計規範', code_TW:'TWN-USD112', code_CN:'GB 50010-2010', kv_code:'設計規範',
     code_unverified:'⚠ 含尚未於 Gen NX 實機確認之項目（材料庫等級標示·CH2010 反應譜參數）',
     load_combos_gb:'載重組合 (GB 55001/55002)', response_spectrum_cn:'反應譜(GB50011 CH2010) RSX·RSY',
     cn_seis_toggle:'套用等效靜力地震 (GB 50011 底部剪力法)',
@@ -667,7 +667,7 @@ window.I18N = {
     bt_school_desc:"教育设施 RC · 走廊型长方形平面",
     bt_school_tip:"可变更楼层数。例）<code>创建 4 层学校</code>",
     /* 设计规范 profile (2026-10) */
-    code_label:'设计规范', code_TW:'台湾 · TWN-USD112', code_CN:'中国 · GB（分析范围）', kv_code:'设计规范',
+    theme_label:'主题', theme_cyber:'青色', theme_navy:'黑·藏青 深色', theme_light:'白·藏青 浅色', who_user:'用户', who_agent:'Gen NX Agent', code_label:'设计规范', code_TW:'TWN-USD112', code_CN:'GB 50010-2010', kv_code:'设计规范',
     code_unverified:'⚠ 含尚未在 Gen NX 实机确认的项目（材料库等级标识·CH2010 反应谱参数）',
     load_combos_gb:'荷载组合 (GB 55001/55002)', response_spectrum_cn:'反应谱(GB50011 CH2010) RSX·RSY',
     cn_seis_toggle:'施加等效静力地震作用 (GB 50011 底部剪力法)',

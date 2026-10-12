@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- 제목·설명·og 메타는 빌드 시 shared/i18n.js meta_title/meta_desc 로 채움(vite.config.ts langPages) -->
 <!--meta--><title>Gen NX 대화형 모델링 에이전트 (학습용)</title><!--/meta-->
+<!-- 테마를 첫 페인트 전에 적용(깜빡임 방지) — 값 목록은 store.ts THEMES 와 같게 -->
+<script>try{var t=localStorage.getItem('nx_theme');document.documentElement.dataset.theme=/^(navy|light|cyber)$/.test(t)?t:'navy'}catch(e){document.documentElement.dataset.theme='navy'}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">

@@ -18,7 +18,7 @@ const TD = 'padding:1px 8px 1px 0'
 
 function tableHead(hdr: string[]): string {
   return '<table style="font-size:11px;border-collapse:collapse;margin:4px 0"><tr>' +
-    hdr.map(h => `<th style="text-align:left;${TD};border-bottom:1px solid #555">${h}</th>`).join('') + '</tr>'
+    hdr.map(h => `<th style="text-align:left;${TD};border-bottom:1px solid var(--border)">${h}</th>`).join('') + '</tr>'
 }
 
 /** GET db/STOR → 등록 층 목록 */
@@ -180,7 +180,7 @@ export async function actStoryWeightVerify(spec?: any): Promise<string> {
       `<td style="${TD}">${fw(rw.self)}</td><td style="${TD}">${fw(rw.gen)}</td>` +
       `<td style="${TD}">${pw(rw)}</td></tr>`
   })
-  html += `<tr><td style="padding:2px 8px 1px 0;border-top:1px solid #555"><b>Σ</b></td><td style="border-top:1px solid #555">${fw(d.totalSelf)}</td><td style="border-top:1px solid #555">${fw(d.totalGen)}</td><td style="border-top:1px solid #555"><b>${(d.totalErr * 100).toFixed(1)}%</b></td></tr></table>`
+  html += `<tr><td style="padding:2px 8px 1px 0;border-top:1px solid var(--border)"><b>Σ</b></td><td style="border-top:1px solid var(--border)">${fw(d.totalSelf)}</td><td style="border-top:1px solid var(--border)">${fw(d.totalGen)}</td><td style="border-top:1px solid var(--border)"><b>${(d.totalErr * 100).toFixed(1)}%</b></td></tr></table>`
   log(t('story_weight_check_self_es') + ` — ΣΔ ${(d.totalErr * 100).toFixed(1)}%` + html, 'ok')
   return `Story weight check (via db/SSEIS PROFILE): ${d.matched} stories. Self ΣW=${Math.round(d.totalSelf)} kN vs Gen ΣW=${Math.round(d.totalGen)} kN (Δ${(d.totalErr * 100).toFixed(1)}%). Informational — self = model dead load (members+slab+finishes) when w0 is blank, or area×w0 when w0 is given; Gen is model-derived.`
 }

@@ -3,7 +3,7 @@ import { escapeHtml, htmlLang, t } from '../i18n'
 import { LANGS, type Lang } from '../i18n/types'
 import { verifyConn } from '../mapi/client'
 import type { CodeId } from '../codes/types'
-import { S, notify, type Provider } from '../state/store'
+import { S, notify, type Provider, type Theme } from '../state/store'
 import { addMsg, draw3D } from '../state/ui'
 import { PROVIDERS, handleLLM } from './llm'
 import { handleLocal } from './local'
@@ -59,6 +59,14 @@ export function setLang(l: Lang): void {
   draw3D()
   S.msgs = []; S.pendingBuild = null
   addMsg('bot', t('welcome'))
+}
+
+/** 화면 테마 — <html data-theme> + 저장. 3D 뷰는 s.theme 변경으로 재플롯(색을 CSS 변수에서 다시 읽음) */
+export function setTheme(th: Theme): void {
+  S.theme = th
+  document.documentElement.dataset.theme = th
+  try { localStorage.setItem('nx_theme', th) } catch { /* noop */ }
+  notify()
 }
 
 /** 설계기준 선택 — 이후 새로 만드는 모델에 적용(기존 모델은 자기 spec.code 유지) */

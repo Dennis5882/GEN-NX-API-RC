@@ -11,6 +11,8 @@ import type { CodeId } from '../codes/types'
 
 export type PanelId = 'logP' | 'modelP' | 'viewP' | 'resP'
 export type ResultTab = 'react' | 'disp' | 'force' | 'moment'
+export type CamId = 'iso' | 'front' | 'side' | 'top'
+export type VisKey = 'col' | 'beam' | 'node' | 'floor'
 export type Provider = 'claude' | 'gemini' | 'gpt' | 'deepseek'
 export type LogType = 'api' | 'ok' | 'err' | 'info' | 'warn'
 
@@ -68,7 +70,8 @@ export interface ModelState {
 export interface LogEntry { id: number; ts: string; type: LogType; html: string }
 
 /** 채팅 메시지 — html(일반) / plan(건물 확인·편집 카드) / thinking(대기 표시) */
-export type ChatMsg =
+/** ts = 표시용 시각(HH:MM) */
+export type ChatMsg = ({ ts?: string }) & (
   | { id: number; role: 'user' | 'bot'; kind: 'html'; html: string }
   | { id: number; role: 'bot'; kind: 'thinking' }
   | {
@@ -79,6 +82,7 @@ export type ChatMsg =
       buildId: number
       epoch: number           // 생성 시점 buildEpoch — 실행되면 모든 카드 버튼 제거
     }
+)
 
 export interface ConvTurn {
   role: 'user' | 'assistant' | 'tool'
@@ -133,8 +137,17 @@ function readLang(): Lang {
 
 const initLang = readLang()
 
+/** 화면 테마 — app.css :root[data-theme]. index.html 의 인라인 스크립트가 첫 페인트 전에 같은 값을 적용(깜빡임 방지) */
+export const THEMES = ['navy', 'light', 'cyber'] as const
+export type Theme = (typeof THEMES)[number]
+function readTheme(): Theme {
+  try { const v = localStorage.getItem('nx_theme'); if ((THEMES as readonly string[]).includes(v || '')) return v as Theme } catch { /* storage 차단 */ }
+  return 'navy'
+}
+
 export const S = {
   lang: initLang,
+  theme: readTheme(),
   /* MIDAS API — MAPI-Key 는 메모리에만(저장 금지) */
   baseUrl: 'https://moa-engineers.midasit.com:443/gen',
   mapiKey: '',
@@ -166,6 +179,8 @@ export const S = {
   review: null as null | { items: ReviewItem[]; rs: boolean },
   preview: null as BuildingSpec | null,   // 3D 미리보기 스펙(null = 현재 모델 표시)
   viewNonce: 0,                           // 3D 재플롯 트리거
+  /* 3D 뷰 카메라·표시 — 툴바 버튼과 LLM(set_view)이 같은 상태를 조작. zoom = 카메라 거리 배율(1 = 기본, <1 확대) */
+  view3d: { cam: 'iso' as CamId, zoom: 1, vis: { col: true, beam: true, node: true, floor: true } as Record<VisKey, boolean> },
   busy: false,
   log: [] as LogEntry[],
   msgs: [] as ChatMsg[],

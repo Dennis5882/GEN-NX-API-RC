@@ -6,15 +6,19 @@
    - Gemini 3: 응답 part(thoughtSignature 포함)를 다음 요청에 그대로 재전송 → turn.raw 보존.
    - DeepSeek: thinking 기본 ON, assistant reasoning_content 를 모든 후속 요청에 재전송(누락 시 400).
 ════════════════════════════════════════════════════════════ */
-import { actAnalyze } from '../actions/analysis'
+import { actAnalyze, actDynamic } from '../actions/analysis'
 import { actAddBracing, actAddLoad, actBuildFrame, actModifySection, actResizeSubset, clearModel } from '../actions/model'
+import { actReview } from '../actions/review'
 import { actStoryWeightVerify, actSseisVerify, actSwindVerify } from '../actions/verify'
-import { stampSpec } from '../codes'
+import { CODE_IDS, PROFILES, profile, stampSpec, type CodeId, type LateralGroup } from '../codes'
+import { onView3DTab, setView } from '../components/View3D'
 import { RC, type BuildingSpec } from '../engine'
 import { escapeHtml, t } from '../i18n'
-import { S, type Provider } from '../state/store'
+import { S, THEMES, type PanelId, type Provider, type ResultTab, type Table } from '../state/store'
 import { addMsg, renderModelState, tab, thinking } from '../state/ui'
-import { extremum, statusBrief } from './results'
+import { confirmBuild, proposeBuild } from './local'
+import { extremum, momentTable, statusBrief } from './results'
+import { setCode, setTheme } from './session'
 
 /* 키 발급 안내 문구는 사전 prov_hint_<provider> */
 export const PROVIDERS: Record<Provider, { label: string; keyLabel: string; ph: string; models: string[]; def: string }> = {
@@ -34,77 +38,274 @@ const OPENAI_COMPAT: Partial<Record<Provider, string>> = {
   deepseek: 'https://api.deepseek.com/chat/completions',
 }
 
-const TOOLS = [
-  { name: 'build_frame', description: 'Build a parametric multi-building moment frame (Ramen) in Gen NX. Generates nodes, columns, beams, optional connecting beams, fixed supports, and a self-weight load case. Use this for a brand-new model; it clears any existing model first.',
-    input_schema: { type: 'object', properties: {
-      buildings: { type: 'integer' }, stories: { type: 'integer' }, bayX: { type: 'integer' }, bayY: { type: 'integer' },
-      spanX: { type: ['number', 'array'], items: { type: 'number' }, description: 'mm; single value = uniform, or array of per-bay distances e.g. [3000,4000,3000]' },
-      spanY: { type: ['number', 'array'], items: { type: 'number' }, description: 'mm; single value = uniform, or array of per-bay distances e.g. [3000,4000,3000]' },
-      h1: { type: 'number', description: 'first floor height mm' }, hTyp: { type: 'number', description: 'typical floor height mm' },
-      gap: { type: 'number', description: 'gap between buildings mm' }, connectFloor: { type: 'integer', description: 'floor index where buildings connect, 0=none' }, podium: { type: 'integer', description: 'number of podium (commercial) floors at base, 0=none' },
-      colH: { type: 'number' }, colB: { type: 'number' }, beamH: { type: 'number' }, beamB: { type: 'number' }, matName: { type: 'string' },
-    }, required: ['stories'] } },
-  { name: 'modify_section', description: 'Resize ALL columns or ALL beams of the existing model by changing their shared section. Incremental edit — does not rebuild.',
-    input_schema: { type: 'object', properties: { target: { type: 'string', enum: ['col', 'beam'] }, H: { type: 'number', description: 'depth mm' }, B: { type: 'number', description: 'width mm' } }, required: ['target', 'H', 'B'] } },
-  { name: 'resize_subset', description: 'Resize only a SUBSET of columns or beams limited to specific floors. Creates a dedicated new section for those members only. Incremental edit.',
-    input_schema: { type: 'object', properties: { target: { type: 'string', enum: ['col', 'beam'] }, H: { type: 'number' }, B: { type: 'number' }, floors: { type: 'array', items: { type: 'integer' }, description: 'floor indices, e.g. [1,2,3]' } }, required: ['target', 'H', 'B', 'floors'] } },
-  { name: 'add_load', description: 'Add a new load case and apply a vertical nodal load to all nodes on one floor. Incremental edit.',
-    input_schema: { type: 'object', properties: { name: { type: 'string' }, type: { type: 'string', description: 'D/L/W/E/U' }, floor: { type: 'integer' }, fz: { type: 'number', description: 'vertical force N, negative = downward' } }, required: ['name', 'type', 'floor', 'fz'] } },
-  { name: 'add_bracing', description: 'Add diagonal bracing in one building at given floors. Incremental edit — appends new elements.',
-    input_schema: { type: 'object', properties: { building: { type: 'integer', description: '0-based building index' }, floors: { type: 'array', items: { type: 'integer' } } }, required: ['building', 'floors'] } },
-  { name: 'verify_seismic_sseis', description: 'QA cross-check: feed the self-computed equivalent-static seismic story forces into Gen NX native db/SSEIS (USER TYPE) and compare the returned STORY_SHEAR / overturning moment / accidental torsion profile against our own. Read-back verification only — does NOT change the analysis loads (EX/EY via CNLD stay authoritative). Requires an existing model with seismic load enabled. Beta feature.', input_schema: { type: 'object', properties: {} } },
-  { name: 'verify_story_weight', description: 'Informational QA: compare our estimated equivalent-static seismic story weights (w0 assumption) against Gen NX model-derived story weights. Sources the real weights from db/SSEIS GET PROFILE (STORY_WEIGHT) via a minimal probe PUT→GET→DELETE (ope/STORPROP is absent in the 0612 beta). Differences are expected (estimate vs actual mass) — use to sanity-check / calibrate w0. Requires a model with stories registered in Gen Story Manager.', input_schema: { type: 'object', properties: {} } },
-  { name: 'verify_swind', description: 'QA cross-check (wind): feed the self-computed static wind story forces into Gen NX native db/SWIND (USER TYPE) — converting force→pressure via the model floor width and tributary height — and compare the returned WIND_FORCE / STORY_SHEAR / overturning-moment profile against our own. Read-back verification only; does not change analysis loads (WX/WY via CNLD stay authoritative). Requires a model with wind on and stories registered in Gen Story Manager.', input_schema: { type: 'object', properties: {} } },
-  { name: 'run_analysis', description: 'Run static analysis and fetch reaction / displacement / beam-force result tables.', input_schema: { type: 'object', properties: {} } },
-  { name: 'get_result', description: 'Summarize a previously computed result.', input_schema: { type: 'object', properties: { which: { type: 'string', enum: ['disp', 'react', 'force'] } }, required: ['which'] } },
-  { name: 'clear_model', description: 'Delete all model data in Gen NX.', input_schema: { type: 'object', properties: {} } },
-  { name: 'get_status', description: 'Report the current in-memory model summary including section sizes, load cases, and edit history.', input_schema: { type: 'object', properties: {} } },
-]
+/* ── 도구 정의 — 현재 설계기준 프로필에서 동적으로 생성(지진·풍 입력 항목은 기준마다 다름) ── */
+const PANELS: Record<string, PanelId> = { log: 'logP', model: 'modelP', '3d': 'viewP', result: 'resP' }
+const plain = (h: string) => h.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/\n{3,}/g, '\n\n').trim()
 
-const SYSTEM = `You are a structural engineering agent that builds, EDITS, and analyzes models in MIDAS Gen NX through tools. Defaults when unspecified: 2 buildings, 10 stories, 4x2 bays, 7000x8000mm spans, first floor 3600mm / typical 2900mm, columns 600x600, beams 400x600, C24 concrete, connect buildings at floor 8 if 2+ buildings.
-spanX and spanY accept either a single number (uniform bays) OR an array of per-bay distances for non-uniform spacing, e.g. spanY=[3000,4000,3000] makes 3 Y-bays of 3000/4000/3000mm; the bay count auto-syncs to the array length.
-When the user asks to verify / cross-check / QA the seismic story shear (層剪力 교차검증) against Gen's native calculation, call verify_seismic_sseis (requires seismic to be on). It is a read-back QA check and does not alter the analysis model. To compare story weights (層重量) against Gen's model-derived values, call verify_story_weight (informational). To cross-check the static WIND story shear (風 層剪力 교차검증) against Gen, call verify_swind (requires wind on). All three require a model whose stories are registered in Gen's Story Manager (GUI Story tab / Auto Generate).
-IMPORTANT — incremental editing: when a model already exists and the user asks to change part of it, do NOT call build_frame. Instead use modify_section / resize_subset / add_load / add_bracing. Floors are 1-based. After an edit, suggest re-running analysis to see the effect. If unsure of the current state, call get_status first. Always confirm key parameters in your reply. Be concise and reply in the user's language: Korean if they write Korean, English if English, Traditional Chinese (Taiwan) if Traditional Chinese — using Taiwan structural-engineering terminology (結構, 構架, 柱, 梁, 斷面, 載重, 桿件內力, 變位, 反力, 斜撐, 跨距, 樓層), and Simplified Chinese (mainland China) if Simplified Chinese — using mainland terminology (结构, 框架, 柱, 梁, 截面, 荷载, 构件内力, 位移, 支座反力, 斜撑, 跨度, 楼层). Use millimetres and Newtons.`
+/* 결과 표(N·mm) → 읽기 단위. 헤더로 판정: 모멘트 kN·m, 힘 kN, 변위 mm */
+function unitOf(h: string): { k: number; u: string } {
+  if (/moment|^M[XYZ]\b|^M[yz]/i.test(h) && !/torsion/i.test(h)) return { k: 1e-6, u: 'kN·m' }
+  if (/torsion/i.test(h)) return { k: 1e-6, u: 'kN·m' }
+  if (/^F[XYZ]\b|axial|shear|force/i.test(h)) return { k: 1e-3, u: 'kN' }
+  if (/^D[XYZ]\b|^R[XYZ]\b|disp/i.test(h)) return { k: 1, u: /^R[XYZ]/.test(h) ? 'rad' : 'mm' }
+  return { k: 1, u: '' }
+}
+function resultTable(which: ResultTab): Table | null { return which === 'moment' ? momentTable() : S.results[which] }
+
+function queryResults(inp: any): string {
+  const which = (inp.which || 'react') as ResultTab
+  const T = resultTable(which)
+  if (!T || !T.data.length) return 'no result yet — run_analysis first'
+  const H = T.head, idCol = H.findIndex(h => /^node$|^elem/i.test(h) || /NODE|ELEM/i.test(h)), lcCol = H.findIndex(h => /load/i.test(h))
+  let rows = T.data
+  if (inp.loadcase) rows = rows.filter(r => lcCol >= 0 && String(r[lcCol]).toUpperCase().includes(String(inp.loadcase).toUpperCase()))
+  if (inp.id != null) rows = rows.filter(r => idCol >= 0 && String(r[idCol]) === String(inp.id))
+  const numCols = H.map((_, i) => i).filter(i => i !== idCol && i !== lcCol && rows.some(r => r[i] !== '' && !isNaN(parseFloat(r[i]))) && !/index/i.test(H[i]))
+  const partCol = H.findIndex(h => /^part/i.test(h))   // 부재력 I/J 단
+  const fmt = (r: string[]) => [idCol >= 0 ? `${H[idCol]} ${r[idCol]}` : '', partCol >= 0 ? r[partCol] : '', lcCol >= 0 ? r[lcCol] : '',
+    ...numCols.map(i => { const u = unitOf(H[i]); const v = parseFloat(r[i]); return `${H[i]}=${isNaN(v) ? r[i] : +(v * u.k).toFixed(u.k === 1 ? 3 : 2)}${u.u ? ' ' + u.u : ''}` })].filter(Boolean).join(', ')
+  S.resultTab = which; tab('resP')
+  if (inp.id != null) return rows.length ? rows.slice(0, 12).map(fmt).join('\n') : `no rows for ${H[idCol] || 'id'} ${inp.id}`
+  const col = inp.column ? H.findIndex(h => h.toUpperCase() === String(inp.column).toUpperCase()) : -1
+  const ci = col >= 0 ? col : (inp.column ? H.findIndex(h => h.toUpperCase().includes(String(inp.column).toUpperCase())) : -1)
+  if (ci < 0) {
+    /* 열 미지정 → 숫자 열마다 절댓값 최대 */
+    return `${which}: ${rows.length} rows. Columns: ${numCols.map(i => H[i]).join(', ')}.\n` + numCols.map(i => {
+      let best: string[] | null = null
+      for (const r of rows) { const v = Math.abs(parseFloat(r[i])); if (!isNaN(v) && (!best || v > Math.abs(parseFloat(best[i])))) best = r }
+      const u = unitOf(H[i])
+      return best ? `max|${H[i]}| = ${+(parseFloat(best[i]) * u.k).toFixed(3)} ${u.u} @ ${idCol >= 0 ? H[idCol] + ' ' + best[idCol] : '?'}${lcCol >= 0 ? ' (' + best[lcCol] + ')' : ''}` : ''
+    }).filter(Boolean).join('\n')
+  }
+  const n = Math.min(Math.max(+inp.n || 5, 1), 30)
+  const mode = inp.mode || 'absmax'
+  const val = (r: string[]) => parseFloat(r[ci])
+  const sorted = rows.filter(r => !isNaN(val(r))).sort((a, b) => mode === 'max' ? val(b) - val(a) : mode === 'min' ? val(a) - val(b) : Math.abs(val(b)) - Math.abs(val(a)))
+  return `${which} by ${H[ci]} (${mode}, top ${n} of ${sorted.length}):\n` + sorted.slice(0, n).map(fmt).join('\n')
+}
+
+/** 프로필 입력 항목 → JSON schema (라벨·단위·선택지를 설명에 담아 LLM 이 기준 용어로 매핑) */
+function lateralSchema(g: LateralGroup, what: string, p: BuildingSpec): any {
+  const props: Record<string, any> = { on: { type: 'boolean', description: `apply ${what} loads (story forces + combinations)` } }
+  for (const f of g.fields) {
+    const def = f.def(p)
+    const d = `${f.label()}${f.unit ? ` [${f.unit}]` : ''}${def !== '' ? ` (default ${def})` : ' (blank = auto)'}`
+    props[f.key] = f.kind === 'select'
+      ? { type: 'string', enum: f.options!().map(o => o.value), description: `${d}. Options: ${f.options!().map(o => `${o.value}=${o.label}`).join('; ')}` }
+      : { type: 'number', description: d }
+  }
+  return { type: 'object', description: `${what} input for design code ${profile().id}; omitted keys keep defaults`, properties: props }
+}
+
+function specProps(): Record<string, any> {
+  const prof = profile(), p = RC.DEFAULT_SPEC as BuildingSpec
+  return {
+    bldgType: { type: 'string', enum: Object.keys(RC.BUILDING_TYPES), description: 'building-type template (sets bays/spans/heights/sections/uses/podium): apartment=residential, office, commercial=retail, hospital, school. Other given fields override the template.' },
+    buildings: { type: 'integer', description: 'number of towers (1–4)' }, stories: { type: 'integer', description: 'stories above ground' },
+    bayX: { type: 'integer' }, bayY: { type: 'integer' },
+    spanX: { type: ['number', 'array'], items: { type: 'number' }, description: 'mm; single value = uniform, or array of per-bay distances e.g. [3000,4000,3000]' },
+    spanY: { type: ['number', 'array'], items: { type: 'number' }, description: 'mm; single value = uniform, or array of per-bay distances' },
+    h1: { type: 'number', description: 'first-floor height mm' }, hTyp: { type: 'number', description: 'typical floor height mm' },
+    gap: { type: 'number', description: 'gap between towers mm' }, connectFloor: { type: 'integer', description: 'floor where towers are linked by connecting beams, 0=none' },
+    podium: { type: 'integer', description: 'podium (commercial) floors at base, 0=none' },
+    colH: { type: 'number', description: 'column depth mm' }, colB: { type: 'number', description: 'column width mm' },
+    beamH: { type: 'number', description: 'beam depth mm' }, beamB: { type: 'number', description: 'beam width mm' },
+    matName: { type: 'string', enum: Object.keys(prof.materials), description: `concrete grade (${prof.id} catalogue, default ${prof.defaultMat})` },
+    slabThk: { type: 'number', description: 'slab thickness mm (default 150) — slab self-weight is added to floor dead load; 0 if already in SDL' },
+    seismic: lateralSchema(prof.seismic, 'seismic', p),
+    wind: lateralSchema(prof.wind, 'wind', p),
+  }
+}
+
+function tools() {
+  const sp = specProps()
+  const none = { type: 'object', properties: {} }
+  const list: { name: string; description: string; input_schema: any }[] = [
+    { name: 'build_frame', description: 'Build a NEW RC moment-frame model in Gen NX (clears the current model): nodes, columns, beams, connecting beams, fixed supports, materials/sections, floor dead+live loads (SDL + slab self-weight), and — if seismic/wind .on — static story forces and code load combinations.',
+      input_schema: { type: 'object', properties: sp, required: ['stories'] } },
+    { name: 'update_spec', description: 'Change parameters of the EXISTING model and rebuild it with the merged spec (e.g. stories, floor height, material, slab thickness, turn seismic/wind on or change their inputs). Section-only changes should use modify_section / resize_subset instead (no rebuild).',
+      input_schema: { type: 'object', properties: sp } },
+    { name: 'modify_section', description: 'Resize ALL columns or ALL beams of the existing model by changing their shared section. Incremental edit — does not rebuild.',
+      input_schema: { type: 'object', properties: { target: { type: 'string', enum: ['col', 'beam'] }, H: { type: 'number', description: 'depth mm' }, B: { type: 'number', description: 'width mm' } }, required: ['target', 'H', 'B'] } },
+    { name: 'resize_subset', description: 'Resize only columns or beams on specific floors (creates a dedicated section). Incremental edit.',
+      input_schema: { type: 'object', properties: { target: { type: 'string', enum: ['col', 'beam'] }, H: { type: 'number' }, B: { type: 'number' }, floors: { type: 'array', items: { type: 'integer' }, description: '1-based floor numbers, e.g. [1,2,3]' } }, required: ['target', 'H', 'B', 'floors'] } },
+    { name: 'add_load', description: 'Add a load case and a vertical nodal load on every node of one floor. Incremental edit.',
+      input_schema: { type: 'object', properties: { name: { type: 'string' }, type: { type: 'string', description: 'D/L/W/E/U' }, floor: { type: 'integer' }, fz: { type: 'number', description: 'vertical force per node N, negative = downward' } }, required: ['name', 'type', 'floor', 'fz'] } },
+    { name: 'add_bracing', description: 'Add diagonal bracing in one tower at given floors. Incremental edit.',
+      input_schema: { type: 'object', properties: { building: { type: 'integer', description: '0-based tower index' }, floors: { type: 'array', items: { type: 'integer' } } }, required: ['building', 'floors'] } },
+    { name: 'run_analysis', description: 'Run linear static analysis and fetch reaction / displacement / beam-force tables.', input_schema: none },
+    { name: 'run_dynamic', description: 'Eigenvalue (modal) analysis; with rs=true also response-spectrum analysis using the code spectrum, code RS scaling (TW 3.2/3.3 base-shear adjustment, CN minimum shear-weight ratio), and — when RS is the primary method — seismic combinations switched to RSX/RSY. Ends with review indicators when the code has them. Needs a built model with seismic on.',
+      input_schema: { type: 'object', properties: { rs: { type: 'boolean', description: 'include response spectrum (default true)' } } } },
+    { name: 'review_indicators', description: 'Recompute plan-review indicators (审图指标) from Gen NX story tables: story drift ratio, shear-weight ratio, torsional displacement ratio, effective mass participation, period ratio Tt/T1 — each vs its code limit. Available only for codes that define them (currently CN). Needs run_dynamic first.', input_schema: none },
+    { name: 'get_result', description: 'Summarize a computed result and open it in the Results tab.', input_schema: { type: 'object', properties: { which: { type: 'string', enum: ['disp', 'react', 'force'] } }, required: ['which'] } },
+    { name: 'get_status', description: 'Current model summary: spec, sections, load cases, edits, design code, analysis state.', input_schema: none },
+    { name: 'set_design_code', description: `Switch the design code for NEW models (an existing model keeps its own code). ${CODE_IDS.map(id => `${id} = ${PROFILES[id].designCode}`).join(', ')}.`,
+      input_schema: { type: 'object', properties: { code: { type: 'string', enum: CODE_IDS } }, required: ['code'] } },
+    { name: 'show_panel', description: 'Switch the right-hand panel.', input_schema: { type: 'object', properties: { panel: { type: 'string', enum: Object.keys(PANELS) } }, required: ['panel'] } },
+    { name: 'propose_model', description: 'Show a model proposal in the WEB UI without touching Gen NX: a confirmation card (spec summary with Run / Edit / Cancel) plus a live 3D preview. Works offline (no Gen NX connection). Use when the user wants to see/preview/review a model first, or when Gen NX is not connected. The user can then press Run, or you call confirm_build.',
+      input_schema: { type: 'object', properties: sp, required: ['stories'] } },
+    { name: 'confirm_build', description: 'Build the currently proposed (pending) model card in Gen NX — same as the user pressing Run. Needs a Gen NX connection.', input_schema: none },
+    { name: 'set_view', description: 'Control the 3D view in the web UI: camera preset, zoom, and which element groups are visible. Opens the 3D panel.',
+      input_schema: { type: 'object', properties: {
+        camera: { type: 'string', enum: ['iso', 'front', 'side', 'top'], description: 'iso = isometric, front = X–Z elevation, side = Y–Z elevation, top = plan' },
+        zoom: { type: 'number', description: 'magnification relative to the preset: 2 = twice as close, 0.5 = farther, 1 = reset' },
+        show: { type: 'object', description: 'visibility toggles; omitted keys unchanged', properties: { col: { type: 'boolean' }, beam: { type: 'boolean' }, node: { type: 'boolean' }, floor: { type: 'boolean', description: 'floor outline lines' } } },
+      } } },
+    { name: 'show_results', description: 'Open the Results panel on a table: react (support reactions), disp (nodal displacements), force (beam/column member forces), moment (bending moments only).',
+      input_schema: { type: 'object', properties: { tab: { type: 'string', enum: ['react', 'disp', 'force', 'moment'] } }, required: ['tab'] } },
+    { name: 'query_results', description: 'Read values from the static-analysis result tables (converted to kN, kN·m, mm). Without column → max |value| of every column. With column → sorted top-n rows (mode absmax/max/min). With id → all rows of that node (react/disp) or element (force/moment). Optional loadcase filter (e.g. DL, LL, EX, cLCB1).',
+      input_schema: { type: 'object', properties: {
+        which: { type: 'string', enum: ['react', 'disp', 'force', 'moment'] },
+        column: { type: 'string', description: 'header name, e.g. FZ, DZ, DX, Axial, Shear-z, Moment-y' },
+        mode: { type: 'string', enum: ['absmax', 'max', 'min'] }, n: { type: 'integer', description: 'rows to return (default 5, max 30)' },
+        id: { type: 'integer', description: 'node number (react/disp) or element number (force/moment)' },
+        loadcase: { type: 'string' },
+      }, required: ['which'] } },
+    { name: 'get_dynamic', description: 'Modal / response-spectrum summary of the last run_dynamic: T1, periods and mass participation per mode, RS scaling and checks.', input_schema: none },
+    { name: 'get_review', description: 'Return the current review-indicator table (审图指标): item, direction, value, limit, status, governing story, clause.', input_schema: none },
+    { name: 'set_theme', description: 'Change the web UI colour theme.', input_schema: { type: 'object', properties: { theme: { type: 'string', enum: [...THEMES], description: 'navy = black/navy dark (default), light = white/navy, cyber = cyan dark' } }, required: ['theme'] } },
+    { name: 'clear_model', description: 'Delete all model data in Gen NX.', input_schema: none },
+    { name: 'verify_seismic_sseis', description: 'QA only (TW/USER TYPE): feed our static seismic story forces into Gen NX db/SSEIS and compare its story shear / overturning / accidental torsion with ours. Does not change analysis loads. Needs stories registered via Gen GUI "Auto Generate Story Data". Not supported for CN.', input_schema: none },
+    { name: 'verify_story_weight', description: 'QA only: compare our seismic story weights with Gen NX model-derived story weights.', input_schema: none },
+    { name: 'verify_swind', description: 'QA only (TW/USER TYPE): feed our static wind story forces into Gen NX db/SWIND and compare. Needs Gen GUI "Auto Generate Story Data". Not supported for CN.', input_schema: none },
+  ]
+  return list
+}
+
+/* ── 시스템 프롬프트 — 현재 기준·모델 상태를 매 요청마다 반영 ── */
+const CODE_BRIEF: Record<CodeId, string> = {
+  TW: `TW (Taiwan) — concrete TWN-USD112 (Gen NX DCON label); seismic 建築物耐震設計規範 (2.2 V = I/(1.4αy)·(SaD/Fu)m·W, V*/VM floors, empirical T = 0.070hn^0.75, Ft = 0.07TV, accidental torsion 5%, R 4.8 RC SMRF, I hospital 1.5 / school·commercial 1.25); wind 耐風設計規範 2014 (q(z)=0.06K(z)[I·V10]², G 1.88); combinations 112 5.3.1 (1.6W, 0.8W, seismic per direction). Response spectrum is the PRIMARY method when ≥50 m or ≥15 stories above ground (or method=RS for irregular buildings); RS is scaled to ≥0.9V (regular) / 1.0V (irregular). Seismic inputs come from the site (SDS, SD1; T0 for Taipei Basin) — use the site preset values if the user names a city/district.`,
+  CN: `CN (China) — concrete GB 50010-2010 (Gen NX DCON GB/T50010-10); seismic GB 50011-2010 base-shear method (设防烈度 intensity, 设计地震分组 group, 场地类别 site class, damping), minimum shear-weight ratio λ per GB 55002 4.2.3, accidental eccentricity 5%; wind GB 50009-2012 (wk = βz·μs·μz·w0, terrain A–D); combinations GB 55001/55002 (γG 1.3, γQ 1.5, γEh 1.4). Response spectrum (振型分解反应谱法, Gen NX native CH2010) is the PRIMARY method when height above ground > 40 m (GB 50011 5.1.2) or method=RS; the RS is amplified to satisfy λ. After run_dynamic, review indicators (审图指标) are reported: drift ratio (框架 1/550, 框架-抗震墙 1/800), 剪重比, 扭转位移比 (≤1.2, ≤1.5), 有效质量系数 ≥90%, 周期比 ≤0.9. Seismic intensity strings look like 7_010 = 7度(0.10g), 8_020 = 8度(0.20g).`,
+}
+
+function system(): string {
+  const prof = profile(), d = RC.DEFAULT_SPEC
+  const m = S.model, sp = m.spec
+  const model = m.nodes.length && sp
+    ? `Current model: code ${sp.code || prof.id}, ${sp.buildings} tower(s) × ${sp.stories} stories, ${sp.colName}/${sp.beamName}, ${sp.matName}, seismic ${sp.seismic?.on ? 'ON' : 'off'}, wind ${sp.wind?.on ? 'ON' : 'off'}; static results ${S.results.react ? 'available' : 'none'}; dynamic ${m.dynamic ? (m.dynamic.rs ? 'eigen + RS done' : 'eigen done') : 'not run'}; review ${S.review ? 'available' : 'none'}. Gen NX ${S.connected ? 'connected' : 'NOT connected'}.`
+    : `No model yet. Gen NX ${S.connected ? 'connected' : 'NOT connected (tools that touch Gen NX will fail — tell the user to connect via ⚙ first)'}.`
+  return `You are a structural engineering agent that builds, edits and analyzes RC frame models in MIDAS Gen NX through tools. Act — call tools rather than describing what you would do.
+
+ACTIVE DESIGN CODE: ${CODE_BRIEF[prof.id]}
+${model}
+
+Defaults when unspecified: ${d.buildings} towers, ${d.stories} stories, ${d.bayX}×${d.bayY} bays, ${d.spanX}×${d.spanY} mm spans, 1F ${d.h1} / typical ${d.hTyp} mm, columns ${d.colH}×${d.colB}, beams ${d.beamB}×${d.beamH} (B×H), material ${prof.defaultMat}, slab 150 mm. If the user names a building type (residential/apartment, office, retail/commercial, hospital, school) pass bldgType — it supplies realistic spans, heights, sections, uses and podium. Seismic weight w0 blank = derived from the model dead load (members + slab + SDL), which matches the dynamic-analysis mass.
+
+Typical workflow: build_frame (seismic.on / wind.on when lateral loads are wanted) → run_analysis → run_dynamic (rs=true) → review_indicators (CN). When the user asks for "응답스펙트럼/反应谱/反應譜/response spectrum" use run_dynamic rs=true; for "审图/审查指标/심사 지표/review" use review_indicators; for a different design code use set_design_code before building.
+Editing an existing model: never call build_frame. Sections → modify_section / resize_subset; loads → add_load; bracing → add_bracing; anything else (stories, heights, material, slab, seismic/wind inputs) → update_spec. Floors are 1-based. After an edit, offer to re-run analysis. If unsure of the state call get_status.
+WEB UI CONTROL (works without Gen NX): propose_model shows a confirmation card + 3D preview (prefer it when Gen NX is not connected or the user wants to preview first; confirm_build builds it); set_view controls the 3D camera (iso/front/side/top), zoom and visible groups; show_results / query_results open and read result tables (answer numeric questions such as "max reaction", "displacement of node 51", "top 5 column axial forces" with query_results instead of guessing); get_dynamic / get_review return modal and review data; set_theme changes colours; show_panel switches panels.
+QA tools verify_seismic_sseis / verify_swind work only for TW (USER TYPE) and need Gen's GUI "Auto Generate Story Data" first; verify_story_weight is informational.
+
+Reply concisely in the user's language with correct structural terminology — Korean (구조, 골조, 기둥, 보, 단면, 하중, 부재력, 변위, 반력, 가새, 스팬, 층, 응답스펙트럼, 층간변위각), English, Traditional Chinese for Taiwan (結構, 構架, 柱, 梁, 斷面, 載重, 桿件內力, 位移, 反力, 斜撐, 跨距, 樓層, 反應譜, 層間變位角), or Simplified Chinese for mainland China (结构, 框架, 柱, 梁, 截面, 荷载, 构件内力, 位移, 支座反力, 斜撑, 跨度, 楼层, 反应谱, 层间位移角, 剪重比). State key parameters you used. Units: mm, N (kN for story forces).`
+}
+
+function buildSpec(inp: any, base: BuildingSpec): BuildingSpec {
+  const tpl: any = inp.bldgType && RC.BUILDING_TYPES[inp.bldgType as keyof typeof RC.BUILDING_TYPES]
+    ? { ...RC.BUILDING_TYPES[inp.bldgType as keyof typeof RC.BUILDING_TYPES], bldgType: inp.bldgType } : {}
+  const { seismic, wind, ...rest } = inp
+  let p: BuildingSpec = { ...base, ...tpl, ...rest }
+  if (seismic) p.seismic = { ...(base.seismic || {}), ...seismic }
+  if (wind) p.wind = { ...(base.wind || {}), ...wind }
+  if (inp.colH || inp.colB) { p.colH = inp.colH || p.colH; p.colB = inp.colB || p.colB; p.colName = `C${p.colH}x${p.colB}`; delete (p as any).palette }
+  if (inp.beamH || inp.beamB) { p.beamH = inp.beamH || p.beamH; p.beamB = inp.beamB || p.beamB; p.beamName = `B${p.beamB}x${p.beamH}`; delete (p as any).palette }
+  if (inp.connectFloor === 0) p.connectFloor = 0
+  if (Array.isArray(p.spanX)) p.bayX = p.spanX.length
+  if (Array.isArray(p.spanY)) p.bayY = p.spanY.length
+  return p
+}
 
 async function callTool(name: string, inp: any): Promise<string> {
   if (name === 'build_frame') {
-    const base: any = inp.bldgType && RC.BUILDING_TYPES[inp.bldgType as keyof typeof RC.BUILDING_TYPES]
-      ? { ...RC.BUILDING_TYPES[inp.bldgType as keyof typeof RC.BUILDING_TYPES], bldgType: inp.bldgType } : { ...RC.DEFAULT_SPEC }
-    let p: BuildingSpec = { ...base, ...inp }
-    if (inp.colH || inp.colB) { p.colH = inp.colH || p.colH; p.colB = inp.colB || p.colB; p.colName = `C${p.colH}x${p.colB}` }
-    if (inp.beamH || inp.beamB) { p.beamH = inp.beamH || p.beamH; p.beamB = inp.beamB || p.beamB; p.beamName = `B${p.beamB}x${p.beamH}` }
-    if (inp.connectFloor === 0) p.connectFloor = 0
-    // 가변 스팬(배열)이면 跨數 동기화
-    if (Array.isArray(p.spanX)) p.bayX = p.spanX.length
-    if (Array.isArray(p.spanY)) p.bayY = p.spanY.length
-    p = stampSpec(p)   // 현재 설계기준 기록 + 재료명 변환
+    const p = stampSpec(buildSpec(inp, { ...RC.DEFAULT_SPEC } as BuildingSpec))   // 현재 설계기준 기록 + 재료명 변환
     tab('logP'); await actBuildFrame(p)
-    return `Built ${p.buildings} buildings x ${p.stories} stories. Nodes=${S.model.nodes.length}, elements=${S.model.cols.length + S.model.beams.length + S.model.links.length}. Self-weight load case 'DL' applied.`
+    return `Built ${p.buildings} tower(s) × ${p.stories} stories (code ${p.code}). Nodes=${S.model.nodes.length}, elements=${S.model.cols.length + S.model.beams.length + S.model.links.length}. Seismic ${p.seismic?.on ? 'on' : 'off'}, wind ${p.wind?.on ? 'on' : 'off'}.`
+  }
+  if (name === 'update_spec') {
+    if (!S.model.spec) return 'ERROR: no model — use build_frame'
+    const p = buildSpec(inp, S.model.spec)   // 모델 자신의 기준 유지
+    tab('logP'); await actBuildFrame(p)
+    return `Rebuilt with updated spec: ${p.buildings} tower(s) × ${p.stories} stories, ${p.colName}/${p.beamName}, ${p.matName}, seismic ${p.seismic?.on ? 'on' : 'off'}, wind ${p.wind?.on ? 'on' : 'off'}.`
   }
   if (name === 'modify_section') { tab('logP'); return await actModifySection(inp.target, inp.H, inp.B) }
   if (name === 'resize_subset') { tab('logP'); return await actResizeSubset(inp.target, inp.H, inp.B, inp.floors || []) }
   if (name === 'add_load') { tab('logP'); return await actAddLoad(inp.name, inp.type, inp.floor, inp.fz) }
   if (name === 'add_bracing') { tab('logP'); return await actAddBracing(inp.building, inp.floors || []) }
-  if (name === 'verify_seismic_sseis') { tab('logP'); return await actSseisVerify() }
-  if (name === 'verify_story_weight') { tab('logP'); return await actStoryWeightVerify() }
-  if (name === 'verify_swind') { tab('logP'); return await actSwindVerify() }
+  if (name === 'verify_seismic_sseis') { tab('logP'); return plain(await actSseisVerify()) }
+  if (name === 'verify_story_weight') { tab('logP'); return plain(await actStoryWeightVerify()) }
+  if (name === 'verify_swind') { tab('logP'); return plain(await actSwindVerify()) }
   if (name === 'run_analysis') {
     await actAnalyze(); tab('resP')
     const d = S.results.disp && extremum(S.results.disp, 'DZ'), r = S.results.react && extremum(S.results.react, 'FZ')
     return `Analysis done. Max vertical disp ${d ? d.v.toFixed(3) + 'mm @node ' + d.node : 'n/a'}; max vertical reaction ${r ? (r.v / 1000).toFixed(1) + 'kN @node ' + r.node : 'n/a'}.`
   }
+  /* 동적해석·심사 결과는 표·판정이 담긴 HTML 이라 채팅에 그대로 남기고, LLM 에는 평문 요약 */
+  if (name === 'run_dynamic') {
+    const msg = await actDynamic({ rs: inp.rs !== false })
+    addMsg('bot', msg); tab(S.review ? 'resP' : 'logP')
+    return plain(msg)
+  }
+  if (name === 'review_indicators') {
+    const msg = await actReview()
+    addMsg('bot', msg); if (S.review) tab('resP')
+    return plain(msg)
+  }
   if (name === 'get_result') {
     const which = inp.which as 'disp' | 'react' | 'force'
     const ext = extremum(S.results[which] || { head: [], data: [] }, which === 'react' ? 'FZ' : which === 'disp' ? 'DZ' : 'MY')
     S.resultTab = which; tab('resP')
-    return ext ? `extreme ${ext.v} @node ${ext.node}` : 'no result yet'
+    return ext ? `extreme ${ext.v} @node ${ext.node} (units N, mm)` : 'no result yet — run_analysis first'
   }
+  if (name === 'set_design_code') {
+    if (!CODE_IDS.includes(inp.code)) return `ERROR: code must be one of ${CODE_IDS.join(', ')}`
+    setCode(inp.code)
+    return `Design code for new models = ${inp.code} (${PROFILES[inp.code as CodeId].designCode}).${S.model.spec ? ` Existing model keeps ${S.model.spec.code || '?'}.` : ''}`
+  }
+  if (name === 'show_panel') { const id = PANELS[inp.panel]; if (!id) return 'ERROR: unknown panel'; tab(id); if (id === 'viewP') onView3DTab(); return `Showing ${inp.panel}.` }
   if (name === 'clear_model') {
     await clearModel()
     S.model.nodes = []; S.model.cols = []; S.model.beams = []; S.model.links = []
     renderModelState(); return 'Model cleared.'
   }
-  if (name === 'get_status') return statusBrief().replace(/<[^>]+>/g, '') + (S.model.edits && S.model.edits.length ? (' Edits: ' + S.model.edits.join('; ')) : '')
+  if (name === 'propose_model') {
+    const p = stampSpec(buildSpec(inp, { ...RC.DEFAULT_SPEC } as BuildingSpec))
+    proposeBuild(p, false)   // 확인 카드 + 3D 미리보기 (Gen NX 불필요)
+    return `Proposal card shown with 3D preview: ${p.buildings} tower(s) × ${p.stories} stories, ${p.colName}/${p.beamName}, ${p.matName} (code ${p.code}). Waiting for the user to press Run (or call confirm_build).`
+  }
+  if (name === 'confirm_build') {
+    if (!S.pendingBuild) return 'ERROR: no pending proposal — use propose_model or build_frame'
+    if (!S.connected) return 'ERROR: Gen NX not connected — ask the user to connect via ⚙ first'
+    await confirmBuild(S.pendingBuild, S.pendingBuildId)
+    return S.model.nodes.length ? `Built from the proposal: nodes=${S.model.nodes.length}.` : 'Build did not complete — see the chat/log.'
+  }
+  if (name === 'set_view') {
+    const mag = +inp.zoom > 0 ? +inp.zoom : null   // 프리셋 대비 배율 → 카메라 거리 = 1/배율 (카메라만 바꾸면 기본 거리)
+    setView({ cam: inp.camera, zoom: mag ? 1 / mag : inp.camera ? 1 : undefined, vis: inp.show })
+    tab('viewP')
+    const v = S.view3d
+    return `3D view: camera ${v.cam}, zoom ×${(1 / v.zoom).toFixed(2)}, visible ${Object.entries(v.vis).filter(([, on]) => on).map(([k]) => k).join('/') || 'none'}.${S.preview || S.model.nodes.length ? '' : ' (nothing to display yet)'}`
+  }
+  if (name === 'show_results') {
+    const tb = inp.tab as ResultTab
+    if (!resultTable(tb)) return 'no result yet — run_analysis first'
+    S.resultTab = tb; tab('resP'); return `Showing ${tb} table.`
+  }
+  if (name === 'query_results') return queryResults(inp)
+  if (name === 'get_dynamic') {
+    const d = S.model.dynamic
+    if (!d) return 'no dynamic result — run_dynamic first'
+    return JSON.stringify({ T1: d.T1, rs: d.rs, rsPrimary: d.rsPrimary, Cs: d.Cs, V: d.V, Ta: d.Ta, rsChk: d.rsChk, modes: (d.modes || []).slice(0, 12) })
+  }
+  if (name === 'get_review') {
+    if (!S.review) return 'no review — run_dynamic (or review_indicators) first'
+    tab('resP')
+    return `basis ${S.review.rs ? 'response spectrum' : 'static'}\n` + S.review.items.map(i => `${i.status.toUpperCase()} ${i.label}${i.dir ? ' ' + i.dir : ''}: ${i.value} (limit ${i.limit}${i.where ? ', at ' + i.where : ''}; ${i.clause})`).join('\n')
+  }
+  if (name === 'set_theme') { if (!(THEMES as readonly string[]).includes(inp.theme)) return 'ERROR: unknown theme'; setTheme(inp.theme); return `Theme = ${inp.theme}.` }
+  if (name === 'get_status') {
+    const sp = S.model.spec
+    return plain(statusBrief()) + (sp ? ` Code ${sp.code}; seismic ${JSON.stringify(sp.seismic || {})}; wind ${JSON.stringify(sp.wind || {})}; slab ${sp.slabThk ?? 150} mm.` : '') +
+      (S.model.edits && S.model.edits.length ? (' Edits: ' + S.model.edits.join('; ')) : '')
+  }
   return 'unknown tool'
 }
 
@@ -141,11 +342,11 @@ function buildLLMRequest(provider: Provider, model: string, key: string): { url:
     return { url: 'https://api.anthropic.com/v1/messages',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key,
         'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: { model, max_tokens: 1024, system: SYSTEM, tools: TOOLS, messages } }
+      body: { model, max_tokens: 2048, system: system(), tools: tools(), messages } }
   }
   const compatUrl = OPENAI_COMPAT[provider]
   if (compatUrl) {
-    const messages: any[] = [{ role: 'system', content: SYSTEM }]
+    const messages: any[] = [{ role: 'system', content: system() }]
     S.conv.forEach(tn => {
       if (tn.role === 'user') messages.push({ role: 'user', content: tn.text })
       else if (tn.role === 'assistant') {
@@ -156,7 +357,7 @@ function buildLLMRequest(provider: Provider, model: string, key: string): { url:
         messages.push(m)
       } else tn.results!.forEach(r => messages.push({ role: 'tool', tool_call_id: r.id, content: r.output }))
     })
-    const body: any = { model, messages, tools: TOOLS.map(tl => ({ type: 'function',
+    const body: any = { model, messages, tools: tools().map(tl => ({ type: 'function',
       function: { name: tl.name, description: tl.description, parameters: tl.input_schema } })) }
     if (/^gpt-6-luna/.test(model)) body.reasoning_effort = 'none'   // luna: 도구호출은 none 에서만
     return { url: compatUrl, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key }, body }
@@ -175,8 +376,8 @@ function buildLLMRequest(provider: Provider, model: string, key: string): { url:
   })
   return { url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
     headers: { 'Content-Type': 'application/json' },
-    body: { systemInstruction: { parts: [{ text: SYSTEM }] },
-      tools: [{ functionDeclarations: TOOLS.map(tl => ({ name: tl.name, description: tl.description, parameters: gSchema(tl.input_schema) })) }],
+    body: { systemInstruction: { parts: [{ text: system() }] },
+      tools: [{ functionDeclarations: tools().map(tl => ({ name: tl.name, description: tl.description, parameters: gSchema(tl.input_schema) })) }],
       contents } }
 }
 
@@ -207,7 +408,7 @@ export async function handleLLM(txt: string): Promise<void> {
   const dropThinking = () => { if (th) { th.remove(); th = null } }
   try {
     let loop = 0
-    while (loop++ < 8) {
+    while (loop++ < 12) {   // 빌드→해석→동적→심사 연쇄 여유
       const req = buildLLMRequest(provider, model, key)
       const res = await fetch(req.url, { method: 'POST', headers: req.headers, body: JSON.stringify(req.body) })
       const data = await res.json()
