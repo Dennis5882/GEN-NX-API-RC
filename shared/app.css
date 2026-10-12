@@ -101,7 +101,7 @@ main.splitting .right,main.splitting .chat{pointer-events:none}
 .typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
 @keyframes blink{0%,60%,100%{opacity:.25}30%{opacity:1}}
 
-.composer{border-top:1px solid var(--border);padding:14px 16px;background:var(--panel2)}
+.composer{border-top:1px solid var(--border);padding:14px 16px calc(20px + env(safe-area-inset-bottom));background:var(--panel2)}
 .composer .row{display:flex;gap:10px;align-items:flex-end}
 .composer textarea{
   flex:1;resize:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;
@@ -354,12 +354,12 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 
 /* stats bar */
 .view-stats{
-  font-family:'IBM Plex Mono',var(--cjk);font-size:.69rem;color:var(--dim);
-  padding:5px 12px;border-top:1px solid var(--border);flex-shrink:0;
-  letter-spacing:.4px;display:flex;gap:16px;align-items:center;
+  font-family:'IBM Plex Mono',var(--cjk);font-size:.78rem;color:var(--muted);background:var(--panel);
+  padding:10px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--border);flex-shrink:0;
+  letter-spacing:.3px;display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;
 }
-.view-stats .vs-item{display:flex;align-items:center;gap:5px}
-.view-stats .vs-val{color:var(--muted)}
+.view-stats .vs-item{display:flex;align-items:center;gap:6px}
+.view-stats .vs-val{color:var(--txt);font-weight:600}
 .view-stats .vs-hi{color:var(--cyan)}
 
 /* plot fill */

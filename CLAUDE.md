@@ -171,7 +171,7 @@ T₁은 `EIGENVALUEMODE` 테이블에서 회수 (`PARTICIPATIONVECTORMODE` 아�
 
 ## 현재 빌드 버전
 MIDAS GEN NX 2026 (v2.1), Build **06/12/2026**.  
-도구 버전: **`package.json` version 이 단일 출처**(현재 `3.2.0`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
+도구 버전: **`package.json` version 이 단일 출처**(현재 `3.2.1`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
 
 ## 개발 환경 주의
 - Node.js v24 / npm 설치됨 (winget, 2026-10 확인). 엔진 스모크 테스트는 node ESM으로 가능.
