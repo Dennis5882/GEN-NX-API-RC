@@ -267,6 +267,8 @@ export const CN: CodeProfile = {
       num('w0', () => t('dead_w0'), () => '', 'kN/㎡'),   // 빈칸 = 모델 고정하중
       num('psiL', () => t('cn_psil'), () => 0.5),
       num('T', () => t('cn_t1'), () => '', 's'),
+      { key: 'category', kind: 'select', label: () => t('cn_cat'), def: () => 'auto',   // GB 50223 — 심사 지표 抗震等级에만 영향(지진작용 불변)
+        options: () => (['auto', 'B', 'C'] as const).map(v => ({ value: v, label: t(`cn_cat_${v}`) })) },
       { key: 'method', kind: 'select', label: () => t('cn_method'), def: () => 'auto',
         options: () => (['auto', 'ESL', 'RS'] as const).map(v => ({ value: v, label: t(`cn_method_${v}`) })) },
     ],

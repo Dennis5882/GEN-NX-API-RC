@@ -2,7 +2,8 @@
    중국 심사 지표(审图) — 동적해석 뒤 Gen NX 층 결과 테이블을 읽어 GB 한계와 비교.
    값 = Gen 표(라이브 확인 헤더, MAPI_FINDINGS 2026-10-12), 한계 = 원문 KB 대조 조문(2026-10-12 JGJ 3·GB 55008 KB 추가 후 재대조).
    - 房屋高度     JGJ 3-2010 3.3.1 표 3.3.1-1/2 (A级·B级 최대 적용높이) — 고층 등급이 아래 한계를 가름
-   - 抗震等级     GB 55002-2021 5.2.1 표 5.2.1 (丙类 가정 — 乙类 등은 GB 50223 미보유로 자동 판정 안 함)
+   - 抗震等级     GB 55002-2021 5.2.1 표 5.2.1 — 抗震设防类别(GB 50223-2008)이 乙类면 내진조치를 열도 +1도로(GB 55002 2.3.2-2,
+                  9度 → 特一级 JGJ 3 3.9.3, 올린 열도의 높이 상한 초과 → 一级보다 유효한 조치 GB 50011 6.1.3-4). 지진작용은 지역 열도 그대로
    - 混凝土强度等级 GB 55008-2021 2.0.2 (RC ≥ C25, 抗震等级 二级 이상 ≥ C30)
    - 층간변위각   GB 50011 5.5.1 / JGJ 3 3.7.3 (框架 1/550, 框架-剪力墙·框架-核心筒 1/800, 150~250m 는 1/500 까지 선형보간)
    - 剪重比       GB 55002 4.2.3 (= JGJ 3 4.3.12 표, λ = 0.2αmax × 주기보정)
@@ -66,7 +67,18 @@ function heightGrade(sys: Sys, c: string, H: number): { grade: 'A' | 'B' | 'over
 }
 
 /* GB 55002 표 5.2.1 (丙类) — 등급 1~4(一~四). 높이 상한 초과 시 표의 최고 등급 + '更有效措施' */
-const ZH_NUM = ['', '一', '二', '三', '四']
+const ZH_NUM = ['特一', '一', '二', '三', '四']
+/* 표 5.2.1 각 구조형식 열도별 높이 상한 m (框架-核心筒은 표의 '≤' 값) */
+const H_TOP: Record<Sys, Record<number, number>> = {
+  frame: { 6: 60, 7: 50, 8: 40, 9: 24 },
+  frameWall: { 6: 130, 7: 120, 8: 100, 9: 50 },
+  frameCore: { 6: 150, 7: 130, 8: 100, 9: 70 },
+}
+/** 抗震设防类别 — 자동 = 용도: 병원(GB 50223 4.0.3-2 二·三级医院)·학교(6.0.8 中小学 教学用房) → 乙类, 그 외 丙类(3.0.4·6.0.12) */
+export function categoryCN(p: BuildingSpec, sp: Record<string, any>): 'B' | 'C' {
+  if (sp.category === 'B' || sp.category === 'C') return sp.category
+  return p.bldgType === 'hospital' || p.bldgType === 'school' ? 'B' : 'C'
+}
 function seismicGrade(sys: Sys, deg: number, H: number): { frame: number; wall?: number } {
   if (sys === 'frame') {
     const t5: Record<number, [number, number, number]> = { 6: [24, 4, 3], 7: [24, 3, 2], 8: [24, 2, 1], 9: [24, 1, 1] }
@@ -111,10 +123,15 @@ export function cnReviewEvaluate(p: BuildingSpec, sp: Record<string, any>, data:
     limit: `${aTxt}${hg.b != null ? ` · B ≤ ${hg.b} m` : ''} (${SYS_ZH[sys]})`,
     status: hg.grade === 'A' ? 'ok' : hg.grade === 'B' ? 'warn' : 'ng', where: hg.grade === 'A' ? t('rv_grade_a') : hg.grade === 'B' ? t('rv_grade_b') : t('rv_grade_over'),
     clause: 'JGJ 3-2010 3.3.1' })
-  const sg = seismicGrade(sys, deg, H)
-  const gTxt = `${t('rv_frame')} ${ZH_NUM[sg.frame]}${sg.wall ? ` · ${t('rv_wall')} ${ZH_NUM[sg.wall]}` : ''}`
-  items.push({ id: 'grade', label: t('rv_grade'), value: gTxt, limit: `${deg}度 · ${H.toFixed(0)} m`, status: 'info',
-    clause: 'GB 55002 5.2.1', note: t('rv_grade_note') })
+  const cat = categoryCN(p, sp), md = cat === 'B' ? deg + 1 : deg   // 내진조치 열도
+  const sg = md > 9 ? { frame: 0, wall: sys === 'frame' ? undefined : 0 } : seismicGrade(sys, md, H)
+  const beyond = cat === 'B' && md <= 9 && H > H_TOP[sys][md]
+  const gTxt = `${t('rv_frame')} ${ZH_NUM[sg.frame]}${sg.wall != null ? ` · ${t('rv_wall')} ${ZH_NUM[sg.wall]}` : ''}`
+  items.push({ id: 'grade', label: t('rv_grade'), value: gTxt,
+    limit: `${cat === 'B' ? '乙类' : '丙类'} · ${md !== deg ? `${deg}度 → ${md > 9 ? '9度+' : `${md}度`}` : `${deg}度`} · ${H.toFixed(0)} m`,
+    status: beyond ? 'warn' : 'info', where: beyond ? t('rv_grade_beyond') : undefined,
+    clause: cat === 'B' ? (md > 9 ? 'GB 55002 2.3.2 / JGJ 3 3.9.3' : beyond ? 'GB 55002 2.3.2 / GB 50011 6.1.3' : 'GB 55002 2.3.2 · 5.2.1') : 'GB 55002 5.2.1',
+    note: t(cat === 'B' ? 'rv_grade_note_B' : 'rv_grade_note_C') })
   const mats = new Set<string>([p.matName, ...(RC.paletteFor(p).mats || [])].filter(Boolean) as string[])
   const fcu = (m: string) => +(m.match(/^C(\d+)$/)?.[1] || NaN)
   const minMat = [...mats].filter(m => !isNaN(fcu(m))).sort((a, b) => fcu(a) - fcu(b))[0]
