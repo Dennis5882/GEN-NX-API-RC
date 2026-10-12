@@ -54,6 +54,7 @@ export function App() {
 
   useEffect(() => {
     document.documentElement.lang = htmlLang(s.lang)
+    document.title = t('meta_title')   // 탭 제목도 현재 언어 (공유 미리보기는 빌드 시 정적 메타)
     if (!greeted) { greeted = true; addMsg('bot', t('welcome')) }   // StrictMode 이중 실행 방지
   }, [s.lang])
 

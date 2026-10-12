@@ -5,7 +5,7 @@
 ════════════════════════════════════════════════════════════ */
 import type { ReviewItem } from '../codes/types'
 import { useSyncExternalStore } from 'react'
-import { DEFAULT_LANG, detectLang, normalizeLang, type Lang } from '../i18n/types'
+import { DEFAULT_LANG, LANGS, detectLang, normalizeLang, type Lang } from '../i18n/types'
 import type { BuildingSpec } from '../engine/types'
 import type { CodeId } from '../codes/types'
 
@@ -106,7 +106,22 @@ function readCode(lang: Lang): CodeId {
 }
 
 /** 첫 언어 — 저장된 선택 > 브라우저 언어(navigator.languages) > 영어. 브라우저 정보가 없으면(SSR) 기본 ko */
+/** 공유 링크의 언어 — 경로 /zh-CN/ 등 또는 ?lang=zh-CN (vite.config.ts langPages 가 경로별 정적 페이지 생성) */
+function urlLang(): Lang | null {
+  if (typeof location === 'undefined') return null
+  const seg = location.pathname.split('/').filter(Boolean)[0] || ''
+  const q = new URLSearchParams(location.search).get('lang') || ''
+  const pick = (raw: string) => LANGS.find(l => l.toLowerCase() === raw.toLowerCase()) ?? null
+  return pick(q) ?? pick(seg)
+}
+
 function readLang(): Lang {
+  /* 링크로 지정된 언어가 최우선 — 받은 사람이 그 언어로 보도록. 이후 헤더에서 바꾸면 그 선택이 저장됨 */
+  const u = urlLang()
+  if (u) {
+    try { localStorage.setItem('nx_lang', u) } catch { /* storage 차단 */ }
+    return u
+  }
   try {
     const saved = normalizeLang(localStorage.getItem('nx_lang'))
     if (saved) return saved

@@ -89,6 +89,7 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 - 로컬 NLP: `parse.ts` `normalizeZh()` 가 간체 전용 글자→번체 + 대륙 어휘(创建→建立, 添加→新增, 运行→执行…) 정규화 후 기존 번체 정규식 사용 → **정규식엔 번체만 추가**하면 간체도 인식.
 - 폰트: `app.css` `--cjk` 변수 — `:lang(zh-Hans)` SC 우선, `:lang(zh-Hant)` TC 우선, 그 외 KR 우선. 새 CJK 언어는 여기와 index.html Google Fonts 링크에 추가.
 - `npm run i18n:check`(build·typecheck 에 포함): 함수 인자 수·타입 불일치, 폴백 누락, keys.gen 불일치 = 오류 / 일부 언어 키 누락 = 경고(`--strict` 시 오류).
+- **공유 링크 언어**: `/zh-CN/`·`/zh-TW/`·`/en/`·`/ko/`(빌드 시 언어별 정적 index.html + og 메타 = i18n `meta_title`/`meta_desc`, `vite.config.ts` langPages — 메신저 미리보기는 JS 미실행이라 정적 메타 필수). 링크·`?lang=` 언어 > 저장값, 언어 변경 시 주소 동기화(`syncLangUrl`).
 - 언어 영속성: `localStorage('nx_lang')`. 첫 방문은 **브라우저 언어**(`detectLang`: zh-TW/HK/MO·Hant→zh-TW, 그 밖의 zh→zh-CN, ko, en, 미지원→en). IP 기반 아님.
 - 미정리(차기): LLM SYSTEM 프롬프트 응답언어 규칙은 언어별 수동 기재(현재 ko/en/zh-TW/zh-CN). 도움말 예시 일부(`樓層數改為 20`, `結果分頁` 등)는 파서가 원래 인식 못 함(기존 결함).
 
@@ -170,7 +171,7 @@ T₁은 `EIGENVALUEMODE` 테이블에서 회수 (`PARTICIPATIONVECTORMODE` 아�
 
 ## 현재 빌드 버전
 MIDAS GEN NX 2026 (v2.1), Build **06/12/2026**.  
-도구 버전: **`package.json` version 이 단일 출처**(현재 `3.1.1`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
+도구 버전: **`package.json` version 이 단일 출처**(현재 `3.2.0`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
 
 ## 개발 환경 주의
 - Node.js v24 / npm 설치됨 (winget, 2026-10 확인). 엔진 스모크 테스트는 node ESM으로 가능.

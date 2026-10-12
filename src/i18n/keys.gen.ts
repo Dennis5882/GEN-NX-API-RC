@@ -217,6 +217,8 @@ export type I18nKey =
   | 'mapi_key_ph'
   | 'massSrc'
   | 'material'
+  | 'meta_desc'
+  | 'meta_title'
   | 'mode'
   | 'mode_local'
   | 'mode_nokey'

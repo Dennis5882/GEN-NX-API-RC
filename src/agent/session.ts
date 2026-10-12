@@ -1,6 +1,6 @@
 /* 세션 액션 — 전송·언어·공급자·연결 테스트·대화 초기화 (바닐라 SEND / SETTINGS / I18N APPLY) */
 import { escapeHtml, htmlLang, t } from '../i18n'
-import type { Lang } from '../i18n/types'
+import { LANGS, type Lang } from '../i18n/types'
 import { verifyConn } from '../mapi/client'
 import type { CodeId } from '../codes/types'
 import { S, notify, type Provider } from '../state/store'
@@ -37,11 +37,24 @@ export function clearChat(): void {
 }
 
 /** 언어 변경 — 채팅은 언어 혼용을 피하기 위해 초기화 후 환영문 재출력 (바닐라 동일) */
+/** 언어 링크(/zh-CN/ · ?lang=)로 들어온 경우 주소도 새 언어로 — 주소창을 복사해 공유해도 지금 언어로 미리보기 */
+function syncLangUrl(l: Lang): void {
+  try {
+    const u = new URL(location.href)
+    const seg = u.pathname.split('/').filter(Boolean)
+    const isLangPath = seg.length === 1 && LANGS.some(x => x.toLowerCase() === seg[0].toLowerCase())
+    if (u.searchParams.has('lang')) u.searchParams.set('lang', l)
+    if (isLangPath) u.pathname = `/${l}/`
+    if (u.href !== location.href) history.replaceState(null, '', u.href)
+  } catch { /* SSR 등 */ }
+}
+
 export function setLang(l: Lang): void {
   S.lang = l
   try { localStorage.setItem('nx_lang', l) } catch { /* noop */ }
   if (!S.codeChosen) S.code = l === 'zh-CN' ? 'CN' : 'TW'   // 기준을 직접 고르기 전엔 언어를 따라감
   document.documentElement.lang = htmlLang(l)
+  syncLangUrl(l)
   S.conv = []
   draw3D()
   S.msgs = []; S.pendingBuild = null
