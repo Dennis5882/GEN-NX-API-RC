@@ -1,3 +1,4 @@
+import { APP_VERSION, BUILD_DATE } from '../version'
 import { llmActive, setCode, setLang } from '../agent/session'
 import { CODE_IDS, type CodeId } from '../codes'
 import { LANG_DEFS, t, type Lang } from '../i18n'
@@ -12,7 +13,7 @@ export function Header({ onOpenMapi, onOpenLlm }: { onOpenMapi(): void; onOpenLl
       <div className="mark">GEN</div>
       <h1>
         Gen NX Agent
-        <span className="byline">{t('dev')} <b>Dennis</b> · v2.0.0-alpha ({t('updated')} : 2026-10-11)</span>
+        <span className="byline">{t('dev')} <b>Dennis</b> · v{APP_VERSION}{BUILD_DATE && ` (${t('updated')} : ${BUILD_DATE})`}</span>
         <small>{t('subtitle')}</small>
       </h1>
       <div className="spacer" />

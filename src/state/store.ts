@@ -5,7 +5,7 @@
 ════════════════════════════════════════════════════════════ */
 import type { ReviewItem } from '../codes/types'
 import { useSyncExternalStore } from 'react'
-import { DEFAULT_LANG, normalizeLang, type Lang } from '../i18n/types'
+import { DEFAULT_LANG, detectLang, normalizeLang, type Lang } from '../i18n/types'
 import type { BuildingSpec } from '../engine/types'
 import type { CodeId } from '../codes/types'
 
@@ -105,11 +105,15 @@ function readCode(lang: Lang): CodeId {
   return lang === 'zh-CN' ? 'CN' : 'TW'
 }
 
+/** 첫 언어 — 저장된 선택 > 브라우저 언어(navigator.languages) > 영어. 브라우저 정보가 없으면(SSR) 기본 ko */
 function readLang(): Lang {
   try {
-    return normalizeLang(localStorage.getItem('nx_lang')) ?? DEFAULT_LANG
+    const saved = normalizeLang(localStorage.getItem('nx_lang'))
+    if (saved) return saved
   } catch { /* storage 차단 환경 */ }
-  return DEFAULT_LANG
+  const nav = typeof navigator !== 'undefined' ? navigator : null
+  if (!nav || (!nav.languages?.length && !nav.language)) return DEFAULT_LANG
+  return detectLang(nav.languages?.length ? nav.languages : [nav.language]) ?? 'en'
 }
 
 const initLang = readLang()

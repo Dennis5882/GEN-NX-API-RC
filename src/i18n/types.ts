@@ -24,6 +24,19 @@ export function normalizeLang(raw: string | null | undefined): Lang | null {
   return (LANGS as readonly string[]).includes(l) ? (l as Lang) : null
 }
 
+/** 브라우저 선호 언어 → 지원 언어 (첫 방문용). zh-TW/HK/MO·Hant → 번체, 그 밖의 zh → 간체.
+    선호 목록 중 처음 맞는 것, 없으면 null (호출부가 영어로 폴백) */
+export function detectLang(prefs: readonly string[] | null | undefined): Lang | null {
+  for (const raw of prefs || []) {
+    const l = String(raw).toLowerCase()
+    if (/^zh-(tw|hk|mo|hant)/.test(l)) return 'zh-TW'
+    if (/^zh\b/.test(l)) return 'zh-CN'
+    if (/^ko\b/.test(l)) return 'ko'
+    if (/^en\b/.test(l)) return 'en'
+  }
+  return null
+}
+
 /** <html lang> 값 */
 export function htmlLang(l: Lang): string {
   return LANG_DEFS.find(d => d.code === l)?.html ?? l
