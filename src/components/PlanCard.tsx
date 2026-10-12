@@ -6,7 +6,7 @@ import { confirmBuild } from '../agent/local'
 import { planSummaryHTML } from '../agent/plan'
 import { t } from '../i18n'
 import { S, useStore, type ChatMsg } from '../state/store'
-import { previewSpec, tab } from '../state/ui'
+import { draw3D, previewSpec, tab } from '../state/ui'
 import { PlanEditor } from './PlanEditor'
 
 type PlanMsg = Extract<ChatMsg, { kind: 'plan' }>
@@ -52,7 +52,7 @@ export function PlanCard({ msg }: { msg: PlanMsg }) {
         <div className="confirm-row">
           <button className="btn btn-c" onClick={() => void confirmBuild(spec, msg.buildId)}>{t('exec')}</button>
           {!editing && <button className="btn btn-ghost" onClick={onEdit}>{t('edit_btn')}</button>}
-          <button className="btn btn-ghost" onClick={() => setCancelled(true)}>{t('cancel')}</button>
+          <button className="btn btn-ghost" onClick={() => { setCancelled(true); if (S.preview) draw3D() }}>{t('cancel')}</button>
         </div>
       )}
     </>

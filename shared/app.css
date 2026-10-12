@@ -174,6 +174,7 @@ main.splitting .right,main.splitting .chat{pointer-events:none}
 .gsec.closed .garrow{transform:rotate(-90deg)}
 .gsec-items{overflow:hidden;transition:max-height .2s ease;display:flex;flex-direction:column;gap:2px;padding-left:2px}
 .gsec.closed .gsec-items{max-height:0!important}
+.gsec-items>*{flex-shrink:0}   /* 접힌 상태(max-height 0)에서 재는 scrollHeight 가 눌린 높이가 되지 않게 */
 
 /* 명령 버튼 — 카드형, 호버 시 강조 바·↵ 칩 */
 .gcmd{

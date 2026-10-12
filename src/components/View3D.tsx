@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { RC } from '../engine'
 import { roleLbl, t, type I18nKey } from '../i18n'
-import { S, useStore, type AppState } from '../state/store'
-import { draw3D } from '../state/ui'
+import { S, notify, useStore, type AppState } from '../state/store'
 
 type Plotly = typeof import('plotly.js-dist-min')
 type VisKey = 'col' | 'beam' | 'node' | 'floor'
@@ -245,5 +244,6 @@ export function View3D() {
   )
 }
 
-/** 3D 탭 클릭 = 현재 모델로 다시 그리기 (바닐라 tab('viewP');draw3D()) */
-export const onView3DTab = draw3D
+/** 3D 탭 클릭 = 다시 그리기만 — 미리보기(빌드 전 확인 카드)는 유지. 빌드·편집 액션이 draw3D() 로 미리보기를 끝낸다.
+    (이전엔 draw3D 를 불러 미리보기가 지워져, 미연결 상태에서 탭을 오가면 빈 화면) */
+export function onView3DTab(): void { S.viewNonce++; notify() }

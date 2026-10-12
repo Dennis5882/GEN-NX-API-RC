@@ -76,9 +76,12 @@ export async function testConn(): Promise<TestOut> {
   try {
     const { ok, status, j } = await verifyConn()
     /* 401·403 = 키 거부 → Base URL/서버 안내 대신 키 확인 안내 */
-    if (!ok) { fail(); return { cls: 'err', text: status === 401 || status === 403 ? t('test_keyfail') : t('test_http', status) } }
+    if (!ok) { fail(); return { cls: 'err', text: status === 401 || status === 403 ? `${t('test_keyfail')}
+(HTTP ${status})` : t('test_http', status) } }
     const connected = j && j.status === 'connected' && j.keyVerified !== false
-    if (!connected) { fail(); return { cls: 'err', text: t('test_keyfail') } }
+    /* 원인 구분용 — 릴레이 응답 그대로(status·keyVerified) */
+    if (!connected) { fail(); return { cls: 'err', text: `${t('test_keyfail')}
+(status: ${j?.status ?? '-'} · keyVerified: ${j?.keyVerified ?? '-'})` } }
     S.connected = true; S.connErr = false
     S.program = (j.program || '').toLowerCase(); S.apiUser = j.user || ''
     notify()
