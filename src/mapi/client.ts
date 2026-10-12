@@ -18,11 +18,9 @@ export function getClient(): MidasClient {
   const base = S.baseUrl.trim().replace(/\/$/, '')
   const key = S.mapiKey.trim()
   if (!cached || cached.key !== key || cached.base !== base) {
-    /* fetch 를 래핑해 넘김 — SDK(2.9.3)는 `this.fetch = globalThis.fetch` 후 `this.fetch(url)` 로 호출하는데,
-       브라우저는 window 가 아닌 this 로 부른 fetch 를 "Illegal invocation" 으로 거부 → "GET /mapikey/verify failed".
-       (Node 는 허용해서 SSR 라이브 테스트에선 안 드러남, 2026-10-12 배포 후 발견) */
-    const fetchFn: typeof fetch = (input, init) => globalThis.fetch(input, init)
-    cached = { key, base, client: new MidasClient({ mapiKey: key, baseUrl: base, product: 'gen', timeout: TIMEOUT_MS, fetch: fetchFn }) }
+    /* 기본 fetch 사용 — midas-nx 2.10.1 이 fetch 를 떼어 호출하도록 고침(2.9.3 은 this.fetch(url) → 브라우저 "Illegal invocation").
+       2.9.x 로 내리면 v3.0.1 처럼 fetch 래퍼를 다시 넘겨야 함 → package.json 은 ^2.10.1 */
+    cached = { key, base, client: new MidasClient({ mapiKey: key, baseUrl: base, product: 'gen', timeout: TIMEOUT_MS }) }
   }
   return cached.client
 }

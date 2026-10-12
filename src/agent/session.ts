@@ -75,7 +75,8 @@ export async function testConn(): Promise<TestOut> {
   if (!S.baseUrl.trim() || !S.mapiKey.trim()) return { cls: 'err', text: t('test_need') }
   try {
     const { ok, status, j } = await verifyConn()
-    if (!ok) { fail(); return { cls: 'err', text: t('test_http', status) } }
+    /* 401·403 = 키 거부 → Base URL/서버 안내 대신 키 확인 안내 */
+    if (!ok) { fail(); return { cls: 'err', text: status === 401 || status === 403 ? t('test_keyfail') : t('test_http', status) } }
     const connected = j && j.status === 'connected' && j.keyVerified !== false
     if (!connected) { fail(); return { cls: 'err', text: t('test_keyfail') } }
     S.connected = true; S.connErr = false
