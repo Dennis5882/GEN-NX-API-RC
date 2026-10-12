@@ -214,6 +214,11 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
             </select>
           </div>
           <div className="pe-tip" style={{ opacity: 0.75 }}>{t('rigd_db_rigd_rigid_link_man')}</div>
+          <div className="pe-grid" style={{ marginTop: 8 }}>
+            <div className="pe-f"><label>{t('slab_thk')}</label><div className="pe-in">
+              <input type="number" step="any" min={0} value={st.slabThk} onChange={e => setSt(s => ({ ...s, slabThk: e.target.value }))} /><Unit u="mm" /></div></div>
+          </div>
+          <div className="pe-tip" style={{ opacity: 0.75 }}>{t('slab_tip')}</div>
         </div>
 
         {/* ── M2-A1 지진 · M2-A2 풍하중 (설계기준 프로필) ── */}

@@ -3,6 +3,7 @@
    DOM 대신 EditorState 를 단일 출처로 사용. 입력값은 문자열로 보관(입력 중 상태 보존).
 ════════════════════════════════════════════════════════════ */
 import { profileOf, type LateralGroup } from '../codes'
+import { slabThk } from '../codes/selfweight'
 import { RC, type BuildingSpec, type Palette } from '../engine'
 import { editorPalette } from './plan'
 
@@ -49,6 +50,8 @@ export interface EditorState {
   seis: LateralState
   wind: LateralState
   core: { on: boolean; thick: string }
+  /** 슬래브 두께 mm (바닥 DL 자중) */
+  slabThk: string
 }
 
 let keySeq = 0
@@ -87,6 +90,7 @@ export function initEditor(p: BuildingSpec): EditorState {
     seis: initLateral(prof.seismic, p.seismic, p),
     wind: initLateral(prof.wind, p.wind, p),
     core: { on: !!c.on, thick: str(c.thick ?? 250) },
+    slabThk: str(slabThk(p)),
   }
 }
 
@@ -145,6 +149,8 @@ export function editorToSpec(st: EditorState, base: BuildingSpec): BuildingSpec 
     p.h1 = (rows.find(g => g.from <= 1 && 1 <= g.to) || rows[rows.length - 1]).h
     p.hTyp = (rows.find(g => g.role === 'TYPICAL') || rows[rows.length - 1]).h
   }
+  const sl = parseFloat(st.slabThk)
+  p.slabThk = isNaN(sl) ? slabThk(base) : Math.max(0, sl)
   p.storyData = st.storyData
   p.diaphragmMethod = st.diaMethod
   const seis = readLateral(prof.seismic, st.seis)

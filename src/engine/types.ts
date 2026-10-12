@@ -68,6 +68,8 @@ export interface BuildingSpec {
   wind?: WindInput
   core?: CoreInput
   walls?: any[]
+  /** 슬래브 두께 mm — 바닥 DL 에 자중(두께×γc)으로 반영. 없으면 150 (src/codes/selfweight.ts) */
+  slabThk?: number
   [extra: string]: unknown
 }
 

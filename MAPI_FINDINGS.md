@@ -1267,3 +1267,11 @@ Story(STOR/STRY)·Wind(WIND)·정적지진 생성·**모달 주기 numeric 회�
 - **자동저장 경로 모달**: `doc/saveas` 경로 `C:/Users/<MAPI 이메일 앞부분>/Documents/...`가 실제 Windows 사용자 폴더와 달라 Gen NX "잘못된 경로" 모달 → 해석이 모달 대기로 89.5s 지연(API 는 응답). `C:/temp` 고정 후 6.8s. 경로는 Gen NX 실행 PC 기준.
 - **모델 질량 과소(앱 모델링 결함, TW·CN 공통)**: Gen 층중량 ≈ 5,100 kN/층(5.3 kN/㎡) — 바닥하중이 마감(SDL)+활하중뿐이고 **슬래브 자중 누락**. 앱 정적 지진의 w0=12 kN/㎡ 가정과 불일치(정적 V 17,449 vs RS 밑면전단 2,708 kN). 해결 필요.
 
+
+## 2026-10-12 라이브 재검증 — 슬래브 자중·RS 주 해석·RS 배율·심사 지표 (CN·TW 사무 10층 시험 모델)
+
+- **슬래브 자중 반영 확인**: FBLD DL 에 슬래브(두께×γc)를 더하자 Gen 층중량(`WEIGHT_IRREGULARITY_X`, DL 행)이 앱 `modelDeadWeights`+활하중분과 일치 — CN 8,747 = 8,747 kN, TW 7,886 vs 7,882 kN(0.05%). `OPT_SUB_BEAM_WEIGHT:true` 는 보 자중을 **빼지 않음**(질량 이중 계산 걱정 불필요).
+- **lcom-gen `vCOMB.ANAL:"RS"`** 로 RSX/RSY 를 조합에 넣을 수 있음(GET 으로 그대로 회수).
+- **SPLC SCALE 재설정 후 doc/anal 재실행** 시 RS 결과가 배율대로 바뀜 — TW 3.3: SCALE 0.2381→0.2509 후 `STORY_SHEAR_FORCE_COEFFICIENT` 1F V = 4,076.6 kN = 0.9×정적 V 4,530 kN.
+- **EIGENVALUEMODE SUB_TABLES 의 질량참여는 두 표**: `MODAL PARTICIPATION MASSES PRINTOUT (1)` = 비율(%) 헤더 `TRAN-XMASS(%)`…, `(2)` = 절대질량(헤더에 `(%)` 없음). 그 외 `MODAL PARTICIPATION FACTOR PRINTOUT (kN,m)`, `MODAL DIRECTION FACTOR PRINTOUT`. (1) 만 써야 함 — 둘을 이으면 모드 수 2배·NaN.
+- 동적해석 doc/anal 앞의 `ope/STOR` 로 층 결과 테이블 정상(CN 심사 지표 9항목 전부 값).

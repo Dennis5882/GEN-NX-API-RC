@@ -7,7 +7,7 @@ import { RC, type BuildingSpec } from '../engine'
 import { S, type ResultTab } from '../state/store'
 
 export type Command =
-  | { intent: 'help' | 'conn_check' | 'clear' | 'analyze' | 'status' | 'unknown' }
+  | { intent: 'help' | 'conn_check' | 'clear' | 'analyze' | 'status' | 'review' | 'unknown' }
   | { intent: 'tab'; which: '3d' | 'result' | 'log' | 'model' }
   | { intent: 'build'; params: BuildingSpec }
   | { intent: 'modify_section'; target: 'col' | 'beam'; H: number; B: number }
@@ -117,6 +117,8 @@ export function parseCommand(txt: string): Command {
     }
   }
   /* M2-A4: 동적해석(고유치·응답스펙트럼) — '해석'을 포함하므로 analyze 보다 먼저 판정 */
+  /* 심사 지표(审图) — normalizeZh 글자표에 审·图·标 이 없어 간체를 직접 나열 */
+  if (/심사|검토\s*지표|審圖|审图|審查|审查|指標|指标|review\s*(indicator|check)?s?/i.test(t)) return { intent: 'review' }
   if (/동적\s*해석|고유치|고유\s*주기|모드\s*해석|진동\s*주기|응답\s*스펙트럼|반응\s*스펙트럼|動力分析|特徵值|振態|反應譜|週期|dynamic|eigen|modal|mode\s*shape|response\s*spectrum/i.test(t)) {
     const rs = /응답\s*스펙트럼|반응\s*스펙트럼|反應譜|response\s*spectrum|spectrum/i.test(t)
     return { intent: 'dynamic', rs }

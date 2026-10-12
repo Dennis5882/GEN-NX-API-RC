@@ -1,6 +1,7 @@
 /* 우측 패널 — 활동 로그 · 모델 상태 · 해석 결과 (바닐라 renderModelState / renderResults 1:1) */
 import { useEffect, useRef } from 'react'
 import { bt } from '../agent/plan'
+import { reviewIcon } from '../actions/review'
 import { momentTable, resultStats } from '../agent/results'
 import { profileOf } from '../codes'
 import { RC } from '../engine'
@@ -96,16 +97,50 @@ export function ModelPanel() {
 
 const MAX_ROWS = 200
 
+/** 심사 지표(审图) — 기준 프로필 review 결과 (값: Gen 층 결과 테이블, 한계: 조문) */
+function ReviewBlock({ rv }: { rv: NonNullable<typeof S.review> }) {
+  return (
+    <div className="res-review" style={{ marginBottom: 14 }}>
+      <div style={{ fontWeight: 600, color: 'var(--cyan)', marginBottom: 6 }}>
+        📋 {t('rv_title')} <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '.8em' }}>({rv.rs ? t('rv_src_rs') : t('rv_src_st')})</span>
+      </div>
+      <div style={{ overflow: 'auto' }}>
+        <table>
+          <thead><tr><th></th><th>{t('rv_item')}</th><th>{t('rv_value')}</th><th>{t('rv_limit')}</th><th>{t('rv_where')}</th><th>{t('rv_clause')}</th></tr></thead>
+          <tbody>
+            {rv.items.map((it, i) => {
+              const c = reviewIcon(it.status)
+              return (
+                <tr key={i} title={it.note || ''}>
+                  <td style={{ color: c.color, fontWeight: 700 }}>{c.icon}</td>
+                  <td>{it.label}{it.dir ? ' ' + it.dir : ''}</td>
+                  <td style={{ color: c.color, fontWeight: 600 }}>{it.value}</td>
+                  <td>{it.limit}</td>
+                  <td style={{ color: 'var(--muted)' }}>{it.where || ''}</td>
+                  <td style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>{it.clause}{it.note ? ' *' : ''}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      {rv.items.some(i => i.note) && <div className="pe-tip" style={{ opacity: 0.8 }}>* {[...new Set(rv.items.map(i => i.note).filter(Boolean))].join(' · ')}</div>}
+    </div>
+  )
+}
+
 export function ResultsPanel() {
   const s = useStore()
   const r = s.results
-  if (!r.react && !r.disp && !r.force) return <div id="results"><div className="res-empty">{t('res_empty')}</div></div>
+  const rv = s.review
+  if (!r.react && !r.disp && !r.force) return <div id="results">{rv ? <ReviewBlock rv={rv} /> : <div className="res-empty">{t('res_empty')}</div>}</div>
   const tabs: [ResultTab, string][] = [['react', t('r_react')], ['disp', t('r_disp')], ['force', t('r_force')], ['moment', t('r_moment')]]
   const tbl = s.resultTab === 'moment' ? momentTable() : r[s.resultTab]
   /* 탭별 요약바 — 표를 훑지 않아도 최대 변위/반력/휨모멘트를 바로 보이게 */
   const stat = tbl ? resultStats(s.resultTab) : ''
   return (
     <div id="results">
+      {rv && <ReviewBlock rv={rv} />}
       <div className="res-sel">
         {tabs.map(([k, l]) => (
           <button key={k} className="chip" style={s.resultTab === k ? { borderColor: 'var(--cyan)', color: 'var(--cyan)' } : undefined}

@@ -336,7 +336,7 @@ function seismicKExp(T){ return T<=0.5?1:(T>=2.5?2:1+(T-0.5)/2); }
    override 우선순위: params.V(직접 밑면전단) > params.Cs(계수) > 스펙트럼식 */
 function seismicStoryForces(spec, params){
   params=params||{};
-  const W=seismicStoryWeights(spec,params);
+  const W=params.W||seismicStoryWeights(spec,params);   // params.W: 층별 중량 직접 지정(모델 산정)
   const elev=storyElevations(spec);
   const Wtot=W.reduce((a,b)=>a+(b||0),0);
   const T=fundamentalPeriod(spec,params);

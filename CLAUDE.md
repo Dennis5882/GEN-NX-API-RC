@@ -43,7 +43,7 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 ## 설계기준 프로필 (2026-10-11, `src/codes/`)
 
 - **UI 언어와 독립된 축.** 기준 의존 로직(재료 DB·용도하중·하중조합·지진/풍 층력·층중량·응답스펙트럼·편집카드 지진/풍 입력항목·지역 프리셋)은 전부 `CodeProfile`(`src/codes/types.ts`)을 거친다. 액션/편집기에서 `RC.taiwanCombos`·`RC.seismicStoryForces` 등 **직접 호출 금지** → `profileOf(spec)` / `profile()`.
-- `TW`(`src/codes/tw.ts`) — `shared/rc_engine.js` 대만 구현을 감쌈(동작 불변, 등가성 하네스로 검증).
+- `TW`(`src/codes/tw.ts`) — 2026-10-12 대만 규범 원문 기준 재구현(아래 '해석 신뢰성 보강' 참조). 재료·용도하중·지역 프리셋만 `shared/rc_engine.js` 공유.
 - `CN`(`src/codes/cn.ts`, 2026-10-12) — **해석 범위만**(배근·도면 제외, 사용자 결정). 조합 GB 55001/55002(γG 1.3, γQ 1.5, γEh 1.4, 지진조합 방향별), 지진 GB 50011 底部剪力法(설방열도·분조·장지류별 select, 감쇠보정, δn, 최소전단계수 0.2αmax), 풍 GB 50009 wk=βz·μs·μz·w0, 응답스펙트럼 Gen NX 네이티브 `CH2010`, 질량원 활하중 0.5·不上人屋面 제외.
   - **원문 대조 완료(2026-10-12)** — KB `E:/MIDAS PROGRAM/COde/CN/knowledge/{gb50009-2012,gb50011-2010,gb55001-2021,gb55002-2021,gb50010-2010}/chunks.jsonl`: 활하중(55001 表4.2.2·4.2.8), γG·γQ(55001 3.1.13), 풍 ψc 0.6(50009 8.1.4), G_E 조합값(55002 表4.1.3), αmax·Tg(55002 表4.2.2), 곡선·감쇠(50011 5.1.5), Geq·δn(50011 5.2.1), γEh 1.4(55002 4.3.2 = 50011 2024 局部修订 5.4.1), μz(50009 表8.2.1 — 식이 표 재현), μs(表8.3.1-30), RC 단위중량 24~25(50009 附录A), Ec·νc·αc(50010).
   - 원문 대조로 고친 것: **최소 지진전단계수 = 층별 검사 + 주기보정**(55002 4.2.3, 미달 시 전 층력 증폭), **경험주기 T1 = 0.25+0.53e-3·H²/∛B**(50009 F.2.2-1, B=평면 장변 → 보수적), **βz ≥ 1.2·w0 ≥ 0.30 강제**(55001 4.6.5·4.6.2).
@@ -53,6 +53,23 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 - 대만 하드코딩 제거 지점: 빌드 메시지 조합 참조(`comboRefs`), 계수 표기(`coefLabel` Cs/α1), 동적해석 재산정 조건(`ready`), 질량원(`massLiveRatio`·`massLiveTypes`).
 - 편집카드 지진/풍 = 프로필 `fields`(number/select)·`presets`·`tipHtml` 로 렌더(`LateralSection`). 기준별로 입력 항목이 달라도 UI 코드 수정 불필요.
 - 기준 추가 = `src/codes/<id>.ts` + `PROFILES` 한 줄 + `CodeId` 유니온.
+
+### 해석 신뢰성 보강 (2026-10-12, Gen NX 라이브 확인 완료 — CN·TW 사무 10층)
+- **슬래브 자중**(TW·CN 공통, 의도적 동작 변경): `spec.slabThk`(mm, 기본 150, 편집카드) → FBLD DL = SDL + 두께×`concreteGamma`(TW 23.5 = 2400kgf/m³, CN 25). 바닥판은 요소가 아니므로 DL 로 재하. 이전엔 누락돼 Gen 질량 ≈5.3kN/㎡.
+- **지진 중량 w0 빈칸(기본) = 모델 고정하중** — `src/codes/selfweight.ts` `modelDeadWeights`(buildFrame+specSections 로 기둥·벽 반분/보·바닥 전량 + SDL + 슬래브) → 정적 지진 중량 = 동적해석 질량 출처. w0 입력 시 기존 면적×w0. TW 는 `rc_engine.seismicStoryForces(params.W)` 로 주입.
+- **CN 응답스펙트럼 주 해석**: 지진 입력 `method` auto/ESL/RS, auto = 지상 H>40m(GB 50011 5.1.2, `heightAboveGround` 지하 제외). `actDynamic` 에서 RS 강제 → `S.model.rsCases`(RSX/RSY, 조합 vCOMB `ANAL:'RS'`)로 지진 조합 교체(정적 EX/EY 는 规定水平力 참고용으로 모델에 남김, `loadCases` 와 분리 — 정적 결과 회수가 `(ST)` 를 붙이므로) → `STORY_SHEAR_FORCE_COEFFICIENT` 로 층별 剪重比 ≥ λ 검사 → 미달 방향은 **SPLC SCALE η 후 재해석**(5.2.5 조문설명: 내력·변위 모두 조정). 전 층 동일 배율 = 단순화.
+- 라이브: Gen 층중량 = 앱 산정(CN 8,747=8,747, TW 7,886/7,882 kN), RS 조합 `ANAL:'RS'` 수용, SCALE 재해석 반영(TW 1F V = 0.9×정적 V 정확), 심사 지표 9항목 값. 질량참여는 SUB_TABLES `PRINTOUT (1)`(%)만 — `(2)` 는 절대질량.
+- **CN 정적 EX/EY 우발편심**: `seismic.staticAccEcc` 0.05 → 층 비틀림 MZ = F·0.05·L⊥ 를 CNLD 에 함께 재하(3.4.3 '具有偶然偏心的规定水平力'). + 방향 1개만.
+- **심사 지표(审图) 패널**: 프로필 `review` 훅(`src/codes/cnReview.ts`) + `actions/review.ts` → `S.review` → 결과 탭 상단 표 + 채팅 요약. 동적해석 끝에 자동, 인텐트 `review`(심사/审图/指标/review). 항목: 층간변위각(5.5.1, 框架 1/550·벽 有 1/800, Δ/h 는 Gen 'Story Drift'/높이 — Gen 'Modified Drift' 는 코드계수 포함이라 미사용), 剪重比(55002 4.2.3), 扭转位移比(3.4.3 >1.2·3.4.4 ≤1.5, 정적 EX/EY), 유효질량 ≥90%(5.2.2 조문설명), 주기비 ≤0.9(**JGJ 3-2010 3.4.5 — KB 없음, 미대조**). RS 미실행이면 변위는 EX/EY(ST).
+  - 층 결과 테이블은 Story Calc(`ope/STOR`) 전제 → CN 은 동적해석 doc/anal **앞**에서 `putStoryCalc` (뒤에 부르면 결과 무효화).
+- **2동 층력 중복 재하 수정**(바닐라부터 있던 결함): `applyLateral` 이 층력 합계를 동마다 통째로 재하 → CNLD 합 = 2V(풍 동일). 이제 같은 층 모든 동 절점에 합계를 분배(층력 함수는 동 수를 이미 곱함). 1동 출력 불변.
+- **대만 프로필 원문 재구현(2026-10-12, 사용자 결정 A)** — `src/codes/tw.ts` 가 더 이상 `rc_engine` 의 ASCE 7 식(Cs=SDS·I/R, 0.0466hn^0.9, k 지수, TL 장주기, 1.0W 조합, qz=0.613Vz²)을 쓰지 않음(Wizard 는 여전히 rc_engine 사용). KB `E:/MIDAS PROGRAM/COde/TW/knowledge/{seismic-design-code,wind-load-2014,concrete-design-code-112}`:
+  - 지진 2.2 V=I/(1.4αy)·(SaD/Fu)m·W(αy=1.0), 2.10.1 V*(÷4.2, 분지 3.5)·2.10.2 VM(SMS·SM1 입력 시) 중 최대, 2.9 Ra·Fu(2-12), 표2-5(a)/2-7(a)(T0 입력=대북분지), 2.6 T=0.070hn^¾(벽 0.050)·해석주기 ≤1.4Ta, 2.11 Ft=0.07TV + Wh 분배(지상 기준, 지하 0), 2.14 우발편심 5%(정적 MZ + SPLC ACCECC), 2.8 I(병원 1.5·학교/상업 1.25), R 4.8(표1-3 RC SMRF).
+  - W(2.2): 모델 고정하중 + 칸막이 75kgf/m²(지붕 외 바닥 DL 에 포함 → FBLD·질량 동일) + 활하중비(기본 0, 창고·서고 0.25). 질량원 활하중비 = liveRatio(`finalizeLateral`).
+  - 동적 3.1(지상 ≥50m 또는 ≥15층 → RS 주 해석, 비정형은 method RS), 3.2 SPLC SCALE = C(T₁)=V/W 계수÷SaD(T₁), 3.3 RS 총횡력 ≥ 정적 V(T≤1.4Ta)×0.9(정형)/1.0(비정형) — 방향별 T 는 질량참여 지배 모드. 기준 훅 `rsScale0`·`rsAdjust`(CN 은 최소 剪重比).
+  - 조합 112 5.3.1 (a)~(g), 방향별(EX·EY 동시 조합 없음 — 바닐라는 같은 조합에 동시 포함), 풍 1.6W·0.8W, L 0.5 감소(5.3.3) 미사용.
+  - 풍 2014: q(z)=0.06K(z)[I·V10(C)]² kgf/m², K=2.774(z/zg)^2α(표2.2), G 1.88, 풍상 0.8q(z)+풍하 Cp(L/B)·q(h)(표2.4), 풍 I(2.5: 병원·학교·상업 1.1) — 지진 I 와 분리.
+  - 단순화: 지하층 지진력(2.12)·Ax 증폭·±편심 2케이스·VM 지배 시 SaM 스펙트럼(SaD×비율 근사)·풍 가로/비틀림/유연건물 미구현. 검증 `twtest.mjs`(scratchpad) 27/27 — 식은 테스트 안에서 원문대로 독립 재구현.
 - **CN(GB) 참고 메모**: Gen NX 라벨 `GB/T50010-10`, 철근 DB `GB 50917-13(RC)`/`GB/T10(RC)`, 강종 HPB300~HRB600 (`E:/AI Study/Rebar-repair/src/data/rcCodePresets.ts`). 응답스펙트럼은 `db/SPFC` `SPEC_CODE:"CH2010"`(GB50011-2010) **네이티브** 지원(`MIDAS-API/docs/manual/09_DB_Dynamic_Loads.md` 1-2-E). 콘크리트 재료 DB(STANDARD) 이름은 미확인 → 라이브 확인 필요. GB50010 원문 KB: `E:/MIDAS PROGRAM/COde/CN/knowledge/gb50010-2010/`(조문 503, chunks.jsonl). GB50011·50009·55001·55002 원문 KB 는 2026-10-12 추가됨(위 대조 완료 참조).
 
 

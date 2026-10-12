@@ -145,7 +145,7 @@ export async function actSwindVerify(spec?: any): Promise<string> {
 }
 
 /* 층중량 교차검증(정보성) — ope/STORPROP 404 이므로 db/SSEIS PROFILE 의 STORY_WEIGHT 로 대체.
-   최소 SSEIS PUT→GET→DELETE(QA 흔적 제거). 추정(w0) vs 실질량이라 차이는 정상. */
+   최소 SSEIS PUT→GET→DELETE(QA 흔적 제거). w0 입력 시 추정 vs 실질량이라 차이는 정상, w0 빈칸(기본)이면 모델 고정하중 산정이라 거의 일치해야 함. */
 export async function actStoryWeightVerify(spec?: any): Promise<string> {
   const p = requireModel(spec)
   await setUnit('KN', 'MM')                                           // STORY_WEIGHT kN, STORY_LEVEL mm
@@ -182,5 +182,5 @@ export async function actStoryWeightVerify(spec?: any): Promise<string> {
   })
   html += `<tr><td style="padding:2px 8px 1px 0;border-top:1px solid #555"><b>Σ</b></td><td style="border-top:1px solid #555">${fw(d.totalSelf)}</td><td style="border-top:1px solid #555">${fw(d.totalGen)}</td><td style="border-top:1px solid #555"><b>${(d.totalErr * 100).toFixed(1)}%</b></td></tr></table>`
   log(t('story_weight_check_self_es') + ` — ΣΔ ${(d.totalErr * 100).toFixed(1)}%` + html, 'ok')
-  return `Story weight check (via db/SSEIS PROFILE): ${d.matched} stories. Self ΣW=${Math.round(d.totalSelf)} kN vs Gen ΣW=${Math.round(d.totalGen)} kN (Δ${(d.totalErr * 100).toFixed(1)}%). Informational — self uses w0 estimate; Gen is model-derived (use Gen weights to calibrate w0).`
+  return `Story weight check (via db/SSEIS PROFILE): ${d.matched} stories. Self ΣW=${Math.round(d.totalSelf)} kN vs Gen ΣW=${Math.round(d.totalGen)} kN (Δ${(d.totalErr * 100).toFixed(1)}%). Informational — self = model dead load (members+slab+finishes) when w0 is blank, or area×w0 when w0 is given; Gen is model-derived.`
 }

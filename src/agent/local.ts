@@ -3,6 +3,7 @@
    건물 확인·편집 카드는 kind:'plan' 메시지(PlanCard 컴포넌트)로 렌더.
 ════════════════════════════════════════════════════════════ */
 import { actAnalyze, actDynamic } from '../actions/analysis'
+import { actReview } from '../actions/review'
 import { actAddBracing, actAddLoad, actBuildFrame, actModifySection, actResizeSubset, clearModel } from '../actions/model'
 import { profileOf, stampSpec } from '../codes'
 import type { BuildingSpec } from '../engine'
@@ -63,6 +64,14 @@ export async function handleLocal(txt: string): Promise<void> {
     case 'status':
       addMsg('bot', statusBrief()); tab('modelP')
       return
+    case 'review': {
+      const th = thinking()
+      try {
+        const msg = await actReview(); th.remove()
+        addMsg('bot', msg); if (S.review) tab('resP')
+      } catch (e: any) { th.remove(); addMsg('bot', t('err', e.message)) }
+      return
+    }
     case 'modify_section':
     case 'resize_subset':
     case 'add_load':
@@ -119,6 +128,7 @@ export async function confirmBuild(p: BuildingSpec, buildId: number): Promise<vo
     const prof = profileOf(p)
     const sm = S.model.seismic
     if (sm) msg += `<br><span style="color:var(--cyan)">🌐 ${t('seismic')}: V=${Math.round(sm.V)} kN · T=${sm.T.toFixed(2)}s · ${prof.seismic.coefLabel}=${sm.Cs.toFixed(3)} (EX·EY, ${prof.comboRefs.seismic})</span>`
+    if (sm && p.seismic && prof.seismic.rsPrimary?.(p, p.seismic)) msg += `<br><span style="color:var(--amber)">📈 ${t('rs_primary_build', (p.seismic as any).method === 'RS' ? t('rs_primary_forced') : prof.seismic.rsPrimaryWhy?.(p) ?? '')}</span>`
     const wm = S.model.wind
     if (wm) msg += `<br><span style="color:var(--cyan)">🌬 ${t('wind')}: Vx=${Math.round(wm.Vx)} · Vy=${Math.round(wm.Vy)} kN (WX·WY, ${prof.comboRefs.wind})</span>`
     if (S.model.walls && S.model.walls.length) msg += `<br><span style="color:var(--cyan)">🧱 ${t('shear_wall_core')}: ${S.model.walls.length} ${t('panels_plate')}</span>`

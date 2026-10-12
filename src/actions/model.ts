@@ -3,6 +3,7 @@
    엔진(RC.*)은 순수 계산, 여기서 MAPI 전송 + S.model 갱신 + 로그.
 ════════════════════════════════════════════════════════════ */
 import { profileOf } from '../codes'
+import { slabLoad, slabThk } from '../codes/selfweight'
 import { RC, type BuildingSpec } from '../engine'
 import { t, tl } from '../i18n'
 import { mapi } from '../mapi/client'
@@ -101,7 +102,9 @@ async function applyFloorLoads(p: BuildingSpec, f: any): Promise<void> {
   S.model.floorGroups = groups
   let no = S.model.nextLC || 2
   const lcTypeMap: Record<string, string> = { LL: 'L', LR: 'LR' }
-  const floorUse = profileOf(p).floorUse
+  const prof = profileOf(p)
+  const floorUse = prof.floorUse
+  const slab = slabLoad(p, prof)            // 슬래브 자중 kN/m² — 바닥판 요소가 없으므로 DL 에 얹음
   const liveNeeded = [...new Set(uses.map(u => floorUse[u].live))]
   for (const lc of liveNeeded) {
     await putLoadCase(no, lc, lcTypeMap[lc] || 'L')
@@ -114,7 +117,7 @@ async function applyFloorLoads(p: BuildingSpec, f: any): Promise<void> {
   uses.forEach(u => {
     const pr = floorUse[u]
     fbld[fi++] = { NAME: u, DESC: '', ITEM: [
-      { LCNAME: 'DL', FLOOR_LOAD: -(pr.sdl * 1e-3), OPT_SUB_BEAM_WEIGHT: true },
+      { LCNAME: 'DL', FLOOR_LOAD: -Math.round((pr.sdl + slab) * 1e6) / 1e9, OPT_SUB_BEAM_WEIGHT: true },
       { LCNAME: pr.live, FLOOR_LOAD: -(pr.liveVal * 1e-3), OPT_SUB_BEAM_WEIGHT: true },
     ] }
   })
@@ -128,18 +131,19 @@ async function applyFloorLoads(p: BuildingSpec, f: any): Promise<void> {
     fbla[ai++] = { FLOOR_LOAD_TYPE_NAME: g.use, FLOOR_DIST_TYPE: 2, DIR: 'GZ', NODES: corners, GROUP_NAME: '' }
   }
   await mapi('PUT', 'fbla', { Assign: fbla })
-  log('▸ ' + t('floor_loads') + ' <b>' + (ai - 1) + '</b> (' + uses.join(', ') + ')', 'ok')
+  log('▸ ' + t('floor_loads') + ' <b>' + (ai - 1) + '</b> (' + uses.join(', ') + ') · ' + t('slab_thk') + ' ' + slabThk(p) + 'mm = ' + +slab.toFixed(2) + ' kN/㎡ → DL', 'ok')
 }
 
 /* 하중조합 — 설계기준 프로필 (대만: taiwanCombos, TWD-USD112) */
 async function putCombos(): Promise<void> {
   const prof = profileOf(S.model.spec)
-  const combos = prof.combos(S.model.loadCases || [])
+  /* rsCases: 응답스펙트럼이 주 해석일 때 동적해석이 등록(RSX/RSY, type 'RS') — 정적 결과 회수 목록과 분리 */
+  const combos = prof.combos([...(S.model.loadCases || []), ...(S.model.rsCases || [])])
   if (!combos.length) return
   const a: Record<number, any> = {}
   combos.forEach((cb, i) => {
     a[i + 1] = { NAME: cb.name, ACTIVE: 'ACTIVE', iTYPE: 0, DESC: cb.desc,
-      vCOMB: cb.terms.map(([lc, fac]) => ({ ANAL: 'ST', LCNAME: lc, FACTOR: fac })) }
+      vCOMB: cb.terms.map(([lc, fac, anal]) => ({ ANAL: anal || 'ST', LCNAME: lc, FACTOR: fac })) }
   })
   await mapi('PUT', 'lcom-gen', { Assign: a })
   S.model.combos = combos.map(c => c.name)
@@ -173,32 +177,43 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
   const useS = !!(sp && sp.on), useW = !!(wp && wp.on)
   if (!useS && !useW) return
   let no = S.model.nextLC || 2
-  const perNode: Record<string, { LCNAME: string; FX: number; FY: number }[]> = {}
-  const push = (nid: number, it: { LCNAME: string; FX: number; FY: number }) => { (perNode[nid] = perNode[nid] || []).push(it) }
+  /* 층력(storyForces)은 전체 동 합계(면적·풍압폭 × 동 수) → 같은 층의 모든 동 절점에 나눠 재하.
+     ⚠ 예전(바닐라부터)엔 floorGroups(동_층)마다 합계 전체를 실어 2동이면 CNLD 합 = 2V 였음 (2026-10-12 수정) */
+  const byStory: Record<number, number[]> = {}
+  for (const k in (f.floorGroups || {})) { const iz = +k.split('_')[1]; (byStory[iz] = byStory[iz] || []).push(...f.floorGroups[k]) }
+  const perNode: Record<string, { LCNAME: string; FX: number; FY: number; MZ?: number }[]> = {}
+  const push = (nid: number, it: { LCNAME: string; FX: number; FY: number; MZ?: number }) => { (perNode[nid] = perNode[nid] || []).push(it) }
   if (useS) {
     const r = profileOf(p).seismic.storyForces(p, sp)
     S.model.seismic = { T: r.T, Cs: r.Cs, V: r.V, Wtot: r.Wtot }
     await putLoadCase(no, 'EX', 'E'); S.model.loadCases.push({ name: 'EX', type: 'E' }); no++
     await putLoadCase(no, 'EY', 'E'); S.model.loadCases.push({ name: 'EY', type: 'E' }); no++
-    for (const k in (f.floorGroups || {})) {
-      const iz = +k.split('_')[1]
-      const ns: number[] = f.floorGroups[k]
+    /* 우발편심(기준 지정 시): EX 는 Y 치수, EY 는 X 치수 × e 만큼 편심 → 층 비틀림 MZ 를 절점 균등분배(강성 다이어프램이 합산). N·mm */
+    const ecc = profileOf(p).seismic.staticAccEcc || 0
+    const Lx = RC.asSpans(p.spanX, p.bayX).reduce((a: number, b: number) => a + b, 0)
+    const Ly = RC.asSpans(p.spanY, p.bayY).reduce((a: number, b: number) => a + b, 0)
+    for (const k in byStory) {
+      const iz = +k
+      const ns = byStory[iz]
       const F = (r.forces[iz - 1] ? r.forces[iz - 1].F : 0) * 1000
       if (!F || !ns.length) continue
       const per = F / ns.length
-      ns.forEach(nid => { push(nid, { LCNAME: 'EX', FX: per, FY: 0 }); push(nid, { LCNAME: 'EY', FX: 0, FY: per }) })
+      if (ecc) {
+        const mx = F * ecc * Ly / ns.length, my = F * ecc * Lx / ns.length
+        ns.forEach(nid => { push(nid, { LCNAME: 'EX', FX: per, FY: 0, MZ: mx }); push(nid, { LCNAME: 'EY', FX: 0, FY: per, MZ: my }) })
+      } else ns.forEach(nid => { push(nid, { LCNAME: 'EX', FX: per, FY: 0 }); push(nid, { LCNAME: 'EY', FX: 0, FY: per }) })
     }
     log('▸ ' + t('seismic_static') +
-      ` <b>V=${Math.round(r.V)} kN</b> · T=${r.T.toFixed(2)}s · ${profileOf(p).seismic.coefLabel}=${r.Cs.toFixed(3)} (EX·EY)`, 'ok')
+      ` <b>V=${Math.round(r.V)} kN</b> · T=${r.T.toFixed(2)}s · ${profileOf(p).seismic.coefLabel}=${r.Cs.toFixed(3)} (EX·EY)` + (ecc ? ` · ${t('acc_ecc')} ${ecc * 100}%` : ''), 'ok')
   }
   if (useW) {
     const r = profileOf(p).wind.storyForces(p, wp)
     S.model.wind = { Vx: r.Vx, Vy: r.Vy, V10: r.V10 }
     await putLoadCase(no, 'WX', 'W'); S.model.loadCases.push({ name: 'WX', type: 'W' }); no++
     await putLoadCase(no, 'WY', 'W'); S.model.loadCases.push({ name: 'WY', type: 'W' }); no++
-    for (const k in (f.floorGroups || {})) {
-      const iz = +k.split('_')[1]
-      const ns: number[] = f.floorGroups[k]
+    for (const k in byStory) {
+      const iz = +k
+      const ns = byStory[iz]
       if (!ns.length) continue
       const Fx = (r.forcesX[iz - 1] ? r.forcesX[iz - 1].F : 0) * 1000 / ns.length
       const Fy = (r.forcesY[iz - 1] ? r.forcesY[iz - 1].F : 0) * 1000 / ns.length
@@ -210,7 +225,7 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
   const a: Record<string, any> = {}
   for (const nid in perNode) {
     a[nid] = { ITEMS: perNode[nid].map((it, i) => (
-      { ID: i + 1, LCNAME: it.LCNAME, GROUP_NAME: '', FX: it.FX || 0, FY: it.FY || 0, FZ: 0, MX: 0, MY: 0, MZ: 0 })) }
+      { ID: i + 1, LCNAME: it.LCNAME, GROUP_NAME: '', FX: it.FX || 0, FY: it.FY || 0, FZ: 0, MX: 0, MY: 0, MZ: it.MZ || 0 })) }
   }
   if (Object.keys(a).length) await mapi('PUT', 'cnld', { Assign: a })
 }
@@ -220,6 +235,7 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
   const core: any = p.core
   if (core && core.on && !(Array.isArray(p.walls) && p.walls.length)) p.walls = [RC.autoCore(p, core.thick)]
   const f = RC.buildFrame(p)
+  S.review = null
   if (clear) await clearModel()              // doc/new가 단위를 리셋하므로 setUnit은 그 다음
   await setUnit('N', 'MM')
   const R = RC.specSections(p)               // 다중 단면·재료 레지스트리 + 층별 배정

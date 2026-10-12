@@ -16,7 +16,10 @@
 import { RC } from '../engine'
 import type { BuildingSpec, MaterialProps } from '../engine/types'
 import { t } from '../i18n'
-import type { CodeProfile, Combo, ParamField, StoryForce } from './types'
+import type { CodeProfile, Combo, LoadCaseRef, ParamField, StoryForce } from './types'
+import { cnReviewEvaluate, cnReviewTables } from './cnReview'
+import { minShearScale } from '../mapi/tables'
+import { heightAboveGround, modelDeadWeights } from './selfweight'
 
 /* ── 재료 — GB 50010-2010 표 4.1.5 Ec(N/mm²), νc 0.2. den: 철근콘크리트 25 kN/m³(GB 50009 附录A 24~25 상한) → 질량밀도 t/mm³ ── */
 const EC: Record<string, number> = { C20: 25500, C25: 28000, C30: 30000, C35: 31500, C40: 32500, C45: 33500, C50: 34500, C55: 35500, C60: 36000 }
@@ -42,13 +45,15 @@ const FLOOR_USE: CodeProfile['floorUse'] = {
 }
 
 /* ── 하중조합 — GB 55001-2021 (γG 1.3/1.0, γQ 1.5, ψc 활 0.7·풍 0.6), GB 55002-2021 지진 (γG 1.3/1.0, γEh 1.4, G_E=G+0.5Q, 不上人屋面 활하중 제외) ── */
-function gbCombos(loadCases: { name: string; type: string }[]): Combo[] {
+function gbCombos(loadCases: LoadCaseRef[]): Combo[] {
   const by: Record<string, string[]> = {}
   ;(loadCases || []).forEach(l => { (by[l.type] = by[l.type] || []).push(l.name) })
-  const D = by.D || [], L = by.L || [], Lr = by.LR || [], W = by.W || [], E = by.E || []
+  const D = by.D || [], L = by.L || [], Lr = by.LR || [], W = by.W || []
+  /* 지진: 응답스펙트럼(RS)이 주 해석으로 등록돼 있으면 정적 E 대신 RSX/RSY (ANAL 'RS') — 정적 EX/EY 는 规定水平力 참고용으로 모델에 남음 */
+  const RS = by.RS || [], E = RS.length ? RS : by.E || [], eAnal = RS.length ? 'RS' : 'ST'
   if (!D.length) return []
-  const T = (...pp: [string[], number][]) => pp.flatMap(([ns, f]) => ns.map(n => [n, f] as [string, number]))
-  const defs: [string, boolean, [string, number][]][] = [
+  const T = (...pp: [string[], number][]) => pp.flatMap(([ns, f]) => ns.map(n => [n, f, 'ST'] as [string, number, string]))
+  const defs: [string, boolean, [string, number, string][]][] = [
     ['1.3D+1.5L+1.05Lr', true, T([D, 1.3], [L, 1.5], [Lr, 1.05])],
     ['1.3D+1.5Lr+1.05L', Lr.length > 0, T([D, 1.3], [Lr, 1.5], [L, 1.05])],
   ]
@@ -58,8 +63,8 @@ function gbCombos(loadCases: { name: string; type: string }[]): Combo[] {
     defs.push([`1.0D+1.5${w}`, true, T([D, 1.0], [[w], 1.5])])
   })
   E.forEach(e => {
-    defs.push([`1.3(D+0.5L)+1.4${e}`, true, T([D, 1.3], [L, 0.65], [[e], 1.4])])
-    defs.push([`1.0(D+0.5L)+1.4${e}`, true, T([D, 1.0], [L, 0.5], [[e], 1.4])])
+    defs.push([`1.3(D+0.5L)+1.4${e}`, true, [...T([D, 1.3], [L, 0.65]), [e, 1.4, eAnal]]])
+    defs.push([`1.0(D+0.5L)+1.4${e}`, true, [...T([D, 1.0], [L, 0.5]), [e, 1.4, eAnal]]])
   })
   return defs.filter(d => d[1] && d[2].length).map((d, i) => ({ name: `gLCB${i + 1}`, desc: d[0], terms: d[2] }))
 }
@@ -108,18 +113,26 @@ function deltaN(T1: number, Tg: number): number {
   return 0.08 * T1 - 0.02
 }
 
-/** 중력하중대표값 G_E (kN, 층별) = 면적 × (w0 + ψ·활하중), 不上人屋面 활하중 제외 */
+/** 중력하중대표값 G_E (kN, 층별) = 고정하중(w0 빈칸 → 모델 부재+슬래브+마감, 입력 시 면적×w0) + 면적×ψ·활하중, 不上人屋面 활하중 제외 */
 function storyWeightsCN(p: BuildingSpec, sp: Record<string, any>): number[] {
-  const w0 = sp.w0 != null ? sp.w0 : 12
+  const D = sp.w0 != null ? null : modelDeadWeights(p, CN)   // w0 빈칸 = 모델 고정하중(부재+슬래브+마감)
   const psi = sp.psiL != null ? sp.psiL : 0.5
   const area = RC.planAreaM2(p) * (p.buildings || 1)
   const g = RC.deriveFloorGroups(p)
   const W: number[] = []
   for (let s = 1; s <= p.stories; s++) {
     const fu = FLOOR_USE[(g[s] && g[s].use) || 'Residential'] || FLOOR_USE.Residential
-    W[s] = area * (w0 + (fu.live === 'LR' ? 0 : psi * fu.liveVal))
+    W[s] = (D ? D[s] : area * sp.w0) + area * (fu.live === 'LR' ? 0 : psi * fu.liveVal)
   }
   return W
+}
+
+/** 주 해석 = 振型分解反应谱法 여부 — GB 50011 5.1.2: 底部剪力法은 H ≤ 40m·전단변형 위주·질량/강성 균일일 때만.
+    method: 'auto'(H>40m → RS) / 'ESL'(底部剪力法 강제) / 'RS'(반응스펙트럼 강제) */
+export function rsPrimaryCN(p: BuildingSpec, sp: Record<string, any>): boolean {
+  if (sp.method === 'RS') return true
+  if (sp.method === 'ESL') return false
+  return heightAboveGround(p) > 40
 }
 
 /** 경험 기본주기 — GB 50009 F.2.2-1 (철근콘크리트 골조·골조-전단벽) T1 = 0.25 + 0.53e-3·H²/∛B
@@ -225,9 +238,15 @@ export const CN: CodeProfile = {
   },
 
   floorUse: FLOOR_USE,
+  concreteGamma: 25,   // GB 50009 附录A 钢筋混凝土 24~25 → 25
   combos: gbCombos,
   combosLogKey: 'load_combos_gb',
   comboRefs: { seismic: 'gLCB 1.3(D+0.5L)+1.4E', wind: 'gLCB 1.5W' },
+  /* 심사 지표(审图) — Gen 층 결과 테이블 → GB 한계 (src/codes/cnReview.ts) */
+  review: {
+    tables: ctx => cnReviewTables(ctx),
+    evaluate: (p, sp, data, ctx) => cnReviewEvaluate(p, data, { ...ctx, lambda: lambdaMin(siteParams(sp).it.amax, ctx.T1 || 0) }),
+  },
 
   seismic: {
     ready: sp => !!INTENSITY[sp.intensity],
@@ -235,7 +254,7 @@ export const CN: CodeProfile = {
     massLiveRatio: 0.5,
     massLiveTypes: ['L'],   // 不上人屋面 활하중은 중력하중대표값 제외 (정적 storyWeightsCN 과 일치)
     toggleKey: 'cn_seis_toggle',
-    tipHtml: () => t('cn_seis_tip'),
+    tipHtml: () => t('cn_seis_tip') + ' ' + t('w0_auto_tip'),
     fields: [
       { key: 'intensity', kind: 'select', label: () => t('cn_intensity'), def: () => '7_010',
         options: () => Object.entries(INTENSITY).map(([v, o]) => ({ value: v, label: o.label })) },
@@ -244,10 +263,25 @@ export const CN: CodeProfile = {
       { key: 'site', kind: 'select', label: () => t('cn_site'), def: () => 'II',
         options: () => SITES.map(v => ({ value: v, label: v.replace('0', '₀').replace(/^I1$/, 'I₁') })) },
       num('zeta', () => t('cn_zeta'), () => 0.05),
-      num('w0', () => t('dead_w0'), () => 12, 'kN/㎡'),
+      num('w0', () => t('dead_w0'), () => '', 'kN/㎡'),   // 빈칸 = 모델 고정하중
       num('psiL', () => t('cn_psil'), () => 0.5),
       num('T', () => t('cn_t1'), () => '', 's'),
+      { key: 'method', kind: 'select', label: () => t('cn_method'), def: () => 'auto',
+        options: () => (['auto', 'ESL', 'RS'] as const).map(v => ({ value: v, label: t(`cn_method_${v}`) })) },
     ],
+    rsPrimary: (p, sp) => rsPrimaryCN(p, sp),
+    rsPrimaryWhy: p => t('rs_primary_auto', +heightAboveGround(p).toFixed(1)),
+    /* GB 55002 4.2.3 — 층별 V_i/ΣG_j ≥ λ, 미달 방향은 전 층 동일 배율 증폭(5.2.5 조문설명: 내력·변위 모두) */
+    rsAdjust(_p, sp, ctx) {
+      const lambda = lambdaMin(siteParams(sp).it.amax, ctx.T1 || 0)
+      const x = minShearScale(ctx.rows.X, 'X', lambda), y = minShearScale(ctx.rows.Y, 'Y', lambda)
+      const chk = { lambda, x, y, scaled: false }
+      const lines: string[] = []
+      for (const [d, c] of [['X', x], ['Y', y]] as const) if (c)
+        lines.push(`${t('rs_min_shear', d, c.min.toFixed(4), c.story, lambda.toFixed(4))} ${c.eta <= 1 ? '✓' : `<b style="color:var(--amber)">→ ×${c.eta}</b>`}`)
+      if ((x?.eta ?? 1) > 1 || (y?.eta ?? 1) > 1) lines.push(t('rs_scaled_note'))
+      return { scale: { X: ctx.scale0.X * (x?.eta ?? 1), Y: ctx.scale0.Y * (y?.eta ?? 1) }, chk, lines }
+    },
     storyForces: (p, sp, opt) => seismicCN(p, sp, opt),
     storyWeights: (p, sp) => storyWeightsCN(p, sp),
     /* Gen NX 네이티브 GB50011-2010 스펙트럼 (SPEC_CODE CH2010) — 라이브 확인: EQ_ 대문자, 생성 곡선 = alphaOf */
@@ -266,6 +300,7 @@ export const CN: CodeProfile = {
     },
     spectrumLogKey: 'response_spectrum_cn',
     /* 우발편심 ±5% — GB 50011 5.2.3 / 高规 4.3.3 실무 요구. Gen NX SPLC 네이티브(bACCECC) 라이브 확인 2026-10-12 */
+    staticAccEcc: 0.05,
     splcExtra: { bACCECC: true, bACCECC_AUTO: true, ACCECC_PERCENT: 5, bACCECC_CONSIDER_GL: false, bACCECC_MINIMUM_TORSION: false, aACCECC_ECCEN_LIST: [] },
   },
 

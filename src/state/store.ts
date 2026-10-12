@@ -3,6 +3,7 @@
    액션은 S 를 직접 변경한 뒤 notify() — React 는 useStore() 로 구독(version 기반 재렌더).
    액션 로직을 바닐라와 1:1 로 유지하기 위한 의도적 설계(mutable store).
 ════════════════════════════════════════════════════════════ */
+import type { ReviewItem } from '../codes/types'
 import { useSyncExternalStore } from 'react'
 import { DEFAULT_LANG, normalizeLang, type Lang } from '../i18n/types'
 import type { BuildingSpec } from '../engine/types'
@@ -43,6 +44,8 @@ export interface ModelState {
   baseNodes: number[]
   elev: number[]
   loadCases: { name: string; type: string }[]
+  /** 조합에 쓸 응답스펙트럼 케이스 (주 해석 = RS 일 때, actDynamic 이 등록) */
+  rsCases?: { name: string; type: string }[]
   spec: BuildingSpec | null
   elemRecs: ElemRec[]
   edits: string[]
@@ -140,6 +143,8 @@ export const S = {
   /* UI */
   panel: 'logP' as PanelId,
   resultTab: 'react' as ResultTab,
+  /** 심사 지표(审图) — 동적해석 뒤 기준 프로필 review 훅이 채움. 새 빌드 시 초기화 */
+  review: null as null | { items: ReviewItem[]; rs: boolean },
   preview: null as BuildingSpec | null,   // 3D 미리보기 스펙(null = 현재 모델 표시)
   viewNonce: 0,                           // 3D 재플롯 트리거
   busy: false,

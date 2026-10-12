@@ -42,7 +42,34 @@ export interface SpectrumDef {
   reportSuffix: string
 }
 
-export interface Combo { name: string; desc: string; terms: [string, number][] }
+/** terms: [하중케이스, 계수, 해석타입(기본 'ST', 응답스펙트럼 'RS')] */
+/** 심사 지표 한 줄 — 값은 Gen NX 층 결과 테이블, 한계는 기준 조문 */
+export interface ReviewItem {
+  id: string
+  label: string
+  dir?: 'X' | 'Y'
+  value: string
+  limit: string
+  status: 'ok' | 'warn' | 'ng' | 'info'
+  /** 지배 층·모드 등 */
+  where?: string
+  clause: string
+  note?: string
+}
+
+/** RS 보정 입력 — rows = STORY_SHEAR_FORCE_COEFFICIENT 행(방향별 RS 케이스), scale0 = 그 해석에 쓴 SCALE */
+export interface RsCtx {
+  T1: number | null
+  Tdir: { X: number | null; Y: number | null }
+  rows: { X: Record<string, string>[]; Y: Record<string, string>[] }
+  scale0: { X: number; Y: number }
+}
+
+/** post/table 요청 1건 — key 는 TABLE_NAME(응답 키) */
+export interface ReviewTable { key: string; type: string; lcs?: string[] }
+
+export interface Combo { name: string; desc: string; terms: [string, number, string?][] }
+export interface LoadCaseRef { name: string; type: string }
 
 export interface CodeProfile {
   id: CodeId
@@ -59,7 +86,9 @@ export interface CodeProfile {
   adaptSpec?(p: BuildingSpec): BuildingSpec
   /* ── 하중 ── */
   floorUse: Record<string, { sdl: number; live: string; liveVal: number }>
-  combos(loadCases: { name: string; type: string }[]): Combo[]
+  /** 철근콘크리트 단위중량 kN/m³ — 슬래브 자중·모델 고정하중 산정 */
+  concreteGamma: number
+  combos(loadCases: LoadCaseRef[]): Combo[]
   combosLogKey: I18nKey
   /* ── 횡하중 ── */
   seismic: LateralGroup & {
@@ -76,6 +105,16 @@ export interface CodeProfile {
     /** 응답스펙트럼 — 입력 부족이면 null. spfc = db/SPFC 항목, name = SPLC 가 참조할 함수명 */
     spectrum(sp: Record<string, any>): SpectrumDef | null
     spectrumLogKey: I18nKey
+    /** 응답스펙트럼이 주 해석인지 (예: 중국 GB 50011 5.1.2 — 지상 40m 초과). 없으면 false = 정적이 주 해석 */
+    rsPrimary?(p: BuildingSpec, sp: Record<string, any>): boolean
+    /** 주 해석이 RS 인 근거 문구 (예: 'GB 50011 5.1.2 — 지상 H=45m > 40m') */
+    rsPrimaryWhy?(p: BuildingSpec): string
+    /** RS 초기 SPLC SCALE (방향별) — 예: 대만 3.2 조정계수 C(경험주기). 없으면 1 */
+    rsScale0?(p: BuildingSpec, sp: Record<string, any>): { X: number; Y: number }
+    /** RS 해석 뒤 방향별 최종 SCALE 결정 (중국 최소 剪重比 증폭, 대만 3.2 C·3.3 총횡력 조정). 바뀌면 SPLC 갱신 후 재해석 */
+    rsAdjust?(p: BuildingSpec, sp: Record<string, any>, ctx: RsCtx): { scale: { X: number; Y: number }; chk: any; lines: string[] }
+    /** 정적 EX/EY 우발편심 비율(평면 직교 치수 대비) — 층 비틀림 MZ = F·e·L⊥ 를 함께 재하. 예: 중국 0.05 (GB 50011 3.4.3 '具有偶然偏心的规定水平力') */
+    staticAccEcc?: number
     /** SPLC(응답스펙트럼 하중케이스)에 덧붙일 항목 — 예: 중국 우발편심 5% (Gen NX bACCECC) */
     splcExtra?: Record<string, any>
   }
@@ -84,6 +123,11 @@ export interface CodeProfile {
   }
   /** 빌드 완료 메시지에 붙는 조합 참조 (예: 대만 'cLCB5/7') */
   comboRefs: { seismic: string; wind: string }
+  /** 심사 지표(审图) — 동적해석 뒤 Gen 층 결과 테이블로 산정. 없으면 패널 미표시 */
+  review?: {
+    tables(ctx: { rs: boolean }): ReviewTable[]
+    evaluate(p: BuildingSpec, sp: Record<string, any>, data: Record<string, any>, ctx: { rs: boolean; T1: number | null }): ReviewItem[]
+  }
   /** 원문 대조 전 값이 포함됐는지 — UI 에 '미검증' 표시 */
   unverified?: boolean
   /** 편집 카드 → 스펙 변환 마지막 보정 (예: 대만 풍하중 I 를 지진 I 와 공유) */
