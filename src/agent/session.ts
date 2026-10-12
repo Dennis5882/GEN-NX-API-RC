@@ -25,7 +25,9 @@ export async function send(txt: string): Promise<void> {
 
 /** 공급자 변경 — 기본 모델 적용 + 대화 초기화 */
 export function setProvider(p: Provider): void {
+  S.provKeys[S.provider] = S.provKey   // 현재 키 보관 → 새 공급자 키 복원
   S.provider = p
+  S.provKey = S.provKeys[p] || ''
   S.provModel = PROVIDERS[p].def
   S.conv = []
   notify()

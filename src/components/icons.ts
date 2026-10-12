@@ -11,6 +11,6 @@ const PICTO = /[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}]️?\s?|️/gu
 export function plainIcons(html: string): string {
   let s = html
   for (const [re, rep] of BADGE) s = s.replace(re, rep)
-  /* 배지 마크업 바깥의 남은 그림 문자만 제거 */
-  return s.replace(PICTO, '')
+  /* 배지 마크업 바깥의 남은 그림 문자만 제거 — ⚙ 는 화면의 설정 버튼을 가리키는 안내라 유지 */
+  return s.replace(PICTO, m => (m.startsWith('⚙') ? '⚙ ' : ''))
 }

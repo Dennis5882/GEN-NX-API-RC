@@ -24,8 +24,9 @@ import { heightAboveGround, modelDeadWeights } from './selfweight'
 /* ── 재료 — GB 50010-2010 표 4.1.5 Ec(N/mm²), νc 0.2. den: 철근콘크리트 25 kN/m³(GB 50009 附录A 24~25 상한) → 질량밀도 t/mm³ ── */
 const EC: Record<string, number> = { C20: 25500, C25: 28000, C30: 30000, C35: 31500, C40: 32500, C45: 33500, C50: 34500, C55: 35500, C60: 36000 }
 const DEN = 25e-6 / 9806.65   // 25 kN/m³ = 2.5e-5 N/mm³ ÷ g(mm/s²) ≈ 2.55e-9 t/mm³ (TW 엔진 den 과 같은 단위)
+/* 카탈로그 = RC 구조 부재 최소 C25 (GB 55008-2021 2.0.2-1 강제 — C20 은 素混凝土용이라 제외) */
 const MATERIALS: Record<string, MaterialProps> = Object.fromEntries(
-  Object.entries(EC).map(([k, E]) => [k, { E, poisn: 0.2, den: +DEN.toExponential(3) }]))
+  Object.entries(EC).filter(([k]) => k !== 'C20').map(([k, E]) => [k, { E, poisn: 0.2, den: +DEN.toExponential(3) }]))
 
 /* 대만 등급(CNS, kgf/cm² 원주강도) → GB 입방체 등급 근사 (fcu ≈ fc'/0.8). 템플릿 변환용 */
 const TW2CN: Record<string, string> = { C210: 'C25', C245: 'C30', C280: 'C35', C315: 'C40', C350: 'C45', C420: 'C50',
@@ -245,7 +246,7 @@ export const CN: CodeProfile = {
   /* 심사 지표(审图) — Gen 층 결과 테이블 → GB 한계 (src/codes/cnReview.ts) */
   review: {
     tables: ctx => cnReviewTables(ctx),
-    evaluate: (p, sp, data, ctx) => cnReviewEvaluate(p, data, { ...ctx, lambda: lambdaMin(siteParams(sp).it.amax, ctx.T1 || 0) }),
+    evaluate: (p, sp, data, ctx) => cnReviewEvaluate(p, sp, data, { ...ctx, lambda: lambdaMin(siteParams(sp).it.amax, ctx.T1 || 0) }),
   },
 
   seismic: {

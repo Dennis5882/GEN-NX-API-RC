@@ -159,6 +159,8 @@ export const S = {
   llm: false,
   provider: 'claude' as Provider,
   provKey: '',
+  /** 공급자별 키 — 공급자를 바꿔도 각자 입력한 키 유지(메모리만, 저장 금지) */
+  provKeys: {} as Partial<Record<Provider, string>>,
   provModel: 'claude-sonnet-5-5',
   conv: [] as ConvTurn[],
   /* 설계기준 (UI 언어와 독립) */

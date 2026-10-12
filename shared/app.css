@@ -370,6 +370,7 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 .prov-seg button{flex:1;padding:8px 0;border-radius:8px;border:1px solid var(--border);background:var(--bg);
   color:var(--muted);font-family:'IBM Plex Mono',var(--cjk);font-size:.78rem;cursor:pointer;transition:.2s}
 .prov-seg button:hover{border-color:var(--dim);color:var(--txt)}
+.drawer .field-row{display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
 .prov-seg button.on{border-color:var(--violet);color:var(--violet);background:color-mix(in srgb,var(--violet) 8%,transparent);box-shadow:0 0 0 1px var(--violet) inset}
 .test-out.ok{display:block;background:color-mix(in srgb,var(--green) 8%,transparent);color:var(--green);border:1px solid color-mix(in srgb,var(--green) 20%,transparent)}
 .test-out.err{display:block;background:color-mix(in srgb,var(--red) 8%,transparent);color:var(--red);border:1px solid color-mix(in srgb,var(--red) 20%,transparent)}

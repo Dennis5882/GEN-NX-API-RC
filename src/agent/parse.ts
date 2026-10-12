@@ -4,6 +4,7 @@
           add_load · add_bracing · change_spec · dynamic · analyze · result · status · unknown
 ════════════════════════════════════════════════════════════ */
 import { RC, type BuildingSpec } from '../engine'
+import { profileOf } from '../codes'
 import { S, type ResultTab } from '../state/store'
 
 export type Command =
@@ -68,10 +69,10 @@ export function parseCommand(txt: string): Command {
   if (/도움말|뭘\s*할|어떻게\s*써|어떤\s*명령|使用說明|指令說明|help|what\s*can|commands?\s*list/.test(t))
     return { intent: 'help' }
   if (/3[dD]|3디|입체|삼차원|三維|透視/.test(t)) return { intent: 'tab', which: '3d' }
-  if (/결과\s*(?:탭|tab|보여)|탭.*결과|result\s*tab|tab.*result/.test(t)) return { intent: 'tab', which: 'result' }
-  if (/로그\s*(?:탭|tab|보여)|활동\s*(?:탭|tab)|log\s*tab|activity\s*tab/.test(t)) return { intent: 'tab', which: 'log' }
-  if (/모델\s*(?:탭|tab|정보|개요)|model\s*(?:tab|info|summ)/.test(t)) return { intent: 'tab', which: 'model' }
-  if (/연결\s*(?:됐|상태|확인|됩|테스트)|접속\s*됐|connected\?|conn\s*(?:status|check)|連線\s*(?:了嗎|狀態|確認)|確認\s*連線/.test(t))
+  if (/결과\s*(?:탭|tab|보여)|탭.*결과|result\s*tab|tab.*result|show\s*results?\b|顯示\s*結果|显示\s*结果|結果\s*(?:分頁|頁|面板|選項卡)|结果\s*(?:选项卡|页|面板)/.test(t)) return { intent: 'tab', which: 'result' }
+  if (/로그\s*(?:탭|tab|보여)|활동\s*(?:탭|tab)|log\s*tab|activity\s*tab|show\s*log|活[動动]\s*[記紀记][錄录]|[顯显]示\s*(?:[記记][錄录]|日[誌志])/.test(t)) return { intent: 'tab', which: 'log' }
+  if (/모델\s*(?:탭|tab|정보|개요)|model\s*(?:tab|info|summ)|模型\s*(?:概要|資訊|資料|分頁|選項卡|选项卡)/.test(t)) return { intent: 'tab', which: 'model' }
+  if (/연결\s*(?:됐|상태|확인|됩|테스트)|접속\s*됐|connected\?|conn\s*(?:status|check)|check\s*(?:the\s*)?connection|connection\s*(?:status|check)|連線\s*(?:了嗎|狀態|確認)|確認\s*連線/.test(t))
     return { intent: 'conn_check' }
   if (/초기화|모두\s*삭제|비우|清除|清空|重置|初始化|全部刪除|刪除全部|clear|reset/.test(t)) return { intent: 'clear' }
   if (hasModel) {
@@ -103,16 +104,19 @@ export function parseCommand(txt: string): Command {
     }
     /* 스펙 수정 후 재생성 — 재료·층고·층수 */
     if (isEdit && S.model.spec) {
-      const matM = t.match(/(c(?:210|240|270|280|300|350|400|490))/)
-      if (matM && /재료|材料|材質|콘크리트|concrete|material/.test(t))
+      /* 재료 = 모델 자신의 기준 카탈로그에 있는 이름만 (TW C280·C350… / GB C30·C40…) */
+      const matM = t.match(/(c\d{2,3})(?!\d)/)
+      if (matM && /재료|材料|材質|콘크리트|concrete|material/.test(t) && profileOf(S.model.spec).materials[matM[1].toUpperCase()])
         return { intent: 'change_spec', field: 'matName', value: matM[1].toUpperCase() }
-      const htMm = num(/층고\s*(\d{3,5})/, t) || num(/樓高\s*(\d+)/, t) || num(/(?:story|floor)\s*height\s*(\d+)/, t)
-      const htMobj = t.match(/(?:층고|樓高|(?:story|floor)\s*height)\s*(\d+\.?\d*)\s*m(?!m)/)
+      /* 숫자가 뒤에 오는 문장도(樓高改為 3500 · floor height to 3500) — 키워드와 숫자 사이 '改為/to/=' 등 허용 */
+      const HT = '(?:층고|樓高|層高|(?:story|floor)\\s*height)'
+      const htMm = num(new RegExp(`${HT}\\D{0,8}?(\\d{4})(?!\\s*m(?!m))`), t) || num(/층고\s*(\d{3,5})/, t)
+      const htMobj = t.match(new RegExp(`${HT}\\D{0,8}?(\\d+\\.?\\d*)\\s*m(?!m)`))
       const htVal = htMm || (htMobj ? Math.round(+htMobj[1] * 1000) : null)
-      if (htVal && htVal >= 2000 && htVal <= 8000 && /층고|樓高|height/.test(t))
+      if (htVal && htVal >= 2000 && htVal <= 8000 && /층고|樓高|層高|height/.test(t))
         return { intent: 'change_spec', field: 'hTyp', value: htVal }
-      const nsM = num(/(\d+)\s*(?:층|樓|層)/, t) || num(/(\d+)\s*stor/, t)
-      if (nsM && nsM >= 1 && nsM <= 100 && /층수|층.*(?:바꿔|변경)|樓層.*(?:改|變)|stories?\s*(?:to|change)/i.test(t))
+      const nsM = num(/(\d+)\s*(?:층|樓|層)/, t) || num(/(\d+)\s*stor/, t) || num(/(?:층수|樓層數|層數|stories)\D{0,8}?(\d+)/i, t)
+      if (nsM && nsM >= 1 && nsM <= 100 && /층수|층.*(?:바꿔|변경)|樓層.*(?:改|變)|層數.*(?:改|變)|stories?\s*(?:to|change)|change\s*stories/i.test(t))
         return { intent: 'change_spec', field: 'stories', value: nsM }
     }
   }
