@@ -77,7 +77,7 @@ export async function testConn(): Promise<TestOut> {
 }
 
 /* ── 입력창 제어 (가이드 패널용) — Composer 가 등록 ── */
-let composerRun: ((txt: string) => void) | null = null
-export function registerComposer(run: ((txt: string) => void) | null): void { composerRun = run }
-/** 가이드 클릭 — 입력창에 명령을 타이핑해 보인 뒤 실행 (Composer 없으면 바로 전송) */
-export function runCmd(txt: string): void { if (composerRun) composerRun(txt); else void send(txt) }
+let composerRun: ((txt: string) => Promise<void>) | null = null
+export function registerComposer(run: ((txt: string) => Promise<void>) | null): void { composerRun = run }
+/** 가이드 클릭 — 입력창에 명령을 타이핑해 보인 뒤 실행 (Composer 없으면 바로 전송). 응답 완료 시 resolve */
+export function runCmd(txt: string): Promise<void> { return composerRun ? composerRun(txt) : send(txt).then(() => {}) }

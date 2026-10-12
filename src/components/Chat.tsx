@@ -52,7 +52,7 @@ function Composer() {
   }
 
   useEffect(() => {
-    registerComposer(txt => void typeAndRun(txt))
+    registerComposer(typeAndRun)
     return () => registerComposer(null)
   }, [])
 

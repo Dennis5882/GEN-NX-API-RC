@@ -14,10 +14,11 @@ export type GuideItem =
   | { note: Extract<I18nKey, `g_${string}_note`> }
   | { icon: string; key: GuideItemKey; need?: 'review' }
 
-export interface GuideSection { id: GuideSecId; icon: string; open: boolean; items: GuideItem[] }
+/** acc = 섹션 강조색(app.css .gsec[data-acc]) */
+export interface GuideSection { id: GuideSecId; icon: string; acc: 'cyan' | 'blue' | 'amber' | 'green' | 'violet'; open: boolean; items: GuideItem[] }
 
 export const GUIDE: GuideSection[] = [
-  { id: 'build', icon: '⊞', open: true, items: [
+  { id: 'build', acc: 'cyan', icon: '⊞', open: true, items: [
     { icon: '🏠', key: 'g_build_1' },
     { icon: '🏢', key: 'g_build_2' },
     { icon: '🏬', key: 'g_build_3' },
@@ -27,7 +28,7 @@ export const GUIDE: GuideSection[] = [
     { icon: '🏗', key: 'g_build_6' },
     { note: 'g_build_note' },
   ] },
-  { id: 'section', icon: '◫', open: true, items: [
+  { id: 'section', acc: 'blue', icon: '◫', open: true, items: [
     { icon: '↕', key: 'g_section_1' },
     { icon: '↕', key: 'g_section_2' },
     { icon: '↕', key: 'g_section_3' },
@@ -38,24 +39,24 @@ export const GUIDE: GuideSection[] = [
     { icon: '🧱', key: 'g_section_7' },
     { note: 'g_section_note' },
   ] },
-  { id: 'load', icon: '⬇', open: true, items: [
+  { id: 'load', acc: 'amber', icon: '⬇', open: true, items: [
     { icon: '↓', key: 'g_load_1' },
     { icon: '↓', key: 'g_load_2' },
     { icon: '✕', key: 'g_load_3' },
     { icon: '✕', key: 'g_load_4' },
   ] },
-  { id: 'analysis', icon: '∑', open: true, items: [
-    { icon: '▷', key: 'g_analysis_1' },
+  { id: 'analysis', acc: 'green', icon: '∑', open: true, items: [
+    { icon: '▶', key: 'g_analysis_1' },
     { icon: '〜', key: 'g_analysis_7' },
     { icon: '📋', key: 'g_analysis_8', need: 'review' },
-    { icon: '▷', key: 'g_analysis_2' },
-    { icon: '▷', key: 'g_analysis_3' },
-    { icon: '▷', key: 'g_analysis_4' },
-    { icon: '▷', key: 'g_analysis_5' },
+    { icon: '⇣', key: 'g_analysis_2' },
+    { icon: '⊥', key: 'g_analysis_3' },
+    { icon: '≋', key: 'g_analysis_4' },
+    { icon: '◎', key: 'g_analysis_5' },
     { div: true },
     { icon: '◈', key: 'g_analysis_6' },
   ] },
-  { id: 'misc', icon: '⊟', open: false, items: [
+  { id: 'misc', acc: 'violet', icon: '⊟', open: false, items: [
     { icon: '↺', key: 'g_misc_1' },
     { div: true },
     { icon: '❓', key: 'g_misc_2' },
