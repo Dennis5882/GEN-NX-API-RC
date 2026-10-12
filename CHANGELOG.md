@@ -1,5 +1,11 @@
 # Changelog — MIDAS RC Modeling Wizard
 
+## v3.0.1 — 2026-10-12 (브라우저 연결 실패 핫픽스)
+
+- **연결 테스트·모든 MAPI 호출이 브라우저에서 실패하던 문제** ("GET /mapikey/verify failed") — midas-nx SDK(2.9.3)가 `this.fetch = globalThis.fetch` 로 저장 후 `this.fetch(url)` 로 호출해, 브라우저가 "Illegal invocation" 으로 거부. 앱에서 `fetch` 를 감싼 함수를 SDK 옵션으로 넘겨 해결. Node(SSR 테스트)에선 허용돼 v3.0.0 검증에서 드러나지 않았음 → 헤드리스 Chrome 연결 테스트로 확인.
+
+---
+
 ## v3.0.0 — 2026-10-12 (★ Vite+TS+React 이전 · 설계기준 프로필 · 중국 GB · 대만 규범 원문 재구현)
 
 배포: https://gen-nx-api-rc.vercel.app/ (`main`). 바닐라 단일 HTML 은 `archive/vanilla-v1.2.1/` + 태그 `vanilla-v1.2.1` 로 보존.

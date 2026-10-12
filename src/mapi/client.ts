@@ -18,7 +18,11 @@ export function getClient(): MidasClient {
   const base = S.baseUrl.trim().replace(/\/$/, '')
   const key = S.mapiKey.trim()
   if (!cached || cached.key !== key || cached.base !== base) {
-    cached = { key, base, client: new MidasClient({ mapiKey: key, baseUrl: base, product: 'gen', timeout: TIMEOUT_MS }) }
+    /* fetch 를 래핑해 넘김 — SDK(2.9.3)는 `this.fetch = globalThis.fetch` 후 `this.fetch(url)` 로 호출하는데,
+       브라우저는 window 가 아닌 this 로 부른 fetch 를 "Illegal invocation" 으로 거부 → "GET /mapikey/verify failed".
+       (Node 는 허용해서 SSR 라이브 테스트에선 안 드러남, 2026-10-12 배포 후 발견) */
+    const fetchFn: typeof fetch = (input, init) => globalThis.fetch(input, init)
+    cached = { key, base, client: new MidasClient({ mapiKey: key, baseUrl: base, product: 'gen', timeout: TIMEOUT_MS, fetch: fetchFn }) }
   }
   return cached.client
 }
