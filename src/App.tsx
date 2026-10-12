@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 
 import { Chat } from './components/Chat'
 import { Drawers, type DrawerId } from './components/Drawers'
 import { Guide } from './components/Guide'
+import { Footer } from './components/Footer'
 import { Header } from './components/Header'
 import { LogPanel, ModelPanel, ResultsPanel } from './components/Panels'
 import { View3D, onView3DTab } from './components/View3D'
@@ -85,6 +86,7 @@ export function App() {
           <div id="resP" className={`panel${s.panel === 'resP' ? ' on' : ''}`}><ResultsPanel /></div>
         </section>
       </main>
+      <Footer />
       <Drawers open={drawer} onClose={() => setDrawer(null)} />
     </>
   )

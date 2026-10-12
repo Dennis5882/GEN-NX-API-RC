@@ -14,13 +14,12 @@ function Section({ sec, running, onRun }: { sec: GuideSection; running: string |
   const itemsRef = useRef<HTMLDivElement>(null)
   const maxH = open ? `${itemsRef.current?.scrollHeight ?? 2000}px` : '0'
   const items = sec.items.filter(visible)
-  const n = items.filter(it => 'key' in it).length
 
   return (
     <div className={`gsec${open ? '' : ' closed'}`} data-acc={sec.acc}>
       <div className="gsec-hd" onClick={() => setOpen(o => !o)}>
         <span className="gsec-ic">{sec.icon}</span><span style={{ flex: 1 }}>{t(`g_${sec.id}`)}</span>
-        <span className="gsec-n">{n}</span><span className="garrow">▾</span>
+        <span className="garrow" aria-hidden />
       </div>
       <div className="gsec-items" ref={itemsRef} style={{ maxHeight: maxH }}>
         {items.map((it, i) => {

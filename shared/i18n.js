@@ -169,7 +169,7 @@ window.I18N = {
     bt_school_desc:"교육시설 RC · 복도형 장방형 평면",
     bt_school_tip:"층수를 바꿀 수 있어요. 예) <code>학교 4층</code>",
     /* 설계기준 프로필 (2026-10) */
-    theme_label:'테마', theme_cyber:'시안', theme_navy:'흑·곤 다크', theme_light:'백·곤 라이트', who_user:'사용자', who_agent:'Gen NX Agent', code_label:'설계기준', code_TW:'TWN-USD112', code_CN:'GB 50010-2010', kv_code:'설계기준',
+    theme_s_navy:'흑', theme_s_light:'백', theme_s_cyber:'청', theme_label:'테마', theme_cyber:'시안', theme_navy:'흑·곤 다크', theme_light:'백·곤 라이트', who_user:'사용자', who_agent:'Gen NX Agent', code_label:'설계기준', code_TW:'TWN-USD112', code_CN:'GB 50010-2010', kv_code:'설계기준',
     code_unverified:'⚠ Gen NX 라이브 확인 전 항목 포함 (재료 DB 등급 표기·CH2010 스펙트럼 파라미터)',
     load_combos_gb:'하중조합 (GB 55001/55002)', response_spectrum_cn:'응답스펙트럼(GB50011 CH2010) RSX·RSY',
     cn_seis_toggle:'등가정적 지진 적용 (GB 50011 저부전단력법)',
@@ -335,7 +335,7 @@ window.I18N = {
     bt_school_desc:"School RC · corridor-type rectangular plan",
     bt_school_tip:"Change the number of stories. e.g. <code>build a 4 story school</code>",
     /* design code profiles (2026-10) */
-    theme_label:'Theme', theme_cyber:'Cyan', theme_navy:'Dark navy', theme_light:'Light navy', who_user:'User', who_agent:'Gen NX Agent', code_label:'Design code', code_TW:'TWN-USD112', code_CN:'GB 50010-2010', kv_code:'Design code',
+    theme_s_navy:'Dark', theme_s_light:'Light', theme_s_cyber:'Cyan', theme_label:'Theme', theme_cyber:'Cyan', theme_navy:'Dark navy', theme_light:'Light navy', who_user:'User', who_agent:'Gen NX Agent', code_label:'Design code', code_TW:'TWN-USD112', code_CN:'GB 50010-2010', kv_code:'Design code',
     code_unverified:'⚠ Includes items not yet confirmed on live Gen NX (material DB grade label, CH2010 spectrum parameters)',
     load_combos_gb:'Load combinations (GB 55001/55002)', response_spectrum_cn:'Response spectrum (GB50011 CH2010) RSX·RSY',
     cn_seis_toggle:'Apply equivalent static seismic (GB 50011 base shear method)',
@@ -501,7 +501,7 @@ window.I18N = {
     bt_school_desc:"教育設施 RC · 走廊型長方形平面",
     bt_school_tip:"可變更樓層數。例）<code>建立 4 層學校</code>",
     /* 設計規範 profile (2026-10) */
-    theme_label:'主題', theme_cyber:'青色', theme_navy:'黑·藏青 深色', theme_light:'白·藏青 淺色', who_user:'使用者', who_agent:'Gen NX Agent', code_label:'設計規範', code_TW:'TWN-USD112', code_CN:'GB 50010-2010', kv_code:'設計規範',
+    theme_s_navy:'黑', theme_s_light:'白', theme_s_cyber:'青', theme_label:'主題', theme_cyber:'青色', theme_navy:'黑·藏青 深色', theme_light:'白·藏青 淺色', who_user:'使用者', who_agent:'Gen NX Agent', code_label:'設計規範', code_TW:'TWN-USD112', code_CN:'GB 50010-2010', kv_code:'設計規範',
     code_unverified:'⚠ 含尚未於 Gen NX 實機確認之項目（材料庫等級標示·CH2010 反應譜參數）',
     load_combos_gb:'載重組合 (GB 55001/55002)', response_spectrum_cn:'反應譜(GB50011 CH2010) RSX·RSY',
     cn_seis_toggle:'套用等效靜力地震 (GB 50011 底部剪力法)',
@@ -517,7 +517,7 @@ window.I18N = {
     /* Phase1: inline->key */ 'iso_view':'ISO 视角', 'eigenvalue_setup':'特征值设置', 'no_sds_sd1_rs_skipped':'无SDS/SD1 — 跳过反应谱', 'response_spectrum_tw_rsx_r':'反应谱(台湾) RSX·RSY', 'analysis_refused':'分析被拒: ', 'eigen_uses_lanczos_subspac':' (特征值用 Lanczos — off-diagonal 质量时 Subspace 不可)', 'period_retrieval_failed':'周期获取失败: ', '1st_mode_period':'基本周期', 'modes':'振型', 'analysis_was_refused_setup':'⚠ 分析被拒 — 设置(质量·特征值·反应谱)已创建。特征值采用 Lanczos。', 'analysis_ran_but_the_eigen':'✓ 分析已运行，但未获取 EIGENVALUEMODE 周期表 — 可能尚无特征值结果或模型未分析(分析后重试)。', 'seismic_cs_update_empirica':'地震 Cs 重算 (经验式 Ta → 解析 T₁)', 'design_spectrum':'设计反应谱', 'floor_make_up':'标准层构成', 'edit_role_range_height_use':'在标准层表编辑 类型/范围/层高/用途/刚性楼板 → 楼层数与高度依表为准。', 'floor_stack_top_roof_botto':'楼层排列（上=屋顶 → 下=地下）', 'role':'类型', 'from':'起', 'to':'止', 'ht':'层高', 'use':'用途', 'add_del':'增/删', 'pal_title':'截面·材料库', 'pal_cols':'柱截面 (H×B)', 'pal_beams':'梁截面 (深×宽)', 'pal_mats':'材料', 'pal_hint':'先定义截面，再在下表将其指派到各区域（地下·标准层·屋顶…）。第一项为默认（代表）截面。', 'fg_col':'柱', 'fg_beam':'梁', 'fg_mat':'材料', 'section_zones':'各区域截面', 'use_above_below_on_a_row_t':'以各行的 ↑（上层）／↓（下层）在其上下插入楼层，× 删除。编号自动重排。', 'auto_create_story_data_db_':'自动创建层数据 (db/STOR)', 'fills_the_story_data_table':'以标准层高填入层数据表（刚性楼板由 rigd 处理）。Story Manager 注册需 GUI Auto Generate。', 'manual':'直接输入', 'apply_equivalent_static_se':'应用等效静力地震 (TWD)', 'site_preset':'场地预设', 't0_basin':'T0 (盆地)', 'use_2':'重要性系数', 'sys':'响应修正系数', 'dead_w0':'自重 w0', 'live':'活载比', 'ovr':'(直接)', 'v_direct':'V 直接', 'look_up_site_sds_sd1_or_t0':'查找场地 SDS/SD1（或 T0）后输入。盆地输入 T0 自动换算 SD1。', 'apply_wind_simplified_stat':'应用风荷载 (简化静风)', 'wind_v10':'基本风速 V10', 'exposure':'地面粗糙度', 'gust_g':'阵风系数 G', 'force_cf':'风力系数 Cf', 'simplified_qz_0_613_vz_wx_':'简化模型。自动 WX·WY → cLCB4/6。精确系数请调整。', 'central_shear_wall_core_au':'中央剪力墙核心筒 (自动)', 'wall_thick':'墙厚', 'places_4_sided_plate_shear':'在平面中央跨布置四面剪力墙(PLATE)，全高 → 提升侧向刚度。对齐轴网、共用节点。', 'seismic':'地震', 'wind':'风荷载', 'shear_wall_core':'剪力墙核心筒', 'panels_plate':'面板 (PLATE)', 'insert_above_higher':'上方插入（较高层）', 'insert_below_lower':'下方插入（较低层）', 'delete':'删除', 'the_shared_engine_shared_r':'共用引擎 (shared/rc_engine.js) 未加载。请确认 shared/rc_engine.js 与此 HTML 同层，并强制刷新 (Ctrl+Shift+R)。', 'material':'材料', 'floor_loads':'楼面荷载', 'load_combos_twd_usd112':'荷载组合 (TWD-USD112)', 'rigid_diaphragm':'刚性楼板', 'diaphragm_method':'刚性楼板方式', 'rigid_link_db_rigd':'刚性连接 (db/rigd)', 'story_floor_diaphragm_db_s':'楼层刚性楼板 (db/STOR)', 'rigd_db_rigd_rigid_link_man':'刚性连接(db/rigd)：节点 DOF 方式(默认)。Story 刚性楼板(db/STOR)：通过 bFLOOR_DIAPHRAGM 设置，不可同时使用(DOF 重复错误)。', 'story_data_skipped':'层数据跳过：', 'seismic_static':'地震等效静力', 'story_data_db_stor':'层数据(db/STOR)', 'g_l_1f_floors_diaphragm_vi':'(地面 1F + 楼层)', 'story_register_accidental_':'楼层注册(ope/STOR)', 'need_a_model_with_seismic_':'需要已激活地震荷载的模型(EX/EY)。', 'forces_registered_stories':'层力(已注册楼层)', 'no_profile_rows_matched_ch':'无法匹配 PROFILE 行（请确认回应格式）', 'sseis_cross_check_x_dir':'🔬 SSEIS 交叉验证 (X向)', 'worst_shear_err':'最大剪力误差', 'need_a_model_with_wind_loa':'需要已激活风荷载的模型(WX/WY)。', 'pressure_conversion_failed':'压力换算失败 — 请确认 STOR 楼板宽度及层高。', 'stories_pressure_from_forc':'层(压力换算)', 'no_profile_rows_matched':'无法匹配 PROFILE 行', 'swind_cross_check_x_dir_wi':'🌬 SWIND 交叉验证 (X向, 风)', 'no_stories_above_g_l':'G.L. 以上无楼层。', 'story_weight_check_self_es':'⚖ 层重量比较（自估 vs Gen，参考）', 'shear_wall':'剪力墙', 'support':'支座',
     subtitle:'对话式结构建模', dev:'开发者', updated:'更新日',
     conn_unlinked:'未连接', conn_linked:'Gen NX 已连接', conn_failed:'连接失败',
-    split_tip:'拖动调整宽度 · 双击恢复默认', guide_title:'⌘ 命令指南', guide_close:'收起指南', guide_open:'展开指南', guide_open_txt:'指南',
+    split_tip:'拖动调整宽度 · 双击恢复默认', guide_title:'⌘ 操作菜单', guide_close:'收起菜单', guide_open:'展开菜单', guide_open_txt:'菜单',
     mode:'MODE', mode_local:'本地 · 规则式', mode_nokey:'无密钥→本地', brain:' 大脑',
     input_ph:'以自然语言下达指令…  例）创建 15 层住宅',
     tab_log:'⬡ 活动记录', tab_model:'▣ 模型概要', tab_3d:'◈ 3D 预览', tab_res:'∑ 结果',
@@ -571,7 +571,7 @@ window.I18N = {
     st_props:(m,c,b)=>`材料 ${m} · 柱截面 ${c} · 梁截面 ${b}<br>`,
     st_height:h=>`高度 ${h} m`,
     meta_title:'Gen NX 对话式建模代理（学习用）', meta_desc:'通过自然语言或点击在 MIDAS Gen NX 中建立并分析 RC 框架。支持台湾·中国规范、反应谱分析和审图指标。',
-    welcome:'您好 — 我是 <b>Gen NX 对话式代理</b>。🏗️<br><br>点击左侧 <b>命令指南</b> 的项目，或直接以自然语言输入。<br>建筑类型：<code>🏠 住宅</code> · <code>🏢 办公</code> · <code>🏬 商场</code> · <code>🏥 医院</code> · <code>🏫 学校</code><br><br>例）<code>创建 15 层住宅</code> → <code>运行分析</code> → <code>查找最大位移</code><br><br><span style="color:var(--muted);font-size:.82rem">请在 ⚙ 设置 MAPI 连接后使用。可在上方切换语言。</span>',
+    welcome:'您好 — 我是 <b>Gen NX 对话式代理</b>。🏗️<br><br>点击左侧 <b>操作菜单</b> 的项目，或直接以自然语言输入。<br>建筑类型：<code>🏠 住宅</code> · <code>🏢 办公</code> · <code>🏬 商场</code> · <code>🏥 医院</code> · <code>🏫 学校</code><br><br>例）<code>创建 15 层住宅</code> → <code>运行分析</code> → <code>查找最大位移</code><br><br><span style="color:var(--muted);font-size:.82rem">请在 ⚙ 设置 MAPI 连接后使用。可在上方切换语言。</span>',
     tgt_col:'柱', tgt_beam:'梁',
     act_modsect:(t,n,c)=>`已将 ${t} 截面变更为 ${n}（涉及单元 ${c} 个）。`,
     act_resize:(fl,t,c,H,B,n)=>`已将 ${fl}${t} ${c} 个变更为 ${H}×${B}（${n}）。`,
@@ -667,7 +667,7 @@ window.I18N = {
     bt_school_desc:"教育设施 RC · 走廊型长方形平面",
     bt_school_tip:"可变更楼层数。例）<code>创建 4 层学校</code>",
     /* 设计规范 profile (2026-10) */
-    theme_label:'主题', theme_cyber:'青色', theme_navy:'黑·藏青 深色', theme_light:'白·藏青 浅色', who_user:'用户', who_agent:'Gen NX Agent', code_label:'设计规范', code_TW:'TWN-USD112', code_CN:'GB 50010-2010', kv_code:'设计规范',
+    theme_s_navy:'黑', theme_s_light:'白', theme_s_cyber:'青', theme_label:'主题', theme_cyber:'青色', theme_navy:'黑·藏青 深色', theme_light:'白·藏青 浅色', who_user:'用户', who_agent:'Gen NX Agent', code_label:'设计规范', code_TW:'TWN-USD112', code_CN:'GB 50010-2010', kv_code:'设计规范',
     code_unverified:'⚠ 含尚未在 Gen NX 实机确认的项目（材料库等级标识·CH2010 反应谱参数）',
     load_combos_gb:'荷载组合 (GB 55001/55002)', response_spectrum_cn:'反应谱(GB50011 CH2010) RSX·RSY',
     cn_seis_toggle:'施加等效静力地震作用 (GB 50011 底部剪力法)',

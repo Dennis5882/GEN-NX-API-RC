@@ -85,8 +85,6 @@ header .mark{
   font-family:'IBM Plex Sans',var(--cjk);font-weight:700;color:#fff;font-size:.72rem;letter-spacing:.3px;
 }
 header h1{font-size:.98rem;font-weight:600;letter-spacing:.3px}
-header h1 .byline{font-family:'IBM Plex Mono',var(--cjk);font-size:.6rem;font-weight:400;color:var(--dim);letter-spacing:.5px;margin-left:9px;white-space:nowrap}
-header h1 .byline b{color:var(--muted);font-weight:600}
 header h1 small{display:block;font-size:.64rem;color:var(--muted);font-weight:400;letter-spacing:1.5px;margin-top:2px;text-transform:uppercase}
 header .spacer{flex:1}
 .pill{
@@ -100,7 +98,6 @@ header .spacer{flex:1}
 .gear{cursor:pointer;color:var(--muted);font-size:1.2rem;padding:4px 8px;border-radius:6px;transition:.2s}
 .gear:hover{color:var(--cyan);background:color-mix(in srgb,var(--cyan) 8%,transparent)}
 .gear.active{color:var(--cyan)}
-@media(max-width:640px){header h1 .byline{display:none}}
 .langsel{display:flex;align-items:center;margin-right:4px}
 .langsel select{font-family:'IBM Plex Mono',var(--cjk);font-size:.72rem;padding:4px 8px;border-radius:6px;
   border:1px solid var(--border);background:var(--bg);color:var(--dim);cursor:pointer;outline:none;transition:.15s}
@@ -238,9 +235,9 @@ main.splitting .right,main.splitting .chat{pointer-events:none}
   font-size:.72rem;color:var(--acc);background:color-mix(in srgb,var(--acc) 12%,transparent);
   border:1px solid color-mix(in srgb,var(--acc) 28%,transparent);
 }
-.gsec-hd .gsec-n{font-size:.58rem;color:var(--dim);letter-spacing:0;font-weight:400}
-.gsec-hd .garrow{font-size:.55rem;transition:transform .18s;opacity:.6}
-.gsec.closed .garrow{transform:rotate(-90deg)}
+.gsec-hd .garrow{width:8px;height:8px;margin:0 4px 3px 0;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;
+  transform:rotate(45deg);transition:transform .18s;opacity:.7;flex-shrink:0}   /* 접힘 = 아래(펼칠 수 있음), 펼침 = 위 */
+.gsec:not(.closed) .garrow{transform:rotate(-135deg);margin:3px 4px 0 0}
 .gsec-items{overflow:hidden;transition:max-height .2s ease;display:flex;flex-direction:column;gap:2px;padding-left:2px}
 .gsec.closed .gsec-items{max-height:0!important}
 .gsec-items>*{flex-shrink:0}   /* 접힌 상태(max-height 0)에서 재는 scrollHeight 가 눌린 높이가 되지 않게 */
@@ -439,3 +436,18 @@ td.pos{color:var(--green)} td.neg{color:var(--red)}
 :root{--cjk:'Noto Sans KR','Noto Sans TC','Noto Sans SC'}
 :root:lang(zh-Hant){--cjk:'Noto Sans TC','Noto Sans KR','Noto Sans SC'}
 :root:lang(zh-Hans){--cjk:'Noto Sans SC','Noto Sans KR','Noto Sans TC'}
+
+/* 하단 상태 바 — 개발자·버전(왼쪽) · 테마 버튼(오른쪽) */
+.appfoot{display:flex;align-items:center;gap:10px;padding:5px 14px calc(5px + env(safe-area-inset-bottom));flex-shrink:0;
+  border-top:1px solid var(--border);background:var(--panel);font-family:'IBM Plex Mono',var(--cjk);font-size:.68rem;color:var(--dim)}
+.appfoot .byline{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.appfoot .byline b{color:var(--muted);font-weight:600}
+.appfoot .foot-lbl{white-space:nowrap}
+.theme-seg{display:flex;border:1px solid var(--border);border-radius:5px;overflow:hidden}
+.theme-seg button{display:flex;align-items:center;gap:6px;padding:3px 10px;background:transparent;border:none;border-left:1px solid var(--border);
+  color:var(--muted);font:inherit;cursor:pointer;white-space:nowrap;transition:.12s}
+.theme-seg button:first-child{border-left:none}
+.theme-seg button:hover{color:var(--txt-hi);background:var(--hover)}
+.theme-seg button.on{color:var(--txt-hi);background:color-mix(in srgb,var(--cyan) 14%,transparent)}
+.theme-seg .sw{width:11px;height:11px;border-radius:3px;border:1px solid var(--border);flex-shrink:0}
+@media(max-width:640px){.appfoot .byline,.appfoot .foot-lbl{display:none}}

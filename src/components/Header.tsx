@@ -1,8 +1,7 @@
-import { APP_VERSION, BUILD_DATE } from '../version'
-import { llmActive, setCode, setLang, setTheme } from '../agent/session'
+import { llmActive, setCode, setLang } from '../agent/session'
 import { CODE_IDS, type CodeId } from '../codes'
 import { LANG_DEFS, t, type Lang } from '../i18n'
-import { THEMES, useStore, type Theme } from '../state/store'
+import { useStore } from '../state/store'
 
 export function Header({ onOpenMapi, onOpenLlm }: { onOpenMapi(): void; onOpenLlm(): void }) {
   const s = useStore()
@@ -13,7 +12,6 @@ export function Header({ onOpenMapi, onOpenLlm }: { onOpenMapi(): void; onOpenLl
       <div className="mark">GEN</div>
       <h1>
         Gen NX Agent
-        <span className="byline">{t('dev')} <b>Dennis</b> · v{APP_VERSION}{BUILD_DATE && ` (${t('updated')} : ${BUILD_DATE})`}</span>
         <small>{t('subtitle')}</small>
       </h1>
       <div className="spacer" />
@@ -26,11 +24,6 @@ export function Header({ onOpenMapi, onOpenLlm }: { onOpenMapi(): void; onOpenLl
       <div className="langsel" title={t('code_label')}>
         <select value={s.code} onChange={e => setCode(e.target.value as CodeId)} aria-label={t('code_label')}>
           {CODE_IDS.map(id => <option key={id} value={id}>{t(`code_${id}`)}</option>)}
-        </select>
-      </div>
-      <div className="langsel" title={t('theme_label')}>
-        <select value={s.theme} onChange={e => setTheme(e.target.value as Theme)} aria-label={t('theme_label')}>
-          {THEMES.map(th => <option key={th} value={th}>{t(`theme_${th}`)}</option>)}
         </select>
       </div>
       <div className={`pill${s.connected ? ' on' : ''}${s.connErr ? ' err' : ''}`} onClick={onOpenMapi}>
