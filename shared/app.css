@@ -13,6 +13,8 @@ body{
   background-size:32px 32px;
   display:flex;flex-direction:column;height:100vh;overflow:hidden;
 }
+/* React 루트 — body 의 100vh 플렉스 체인을 header/main 까지 잇는다(없으면 페이지가 내용만큼 늘어 3D·패널이 밀림) */
+#root{flex:1;min-height:0;display:flex;flex-direction:column}
 .mono{font-family:'IBM Plex Mono',var(--cjk),monospace}
 
 /* header */
