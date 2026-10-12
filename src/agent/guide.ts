@@ -1,5 +1,6 @@
 /* GUIDE 패널 구조 — 문구는 사전: 섹션 g_<id>, 항목 g_<id>_<n>(라벨)·g_<id>_<n>_cmd(명령), 안내 g_<id>_note.
-   send:true = 클릭 시 즉시 전송, 아니면 입력창에 채우기만 */
+   클릭 = 명령을 입력창에 타이핑해 보여준 뒤 바로 실행(채팅 입력과 같은 경로) — 직접 입력·클릭 두 방식을 함께 보여주기 위함.
+   need:'review' = 현재 기준 프로필에 그 훅이 있을 때만 표시(기준 하드코딩 대신 기능 유무로 판정) */
 
 import type { I18nKey } from '../i18n'
 
@@ -11,7 +12,7 @@ export type GuideSecId = I18nKey extends infer K ? (K extends `g_${infer Id}` ? 
 export type GuideItem =
   | { div: true }
   | { note: Extract<I18nKey, `g_${string}_note`> }
-  | { icon: string; key: GuideItemKey; send?: boolean }
+  | { icon: string; key: GuideItemKey; need?: 'review' }
 
 export interface GuideSection { id: GuideSecId; icon: string; open: boolean; items: GuideItem[] }
 
@@ -44,18 +45,20 @@ export const GUIDE: GuideSection[] = [
     { icon: '✕', key: 'g_load_4' },
   ] },
   { id: 'analysis', icon: '∑', open: true, items: [
-    { icon: '▷', key: 'g_analysis_1', send: true },
-    { icon: '▷', key: 'g_analysis_2', send: true },
-    { icon: '▷', key: 'g_analysis_3', send: true },
-    { icon: '▷', key: 'g_analysis_4', send: true },
-    { icon: '▷', key: 'g_analysis_5', send: true },
+    { icon: '▷', key: 'g_analysis_1' },
+    { icon: '〜', key: 'g_analysis_7' },
+    { icon: '📋', key: 'g_analysis_8', need: 'review' },
+    { icon: '▷', key: 'g_analysis_2' },
+    { icon: '▷', key: 'g_analysis_3' },
+    { icon: '▷', key: 'g_analysis_4' },
+    { icon: '▷', key: 'g_analysis_5' },
     { div: true },
-    { icon: '◈', key: 'g_analysis_6', send: true },
+    { icon: '◈', key: 'g_analysis_6' },
   ] },
   { id: 'misc', icon: '⊟', open: false, items: [
     { icon: '↺', key: 'g_misc_1' },
     { div: true },
-    { icon: '❓', key: 'g_misc_2', send: true },
-    { icon: '◉', key: 'g_misc_3', send: true },
+    { icon: '❓', key: 'g_misc_2' },
+    { icon: '◉', key: 'g_misc_3' },
   ] },
 ]

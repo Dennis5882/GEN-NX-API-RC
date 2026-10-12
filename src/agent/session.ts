@@ -76,10 +76,8 @@ export async function testConn(): Promise<TestOut> {
   }
 }
 
-/* ── 입력창 제어 (가이드 패널 hint/quick 용) — Composer 가 등록 ── */
-let composerFill: ((txt: string) => void) | null = null
-export function registerComposer(fill: ((txt: string) => void) | null): void { composerFill = fill }
-/** hint = 입력창에 채우기만(값 수정 후 전송) */
-export function hint(txt: string): void { composerFill?.(txt) }
-/** quick = 즉시 전송 */
-export function quick(txt: string): void { void send(txt) }
+/* ── 입력창 제어 (가이드 패널용) — Composer 가 등록 ── */
+let composerRun: ((txt: string) => void) | null = null
+export function registerComposer(run: ((txt: string) => void) | null): void { composerRun = run }
+/** 가이드 클릭 — 입력창에 명령을 타이핑해 보인 뒤 실행 (Composer 없으면 바로 전송) */
+export function runCmd(txt: string): void { if (composerRun) composerRun(txt); else void send(txt) }

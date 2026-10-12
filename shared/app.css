@@ -53,8 +53,14 @@ header .spacer{flex:1}
 .langsel select:hover{border-color:var(--dim);color:var(--txt)}
 
 /* main split */
-main{flex:1;display:grid;grid-template-columns:1fr 1.05fr;gap:1px;background:var(--border);overflow:hidden}
-@media(max-width:880px){main{grid-template-columns:1fr;grid-template-rows:1fr 1fr}}
+main{flex:1;display:grid;grid-template-columns:minmax(0,var(--split,49%)) 6px minmax(0,1fr);background:var(--border);overflow:hidden}
+/* 채팅|우측 분할선 — 드래그로 폭 조절(App.tsx), 드래그 중엔 선택·iframe 포인터 차단 */
+.splitter{cursor:col-resize;background:var(--border);position:relative;touch-action:none;transition:background .15s}
+.splitter::after{content:'';position:absolute;left:2px;top:50%;width:2px;height:36px;margin-top:-18px;border-radius:1px;background:var(--dim);opacity:.6}
+.splitter:hover,main.splitting .splitter{background:var(--cyan)}
+main.splitting{cursor:col-resize;user-select:none}
+main.splitting .right,main.splitting .chat{pointer-events:none}
+@media(max-width:880px){main{grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:1px}.splitter{display:none}}
 
 /* chat */
 .chat{background:var(--bg);display:flex;flex-direction:row;overflow:hidden}

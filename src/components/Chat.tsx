@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { PROVIDERS } from '../agent/llm'
 import { clearChat, llmActive, registerComposer, send } from '../agent/session'
 import { t } from '../i18n'
-import { useStore, type ChatMsg } from '../state/store'
+import { S, useStore, type ChatMsg } from '../state/store'
 import { PlanCard } from './PlanCard'
 
 function Message({ m }: { m: ChatMsg }) {
@@ -19,6 +19,7 @@ function Composer() {
   const s = useStore()
   const [text, setText] = useState('')
   const ref = useRef<HTMLTextAreaElement>(null)
+  const typing = useRef(false)
 
   const autosize = () => {
     const el = ref.current; if (!el) return
@@ -26,17 +27,38 @@ function Composer() {
     el.style.height = Math.min(el.scrollHeight, 120) + 'px'
   }
 
-  useEffect(() => {
-    registerComposer(txt => { setText(txt); requestAnimationFrame(() => { ref.current?.focus(); autosize() }) })
-    return () => registerComposer(null)
-  }, [])
-
-  async function onSend() {
-    const txt = text.trim(); if (!txt) return
+  async function submit(txt: string) {
     setText('')
     requestAnimationFrame(autosize)
     await send(txt)
     ref.current?.focus()
+  }
+
+  /* 가이드 클릭 — 사람이 친 것처럼 한 글자씩 채운 뒤 Enter 와 같은 경로로 전송 (전체 ≈0.5s 이내) */
+  async function typeAndRun(txt: string) {
+    if (typing.current || S.busy) return
+    typing.current = true
+    try {
+      const chars = [...txt], step = Math.max(8, Math.min(30, 500 / chars.length))
+      ref.current?.focus()
+      for (let i = 1; i <= chars.length; i++) {
+        setText(chars.slice(0, i).join(''))
+        await new Promise(r => setTimeout(r, step))
+      }
+      autosize()
+      await new Promise(r => setTimeout(r, 150))
+    } finally { typing.current = false }
+    await submit(txt)
+  }
+
+  useEffect(() => {
+    registerComposer(txt => void typeAndRun(txt))
+    return () => registerComposer(null)
+  }, [])
+
+  async function onSend() {
+    const txt = text.trim(); if (!txt || typing.current) return
+    await submit(txt)
   }
 
   const llm = llmActive()

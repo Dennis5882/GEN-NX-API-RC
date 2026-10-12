@@ -1,5 +1,5 @@
 /* 앱 셸 — 바닐라 index.html 레이아웃·클래스명 유지(shared/app.css 재사용) */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { Chat } from './components/Chat'
 import { Drawers, type DrawerId } from './components/Drawers'
 import { Guide } from './components/Guide'
@@ -19,10 +19,38 @@ const TABS: { id: PanelId; key: I18nKey }[] = [
 
 let greeted = false
 
+/* 채팅|우측 패널 분할 비율(%) — 드래그로 조절, 더블클릭 = 기본값. 뷰어별 편의라 localStorage(실패해도 기본값) */
+const SPLIT_DEF = 49, SPLIT_MIN = 25, SPLIT_MAX = 75
+function readSplit(): number {
+  try { const v = parseFloat(localStorage.getItem('nx_split') || ''); return v >= SPLIT_MIN && v <= SPLIT_MAX ? v : SPLIT_DEF } catch { return SPLIT_DEF }
+}
+function saveSplit(v: number) { try { localStorage.setItem('nx_split', String(v)) } catch { /* 무시 */ } }
+
 export function App() {
   const s = useStore()
   const [drawer, setDrawer] = useState<DrawerId>(null)
   const [guideCollapsed, setGuideCollapsed] = useState(false)
+  const [split, setSplit] = useState(readSplit)
+  const [dragging, setDragging] = useState(false)
+  const mainRef = useRef<HTMLElement>(null)
+
+  const onSplitDown = (e: RPointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setDragging(true)
+  }
+  const onSplitMove = (e: RPointerEvent<HTMLDivElement>) => {
+    if (!dragging || !mainRef.current) return
+    const r = mainRef.current.getBoundingClientRect()
+    setSplit(Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, ((e.clientX - r.left) / r.width) * 100)))
+  }
+  const onSplitUp = () => {
+    if (!dragging) return
+    setDragging(false)
+    saveSplit(split)
+    window.dispatchEvent(new Event('resize'))   // Plotly(responsive) 3D 뷰 재배치
+  }
+  const resetSplit = () => { setSplit(SPLIT_DEF); saveSplit(SPLIT_DEF); requestAnimationFrame(() => window.dispatchEvent(new Event('resize'))) }
 
   useEffect(() => {
     document.documentElement.lang = htmlLang(s.lang)
@@ -34,11 +62,13 @@ export function App() {
   return (
     <>
       <Header onOpenMapi={() => setDrawer('mapi')} onOpenLlm={() => setDrawer('llm')} />
-      <main>
+      <main ref={mainRef} className={dragging ? 'splitting' : undefined} style={{ ['--split' as any]: `${split}%` }}>
         <section className="chat">
           <Guide collapsed={guideCollapsed} onToggle={toggleGuide} />
           <Chat guideCollapsed={guideCollapsed} onOpenGuide={toggleGuide} />
         </section>
+        <div className="splitter" title={t('split_tip')} onPointerDown={onSplitDown} onPointerMove={onSplitMove}
+          onPointerUp={onSplitUp} onPointerCancel={onSplitUp} onDoubleClick={resetSplit} />
         <section className="right">
           <div className="tabbar">
             {TABS.map(tb => (
