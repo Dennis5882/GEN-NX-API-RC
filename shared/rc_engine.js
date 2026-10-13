@@ -236,6 +236,12 @@ function bearingWalls(p, bw){
   }
   return out;
 }
+/** 모델에 쓸 벽 — 코어·내력벽이 켜져 있으면 항상 현재 형상으로 재생성(층수·경간 변경 시 저장된 walls 가 낡음),
+    둘 다 꺼져 있으면 스펙의 walls 그대로(구 스펙 호환) */
+function resolveWalls(p){
+  const c=p.core||{}, bw=p.bearing||{};
+  return (c.on||bw.on) ? specWalls(p) : (Array.isArray(p.walls)?p.walls:[]);
+}
 /** 스펙의 전체 벽 = 코어(core.on) + 내력벽(bearing.on) */
 function specWalls(p){
   const c=p.core||{}, bw=p.bearing||{};
@@ -1102,7 +1108,7 @@ if(typeof window!=='undefined'){
     MATERIALS, FLOOR_USE, TYPE_USE, useOf, deriveFloorGroups, specToGroupRows,
     paletteFor, specSections,
     FG_ROLES, FG_USES, asSpans, cumPos, buildFrame, taiwanCombos,
-    DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType, autoCore, coreLayout, coreWalls, bearingWalls, specWalls,
+    DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType, autoCore, coreLayout, coreWalls, bearingWalls, specWalls, resolveWalls,
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,

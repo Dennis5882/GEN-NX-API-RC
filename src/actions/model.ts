@@ -297,7 +297,7 @@ async function putFloorMembranes(p: BuildingSpec, f: any, recs: ElemRec[], eid: 
 
 export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any> {
   if (!S.connected) throw new Error(t('e_notconn'))
-  if (!(Array.isArray(p.walls) && p.walls.length)) p.walls = RC.specWalls(p)   // 코어 + 내력벽
+  p.walls = RC.resolveWalls(p)   // 코어 + 내력벽 — 층수·경간이 바뀐 스펙(change_spec 등)의 낡은 walls 재생성
   const f = RC.buildFrame(p)
   S.review = null
   /* 이전 동적해석 상태 초기화 — 남아 있으면 새 모델 조합이 없는 RSX/RSY 를 참조 (doc/new 가 조합도 지움) */

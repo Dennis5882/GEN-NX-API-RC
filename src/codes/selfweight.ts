@@ -31,7 +31,7 @@ export const slabLoad = (p: BuildingSpec, prof: CodeProfile): number => slabThk(
 /** 층별 고정하중 W_D[s] (kN, s=1..stories). 기둥·벽은 아래·위 층에 반씩, 보·바닥은 그 층.
     지반(0층)으로 가는 몫은 질량에서 빠지므로 제외 — Gen NX 질량 집계와 같은 방식. */
 export function modelDeadWeights(p: BuildingSpec, prof: CodeProfile): number[] {
-  const q: BuildingSpec = !(Array.isArray(p.walls) && p.walls.length) ? { ...p, walls: RC.specWalls(p) } : p
+  const q: BuildingSpec = { ...p, walls: RC.resolveWalls(p) }
   const f = RC.buildFrame(q)
   const R = RC.specSections(q)
   const g = RC.deriveFloorGroups(q)

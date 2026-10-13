@@ -139,7 +139,7 @@ GUIDE 패널: `GUIDE` 배열(`src/agent/guide.ts`) → `Guide.tsx`. 그룹(2026-
 ## 벽 요소·내력벽(벽식) (2026-10-13, Gen NX 라이브)
 - **벽 = Gen `WALL` 요소**(STYPE 2 plate, Wall ID = 동·벽 정의·평면별). PLATE 벽은 Gen 층 결과표(층간변위·비틀림·강성·전도모멘트)의 '수직 부재'로 인식되지 않아 기둥 없는 모델에서 전부 0 → WALL 로 전환(전도모멘트도 Frame/Wall 분리).
 - 벽 강성 배율 = **`/db/WSSF`(키 = WALL 요소 번호) `{SHEAR, BENDING}`** — BENDING = 면내 휨(×0.7 → T₁ +12.9%), SHEAR = 면내 전단(+2.9%). PSSF 는 WALL 요소에 입력 불가. KR 균열 벽 0.70Ig → BENDING 만.
-- **내력벽 `spec.bearing = {on, thick}`** → `RC.bearingWalls`(세대 경계벽 = 모든 X 그리드선 Y 방향 전체 깊이 + 복도벽 = 가운데 선 X 방향, 양 끝에서 한 베이 걸러 좌우 대칭), `RC.specWalls` = 코어 + 내력벽(편집기·모델·자중·LLM·3D 미리보기 공용). bearing.on 이면 벽 속 기둥 생략, 벽 위 보 `inWall` = ESSF WGT_SF 0(벽 자중에 포함, 바닥하중 전달용) — 코어 위 보도 동일(모든 기준).
+- **내력벽 `spec.bearing = {on, thick}`** → `RC.bearingWalls`(세대 경계벽 = 모든 X 그리드선 Y 방향 전체 깊이 + 복도벽 = 가운데 선 X 방향, 양 끝에서 한 베이 걸러 좌우 대칭), `RC.specWalls` = 코어 + 내력벽, **`RC.resolveWalls`** = 코어·내력벽이 켜져 있으면 항상 현재 형상으로 재생성(저장된 walls 는 층수·경간 변경 시 낡음 — v3.10.1 수정, 모델 생성·자중·3D 미리보기 공용). bearing.on 이면 벽 속 기둥 생략, 벽 위 보 `inWall` = ESSF WGT_SF 0(벽 자중에 포함, 바닥하중 전달용) — 코어 위 보도 동일(모든 기준).
 - **KR 아파트 = 벽식**(prepareNew, 기둥 크기 직접 지정 시 골조 유지): 6×4.2m · 2×5.4m · 층고 2.9m · 슬래브 210 · 벽 200 · 보 B200x500(인방) · 필로티 없음, 시스템 1-b(지상 60m 초과 1-a). 편집 카드 '내력벽 (벽식)' 토글(KR).
 - **KR 부재 단위중량 `memberGamma` 23.54**(Gen KS19(RC) DB 2,400 kgf/m³) — 슬래브 하중은 24. 이전 KR 앱 자중이 Gen 보다 부재분 ~1.9% 컸음.
 - 라이브(KR 아파트 15층): 기둥 0·WALL 270·WSSF 270, DL 반력 = 앱 자중 47,967 kN, LL = 25.2×10.8×2.0×14 정확, EX = 앱 V, 층 표 지표 전부 값, T₁ 0.768 s, 비틀림 Y 1.21(긴 판상형 ±5% 우발편심 — 실제 신호). CN 코어 사무 10층: WALL 40, 倾覆力矩比 20.4%/21.6%.
@@ -220,7 +220,7 @@ T₁은 `EIGENVALUEMODE` 테이블에서 회수 (`PARTICIPATIONVECTORMODE` 아�
 
 ## 현재 빌드 버전
 MIDAS GEN NX 2026 (v2.1), Build **06/12/2026**.  
-도구 버전: **`package.json` version 이 단일 출처**(현재 `3.10.0`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
+도구 버전: **`package.json` version 이 단일 출처**(현재 `3.10.1`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
 
 ## 개발 환경 주의
 - Node.js v24 / npm 설치됨 (winget, 2026-10 확인). 엔진 스모크 테스트는 node ESM으로 가능.

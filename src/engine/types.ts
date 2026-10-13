@@ -111,6 +111,7 @@ export interface RCEngineApi {
   coreWalls(p: Partial<BuildingSpec>, c?: CoreInput): any[]
   bearingWalls(p: Partial<BuildingSpec>, bw?: BearingInput): any[]
   specWalls(p: Partial<BuildingSpec>): any[]
+  resolveWalls(p: Partial<BuildingSpec>): any[]
   // ── 아래는 아직 미타입 (이전 시 구체화) ──
   [name: string]: any
 }

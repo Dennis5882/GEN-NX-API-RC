@@ -36,7 +36,7 @@ const FONT = 'IBM Plex Mono, Noto Sans KR, Noto Sans TC, Noto Sans SC'
 function frameOf(s: AppState): any | null {
   if (s.preview) {
     /* 템플릿 카드처럼 벽이 아직 생성되지 않은 스펙 — 코어·내력벽을 스펙에서 생성(모델 생성과 같은 규칙) */
-    const pv = Array.isArray(s.preview.walls) && s.preview.walls.length ? s.preview : { ...s.preview, walls: RC.specWalls(s.preview) }
+    const pv = { ...s.preview, walls: RC.resolveWalls(s.preview) }
     return { ...RC.buildFrame(pv), spec: pv }
   }
   const m = s.model
