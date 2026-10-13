@@ -139,7 +139,10 @@ async function putCombos(): Promise<void> {
   const prof = profileOf(S.model.spec)
   /* rsCases: 응답스펙트럼이 주 해석일 때 동적해석이 등록(RSX/RSY, type 'RS') — 정적 결과 회수 목록과 분리 */
   const combos = prof.combos([...(S.model.loadCases || []), ...(S.model.rsCases || [])])
-  if (!combos.length) return
+  if (!combos.length) {
+    if ((S.model.combos || []).length) { try { await mapi('DELETE', 'lcom-gen', {}) } catch { /* noop */ } S.model.combos = [] }
+    return
+  }
   const a: Record<number, any> = {}
   combos.forEach((cb, i) => {
     a[i + 1] = { NAME: cb.name, ACTIVE: 'ACTIVE', iTYPE: 0, DESC: cb.desc,
@@ -241,7 +244,10 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
   if (core && core.on && !(Array.isArray(p.walls) && p.walls.length)) p.walls = [RC.autoCore(p, core.thick)]
   const f = RC.buildFrame(p)
   S.review = null
-  if (clear) await clearModel()              // doc/new가 단위를 리셋하므로 setUnit은 그 다음
+  /* 이전 동적해석 상태 초기화 — 남아 있으면 새 모델 조합이 없는 RSX/RSY 를 참조 (doc/new 가 조합도 지움) */
+  S.model.rsCases = undefined
+  S.model.dynamic = null
+  if (clear) { await clearModel(); S.model.combos = [] }              // doc/new가 단위를 리셋하므로 setUnit은 그 다음
   await setUnit('N', 'MM')
   const R = RC.specSections(p)               // 다중 단면·재료 레지스트리 + 층별 배정
   await putMaterials(p, R.mats)

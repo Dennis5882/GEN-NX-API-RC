@@ -160,9 +160,9 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
     const r = prof.seismic.storyForces(p, sp, { T: modal.T1 })
     const old = S.model.seismic
     fb = { Tdyn: modal.T1, Ta: (old && old.T) || null, CsOld: (old && old.Cs) || null, Cs: r.Cs, Vold: (old && old.V) || null, V: r.V }
-    S.model.dynamic = { T1: modal.T1, modes: modal.modes, Cs: r.Cs, V: r.V, Ta: fb.Ta, rs: !!ds, ...(primary ? { rsPrimary: true, rsChk } : {}) }
+    S.model.dynamic = { T1: modal.T1, modes: modal.modes, Cs: r.Cs, V: r.V, Ta: fb.Ta, rs: !!ds, ...(primary ? { rsPrimary: true } : {}), ...(ds && rsChk ? { rsChk } : {}) }
   } else {
-    S.model.dynamic = { T1: modal.T1, modes: modal.modes, rs: !!ds, ...(primary ? { rsPrimary: true, rsChk } : {}) }
+    S.model.dynamic = { T1: modal.T1, modes: modal.modes, rs: !!ds, ...(primary ? { rsPrimary: true } : {}), ...(ds && rsChk ? { rsChk } : {}) }
   }
   renderModelState()
   /* ── 보고 메시지 ── */

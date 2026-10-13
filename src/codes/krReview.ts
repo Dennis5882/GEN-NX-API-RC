@@ -15,11 +15,9 @@ import { t } from '../i18n'
 import { classifyModes, num, subTableObjs, tableObjs } from '../mapi/tables'
 import { heightAboveGround } from './selfweight'
 import type { ReviewItem, ReviewTable } from './types'
-import { SYSTEMS, impKR, rsRequiredKR, siteKR, sdcKR, systemKR } from './kr'
+import { IE_KR, SYSTEMS, impKR, rsRequiredKR, siteKR, sdcKR, systemKR } from './kr'
 
 const DRIFT_COL = 'Maximum Drift of All Vertical Elements/Story Drift'
-const IE: Record<string, number> = { S: 1.5, 1: 1.2, 2: 1.0, 3: 1.0 }
-const GRADE: Record<string, string> = { S: '특', 1: 'I', 2: 'II', 3: 'II' }
 const DA: Record<string, number> = { S: 0.010, 1: 0.015, 2: 0.020, 3: 0.020 }
 
 export function krReviewTables(ctx: { rs: boolean }): ReviewTable[] {
@@ -37,27 +35,28 @@ export function krReviewEvaluate(p: BuildingSpec, sp: Record<string, any>, data:
   ctx: { rs: boolean; T1: number | null; rsChk?: any }): ReviewItem[] {
   const items: ReviewItem[] = []
   const st = siteKR(sp)
-  const imp = impKR(p, sp.imp), Ie = IE[imp]
+  const imp = impKR(p, sp.imp), Ie = IE_KR[imp]
+  const grade = t('kr_grade_n', imp)
   const sdc = sdcKR(st.SDS, st.SD1, imp)
   const sysId = systemKR(p, sp), sys = SYSTEMS[sysId]
   const H = heightAboveGround(p)
   const src = ctx.rs ? 'RS' : 'ST'
 
   /* 0) 내진설계범주 · 시스템 높이 제한 · 해석법 */
-  items.push({ id: 'sdc', label: t('rv_sdc'), value: sdc, limit: `S_DS ${st.SDS.toFixed(3)} · S_D1 ${st.SD1.toFixed(3)} · ${t('rv_kr_grade')} ${GRADE[imp]} (I_E ${Ie})`,
+  items.push({ id: 'sdc', label: t('rv_sdc'), value: sdc, limit: `S_DS ${st.SDS.toFixed(3)} · S_D1 ${st.SD1.toFixed(3)} · ${t('rv_kr_grade')} ${grade} (I_E ${Ie})`,
     status: 'info', clause: 'KDS 41 17 00 5.2' })
   const lim = sdc === 'D' ? sys.limD : undefined
-  items.push({ id: 'system', label: t('rv_sys'), value: `${H.toFixed(1)} m`, limit: `${t(`kr_sys_${sysId}` as any)} · ${lim ? `≤ ${lim} m (D)` : t('rv_no_limit')}`,
+  items.push({ id: 'system', label: t('rv_sys'), value: `${H.toFixed(1)} m`, limit: `${t(`kr_sys_${sysId}` as any)} · ${lim ? t('rv_kr_limd', lim) : t('rv_no_limit')}`,
     status: lim && H > lim ? 'ng' : 'ok', clause: `KDS 41 17 00 표 6.2-1 ${sys.ref}` })
   const req = rsRequiredKR(p, { ...sp, method: 'auto' })
   items.push({ id: 'method', label: t('rv_method'), value: ctx.rs ? t('kr_method_RS') : t('kr_method_ESL'),
     limit: req.req ? t('rv_method_dyn') : t('rv_method_esl_ok'), status: req.req && !ctx.rs ? 'ng' : 'ok',
-    where: `${sdc} · H ${req.H.toFixed(1)} m · ${req.n}F${sp.regular === 'N' ? ' · ' + t('kr_regular_N') : ''}`, clause: 'KDS 41 17 00 7.1' })
+    where: `${sdc} · H ${req.H.toFixed(1)} m · ${t('kr_floors', req.n)}${sp.regular === 'N' ? ' · ' + t('kr_regular_N') : ''}`, clause: 'KDS 41 17 00 7.1' })
 
   /* 1) 층간변위 Δ/h = C_d·(δ_e/h)/I_E (÷ C_m) */
   const da = DA[imp]
   for (const [d, key] of [['X', 'DX'], ['Y', 'DY']] as const) {
-    const cm = ctx.rs ? +(ctx.rsChk?.[d]?.Cm) || 1 : 1
+    const cm = ctx.rs && ctx.rsChk?.scaled ? +(ctx.rsChk?.[d]?.Cm) || 1 : 1   // 재해석 실패 시 결과는 미보정 → 나누지 않음
     let max = 0, where = ''
     for (const r of tableObjs(data[key], key)) {
       const th = num(r[DRIFT_COL]) / num(r['Story Height']) * sys.Cd / Ie / cm
@@ -65,7 +64,7 @@ export function krReviewEvaluate(p: BuildingSpec, sp: Record<string, any>, data:
     }
     const clause = 'KDS 41 17 00 7.2.8.1 / 8.2.3'
     items.push(max > 0
-      ? { id: 'drift', label: t('rv_kr_drift'), dir: d, value: max.toFixed(4), limit: `≤ ${da.toFixed(3)} (${t('rv_kr_grade')} ${GRADE[imp]})`, status: max <= da ? 'ok' : 'ng',
+      ? { id: 'drift', label: t('rv_kr_drift'), dir: d, value: max.toFixed(4), limit: `≤ ${da.toFixed(3)} (${t('rv_kr_grade')} ${grade})`, status: max <= da ? 'ok' : 'ng',
           where, clause, note: `${src} · ${t('rv_kr_drift_note', sys.Cd, Ie)}${cm > 1 ? ` · ÷C_m ${cm.toFixed(3)}` : ''}` }
       : { id: 'drift', label: t('rv_kr_drift'), dir: d, value: '-', limit: `≤ ${da.toFixed(3)}`, status: 'info', clause, note: t('rv_no_data') })
   }

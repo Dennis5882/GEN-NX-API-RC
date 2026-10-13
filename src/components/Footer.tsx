@@ -1,8 +1,10 @@
 /* 하단 상태 바 — 개발자·버전·업데이트일(왼쪽) + 테마 빠른 전환 버튼(오른쪽) */
+import { useState } from 'react'
 import { setTheme } from '../agent/session'
 import { t } from '../i18n'
 import { THEMES, useStore } from '../state/store'
 import { APP_VERSION, BUILD_DATE } from '../version'
+import { ReleaseNotes } from './ReleaseNotes'
 
 /* 버튼 견본색 = 각 테마의 배경 + 강조색 (app.css 토큰과 같은 값) */
 const SWATCH: Record<(typeof THEMES)[number], [string, string]> = {
@@ -11,9 +13,11 @@ const SWATCH: Record<(typeof THEMES)[number], [string, string]> = {
 
 export function Footer() {
   const s = useStore()
+  const [rn, setRn] = useState(false)
   return (
     <footer className="appfoot">
-      <span className="byline">{t('dev')} <b>Dennis</b> · v{APP_VERSION}{BUILD_DATE && ` (${t('updated')} : ${BUILD_DATE})`}</span>
+      <span className="byline"><span className="by-x">{t('dev')} <b>Dennis</b> · </span><button className="ver-btn" onClick={() => setRn(true)} title={t('rn_open')}>v{APP_VERSION}</button><span className="by-x">{BUILD_DATE && ` (${t('updated')} : ${BUILD_DATE})`}</span></span>
+      {rn && <ReleaseNotes onClose={() => setRn(false)} />}
       <span style={{ flex: 1 }} />
       <span className="foot-lbl">{t('theme_label')}</span>
       <div className="theme-seg" role="radiogroup" aria-label={t('theme_label')}>

@@ -105,7 +105,7 @@ export function Chat({ guideCollapsed, onOpenGuide }: { guideCollapsed: boolean;
   }, [count])
 
   return (
-    <div className="chat-inner">
+    <div className={`chat-inner${guideCollapsed ? ' g-closed' : ''}`}>
       <button className="guide-open" style={{ display: guideCollapsed ? 'block' : 'none' }}
         onClick={onOpenGuide} title={t('guide_open')}>{t('guide_open_txt')}</button>
       <div className="msgs" ref={msgsRef}>

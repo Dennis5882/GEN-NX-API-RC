@@ -10,7 +10,7 @@ import { actAnalyze, actDynamic } from '../actions/analysis'
 import { actAddBracing, actAddLoad, actBuildFrame, actModifySection, actResizeSubset, clearModel } from '../actions/model'
 import { actReview } from '../actions/review'
 import { actStoryWeightVerify, actSseisVerify, actSwindVerify } from '../actions/verify'
-import { CODE_IDS, PROFILES, profile, stampSpec, type CodeId, type LateralGroup } from '../codes'
+import { CODE_IDS, PROFILES, profile, profileOf, stampSpec, type CodeId, type LateralGroup } from '../codes'
 import { onView3DTab, setView } from '../components/View3D'
 import { RC, type BuildingSpec } from '../engine'
 import { escapeHtml, t } from '../i18n'
@@ -134,7 +134,7 @@ function tools() {
     { name: 'add_bracing', description: 'Add diagonal bracing in one tower at given floors. Incremental edit.',
       input_schema: { type: 'object', properties: { building: { type: 'integer', description: '0-based tower index' }, floors: { type: 'array', items: { type: 'integer' } } }, required: ['building', 'floors'] } },
     { name: 'run_analysis', description: 'Run linear static analysis and fetch reaction / displacement / beam-force tables.', input_schema: none },
-    { name: 'run_dynamic', description: 'Eigenvalue (modal) analysis; with rs=true also response-spectrum analysis using the code spectrum, code RS scaling (TW 3.2/3.3 base-shear adjustment, CN minimum shear-weight ratio), and — when RS is the primary method — seismic combinations switched to RSX/RSY. Ends with review indicators when the code has them. Needs a built model with seismic on.',
+    { name: 'run_dynamic', description: 'Eigenvalue (modal) analysis; with rs=true also response-spectrum analysis using the code spectrum, code RS scaling (TW 3.2/3.3 base-shear adjustment, CN minimum shear-weight ratio, KR KDS 41 17 00 7.3.3.5 Cm = 0.85V/V_t when V_t < 0.85V — drift is checked without Cm), and — when RS is the primary method (TW ≥50 m or ≥15 stories; CN >40 m; KR per 7.1: category C ≥70 m/≥21 stories or irregular ≥20 m/≥6 stories, category D ≥70 m or irregular >20 m/>5 stories) — seismic combinations switched to RSX/RSY. Ends with review indicators when the code has them. Needs a built model with seismic on.',
       input_schema: { type: 'object', properties: { rs: { type: 'boolean', description: 'include response spectrum (default true)' } } } },
     { name: 'review_indicators', description: 'Recompute code review indicators from Gen NX story tables, each vs its code limit — CN (审图指标): height class, 抗震等级, concrete grade, drift ratio, shear-weight ratio, torsional displacement ratio, effective mass, period ratio; KR (KDS 41 17 00): seismic design category, system height limit, analysis method, story drift Cd·δe/IE, torsional irregularity H-1, effective mass, RS scaling Cm. Available only for codes that define them (currently CN, KR). Needs run_dynamic first.', input_schema: none },
     { name: 'get_result', description: 'Summarize a computed result and open it in the Results tab.', input_schema: { type: 'object', properties: { which: { type: 'string', enum: ['disp', 'react', 'force'] } }, required: ['which'] } },
@@ -212,6 +212,11 @@ function buildSpec(inp: any, base: BuildingSpec): BuildingSpec {
   if (inp.connectFloor === 0) p.connectFloor = 0
   if (Array.isArray(p.spanX)) p.bayX = p.spanX.length
   if (Array.isArray(p.spanY)) p.bayY = p.spanY.length
+  /* 편집카드(editorToSpec)와 같은 마무리 — 질량원 활하중비·풍↔지진 공유값(KR 중요도·시스템, TW I) */
+  const seis = { ...(p.seismic || {}) }, wnd = { ...(p.wind || {}) }
+  profileOf(p).finalizeLateral?.(seis, wnd)
+  if (p.seismic) p.seismic = seis
+  if (p.wind) p.wind = wnd
   return p
 }
 

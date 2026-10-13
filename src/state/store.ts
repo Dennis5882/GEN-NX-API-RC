@@ -100,13 +100,16 @@ function emptyModel(): ModelState {
   }
 }
 
-/** 설계기준 — 저장값 우선, 없으면 언어로 추정(zh-CN → CN, 그 외 TW) */
+/** 언어 → 기본 설계기준 (기준을 직접 고르기 전) — zh-CN → CN, ko → KR, 그 외 TW */
+export const codeForLang = (lang: Lang): CodeId => (lang === 'zh-CN' ? 'CN' : lang === 'ko' ? 'KR' : 'TW')
+
+/** 설계기준 — 저장값 우선, 없으면 언어로 추정 */
 function readCode(lang: Lang): CodeId {
   try {
     const c = localStorage.getItem('nx_code')
     if (c === 'TW' || c === 'CN' || c === 'KR') return c
   } catch { /* storage 차단 */ }
-  return lang === 'zh-CN' ? 'CN' : 'TW'
+  return codeForLang(lang)
 }
 
 /** 첫 언어 — 저장된 선택 > 브라우저 언어(navigator.languages) > 영어. 브라우저 정보가 없으면(SSR) 기본 ko */

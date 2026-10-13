@@ -36,10 +36,17 @@ const DEN = GAMMA * 1e-6 / 9806.65                 // t/mm³ (TW·CN 과 같은 
 const MATERIALS: Record<string, MaterialProps> = Object.fromEntries(GRADES.map(f =>
   [`C${f}`, { E: Math.round(ecKR(f)), poisn: 0.2, den: +DEN.toExponential(3) }]))
 
-/* 대만(CNS kgf/cm²)·중국(입방체) 등급 → KDS f_ck 근사. 템플릿·기준 전환용 */
-const TO_KR: Record<string, string> = { C210: 'C21', C245: 'C24', C280: 'C27', C315: 'C30', C350: 'C35', C420: 'C40',
-  C20: 'C21', C25: 'C24', C28: 'C27' }
-const toKR = (m: string | undefined) => (m && MATERIALS[m] ? m : (m && TO_KR[m]) || 'C30')
+/* 기준 전환·템플릿 재료 → KDS 원주강도 등급. 대만 CNS = kgf/cm²(÷10 ≈ MPa), 중국 GB = 입방체 f_cu(원주 ≈ 0.8·f_cu).
+   이름이 같아도(C30) 기준마다 강도가 달라서 원 스펙 기준(from)으로 환산 후 가장 가까운 KDS 등급 */
+const TW2KR: Record<string, string> = { C210: 'C21', C245: 'C24', C280: 'C27', C315: 'C30', C350: 'C35', C420: 'C40' }
+const nearestKR = (mpa: number) => `C${GRADES.reduce((a, b) => (Math.abs(b - mpa) < Math.abs(a - mpa) ? b : a))}`
+export function toKR(m: string | undefined, from?: string): string {
+  if (!m) return 'C30'
+  if (TW2KR[m]) return TW2KR[m]
+  const n = +(m.match(/^C(\d+)$/)?.[1] || NaN)
+  if (from === 'CN' && n > 0) return nearestKR(0.8 * n)
+  return MATERIALS[m] ? m : n > 0 ? nearestKR(n) : 'C30'
+}
 
 /* ── 용도별 바닥하중 kN/m² — 활하중 KDS 41 12 00 표 3.2-1, SDL 은 마감 가정(규범값 아님, TW·CN 과 같은 값)
    사무실: 칸막이 1.0(3.2.3)을 활하중에 가산 + 지진 유효중량 칸막이 0.5(41 17 00 7.2.1②)를 SDL 에 → 정적 W = 동적 질량 (중력은 보수적) ── */
@@ -88,7 +95,7 @@ function kdsCombos(loadCases: LoadCaseRef[]): Combo[] {
 
 /* ── 중요도·내진등급 (KDS 41 10 05 3. → 41 17 00 표 2.2-1) ── */
 export type ImpKR = 'S' | '1' | '2' | '3'
-const IE: Record<ImpKR, number> = { S: 1.5, 1: 1.2, 2: 1.0, 3: 1.0 }
+export const IE_KR: Record<ImpKR, number> = { S: 1.5, 1: 1.2, 2: 1.0, 3: 1.0 }
 
 function basementCount(p: BuildingSpec): number {
   const g = RC.deriveFloorGroups(p)
@@ -201,7 +208,7 @@ export function csKR(T: number, s: { SDS: number; SD1: number; TL: number }, R: 
 /** 7.2 등가정적 — T = 직접입력/해석주기(≤ Cu·Ta) 또는 Ta. 7.2.5 수직분포(지상 기준, 지하 0) */
 export function seismicKR(p: BuildingSpec, sp: Record<string, any>, opt: { T?: number } = {}) {
   const st = siteKR(sp)
-  const imp = impKR(p, sp.imp), Ie = IE[imp]
+  const imp = impKR(p, sp.imp), Ie = IE_KR[imp]
   const sys = SYSTEMS[systemKR(p, sp)]
   const W = storyWeightsKR(p, sp)
   const elev = RC.storyElevations(p)
@@ -331,12 +338,13 @@ export const KR: CodeProfile = {
     return { TYPE: 'CONC', NAME: g, PARAM: [{ P_TYPE: 1, STANDARD: 'KS19(RC)', DB: g }] }
   },
   adaptSpec(p) {
+    const from = p.code
     const q: BuildingSpec = { ...p, code: 'KR' }
-    q.matName = toKR(p.matName)
+    q.matName = toKR(p.matName, from)
     const mt = MATERIALS[q.matName]
     if (mt) { q.E = mt.E; q.poisn = mt.poisn; q.den = mt.den }
-    if (p.palette) q.palette = { ...p.palette, mats: [...new Set(p.palette.mats.map(toKR))] }
-    if (p.groups) q.groups = p.groups.map(g => ({ ...g, mat: g.mat ? toKR(g.mat) : g.mat }))
+    if (p.palette) q.palette = { ...p.palette, mats: [...new Set(p.palette.mats.map(m => toKR(m, from)))] }
+    if (p.groups) q.groups = p.groups.map(g => ({ ...g, mat: g.mat ? toKR(g.mat, from) : g.mat }))
     return q
   },
 

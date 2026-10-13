@@ -3,7 +3,7 @@ import { escapeHtml, htmlLang, t } from '../i18n'
 import { LANGS, type Lang } from '../i18n/types'
 import { verifyConn } from '../mapi/client'
 import type { CodeId } from '../codes/types'
-import { S, notify, type Provider, type Theme } from '../state/store'
+import { S, codeForLang, notify, type Provider, type Theme } from '../state/store'
 import { addMsg, draw3D } from '../state/ui'
 import { PROVIDERS, handleLLM } from './llm'
 import { handleLocal } from './local'
@@ -54,7 +54,7 @@ function syncLangUrl(l: Lang): void {
 export function setLang(l: Lang): void {
   S.lang = l
   try { localStorage.setItem('nx_lang', l) } catch { /* noop */ }
-  if (!S.codeChosen) S.code = l === 'zh-CN' ? 'CN' : 'TW'   // 기준을 직접 고르기 전엔 언어를 따라감
+  if (!S.codeChosen) S.code = codeForLang(l)   // 기준을 직접 고르기 전엔 언어를 따라감
   document.documentElement.lang = htmlLang(l)
   syncLangUrl(l)
   S.conv = []
