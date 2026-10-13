@@ -114,6 +114,8 @@ function specProps(): Record<string, any> {
     slabThk: { type: 'number', description: 'slab thickness mm (default 150) — slab self-weight is added to floor dead load; 0 if already in SDL' },
     seismic: lateralSchema(prof.seismic, 'seismic', p),
     wind: lateralSchema(prof.wind, 'wind', p),
+    bearing: { type: 'object', description: 'bearing-wall (wall-type) structure: party walls on every X grid line (Y direction, full depth) + corridor wall on the middle Y line (every other bay); columns inside walls omitted. KR apartments default to this. Give colH/colB to keep a moment frame instead.',
+      properties: { on: { type: 'boolean' }, thick: { type: 'number', description: 'wall thickness mm (default 200)' } } },
     core: { type: 'object', description: 'shear-wall core (4 walls around nx×ny bays, full height). Omitted position = plan center. To move it, give absolute bay indices (read the current ones from get_status/spec).',
       properties: {
         on: { type: 'boolean' }, thick: { type: 'number', description: 'wall thickness mm (default 250)' },
@@ -212,9 +214,10 @@ Reply concisely in the user's language with correct structural terminology — K
 function buildSpec(inp: any, base: BuildingSpec): BuildingSpec {
   const tpl: any = inp.bldgType && RC.BUILDING_TYPES[inp.bldgType as keyof typeof RC.BUILDING_TYPES]
     ? { ...RC.BUILDING_TYPES[inp.bldgType as keyof typeof RC.BUILDING_TYPES], bldgType: inp.bldgType } : {}
-  const { seismic, wind, core, ...rest } = inp
+  const { seismic, wind, core, bearing, ...rest } = inp
   let p: BuildingSpec = { ...base, ...tpl, ...rest }
   if (core) p.core = { ...(base.core || {}), ...core }
+  if (bearing) (p as any).bearing = { ...((base as any).bearing || {}), ...bearing }
   if (seismic) p.seismic = { ...(base.seismic || {}), ...seismic }
   if (wind) p.wind = { ...(base.wind || {}), ...wind }
   if (inp.colH || inp.colB) { p.colH = inp.colH || p.colH; p.colB = inp.colB || p.colB; p.colName = `C${p.colH}x${p.colB}`; delete (p as any).palette }
@@ -223,7 +226,7 @@ function buildSpec(inp: any, base: BuildingSpec): BuildingSpec {
   if (Array.isArray(p.spanX)) p.bayX = p.spanX.length
   if (Array.isArray(p.spanY)) p.bayY = p.spanY.length
   /* 코어 벽은 항상 현재 형상으로 다시 생성(층수·경간 변경 반영) */
-  if (p.core) p.walls = p.core.on ? RC.coreWalls(p, p.core) : []
+  if (p.core || (p as any).bearing) p.walls = RC.specWalls(p)
   /* 편집카드(editorToSpec)와 같은 마무리 — 질량원 활하중비·풍↔지진 공유값(KR 중요도·시스템, TW I) */
   const seis = { ...(p.seismic || {}) }, wnd = { ...(p.wind || {}) }
   profileOf(p).finalizeLateral?.(seis, wnd)

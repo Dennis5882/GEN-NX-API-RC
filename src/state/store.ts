@@ -21,6 +21,8 @@ export interface Table { head: string[]; data: string[][] }
 export interface ElemRec {
   id: number
   type: 'col' | 'beam' | 'link' | 'wall' | 'brace' | 'slab'
+  /** 벽 위에 겹친 보 — 자중 0(ESSF WGT_SF) */
+  inWall?: boolean
   sect: number
   matl?: number
   b: number

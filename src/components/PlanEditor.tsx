@@ -305,6 +305,18 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
         <LateralSection g={prof.seismic} icon="🌐" st={st.seis} set={v => setSt(s => ({ ...s, seis: v }))} first />
         <LateralSection g={prof.wind} icon="🌬" st={st.wind} set={v => setSt(s => ({ ...s, wind: v }))} />
 
+        {/* ── 내력벽(벽식) — 한국 기준 또는 이미 켜진 스펙 ── */}
+        {(prof.id === 'KR' || st.bearing.on) && <div style={{ marginTop: 12, borderTop: '1px dashed var(--border)', paddingTop: 12 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '.82rem', color: 'var(--cyan)', fontWeight: 600 }}>
+            <input type="checkbox" checked={st.bearing.on} onChange={e => setSt(s => ({ ...s, bearing: { ...s.bearing, on: e.target.checked } }))} /> 🏢 {t('bw_toggle')}
+          </label>
+          {st.bearing.on && <div className="pe-grid" style={{ marginTop: 10 }}>
+            <div className="pe-f"><label>{t('wall_thick')}</label><div className="pe-in">
+              <input type="number" step="any" value={st.bearing.thick} onChange={e => setSt(s => ({ ...s, bearing: { ...s.bearing, thick: e.target.value } }))} /><Unit u="mm" /></div></div>
+          </div>}
+          <div className="pe-tip">{t('bw_tip')}</div>
+        </div>}
+
         {/* ── M2-A3 전단벽 코어 (위치·크기·동별) ── */}
         <CoreSection base={base} st={st} setSt={setSt} />
 

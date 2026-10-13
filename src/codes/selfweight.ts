@@ -31,9 +31,7 @@ export const slabLoad = (p: BuildingSpec, prof: CodeProfile): number => slabThk(
 /** 층별 고정하중 W_D[s] (kN, s=1..stories). 기둥·벽은 아래·위 층에 반씩, 보·바닥은 그 층.
     지반(0층)으로 가는 몫은 질량에서 빠지므로 제외 — Gen NX 질량 집계와 같은 방식. */
 export function modelDeadWeights(p: BuildingSpec, prof: CodeProfile): number[] {
-  const core: any = p.core
-  const q: BuildingSpec = core && core.on && !(Array.isArray(p.walls) && p.walls.length)
-    ? { ...p, walls: RC.coreWalls(p, core) } : p
+  const q: BuildingSpec = !(Array.isArray(p.walls) && p.walls.length) ? { ...p, walls: RC.specWalls(p) } : p
   const f = RC.buildFrame(q)
   const R = RC.specSections(q)
   const g = RC.deriveFloorGroups(q)
@@ -45,15 +43,15 @@ export function modelDeadWeights(p: BuildingSpec, prof: CodeProfile): number[] {
   const asg = (iz: number) => R.storyAssign[iz] || R.def
   const W: number[] = []
   for (let s = 0; s <= q.stories; s++) W[s] = 0
-  const kN = (mm3: number) => mm3 * 1e-9 * gam
+  const kN = (mm3: number) => mm3 * 1e-9 * (prof.memberGamma ?? gam)   // 부재 자중 — 슬래브(DL 하중)는 concreteGamma
   /* 기둥·벽: 층 s 의 부재는 s-1 / s 레벨에 반씩 */
   f.colMeta.forEach((c: any) => { const sc = sect(asg(c.iz).colSect); const w = kN(sc.H * sc.B * len(c.n1, c.n2)); W[c.iz - 1] += w / 2; W[c.iz] += w / 2 })
   ;(f.walls || []).forEach((w: any) => {
     const [n1, n2, , n4] = w.nodes
     const wt = kN(w.thick * len(n1, n2) * len(n1, n4)); W[w.story - 1] += wt / 2; W[w.story] += wt / 2
   })
-  /* 보·연결보: 그 층 */
-  f.beamMeta.forEach((c: any) => { const sc = sect(asg(c.iz).beamSect); W[c.iz] += kN(sc.H * sc.B * len(c.n1, c.n2)) })
+  /* 보·연결보: 그 층 (벽 위에 겹친 보는 벽 자중에 포함 — Gen 도 ESSF WGT_SF 0) */
+  f.beamMeta.forEach((c: any) => { if (c.inWall) return; const sc = sect(asg(c.iz).beamSect); W[c.iz] += kN(sc.H * sc.B * len(c.n1, c.n2)) })
   f.linkMeta.forEach((c: any) => { const sc = sect(asg(c.iz).beamSect); W[c.iz] += kN(sc.H * sc.B * len(c.n1, c.n2)) })
   /* 바닥 DL: (SDL + 슬래브) × 바닥면적 — FBLA 와 같은 면적(동별 평면 × 동수) */
   const area = RC.planAreaM2(q) * (q.buildings || 1)

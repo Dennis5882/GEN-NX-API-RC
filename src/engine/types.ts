@@ -40,6 +40,8 @@ export interface CoreInput {
   pos?: ({ ix?: number; iy?: number } | null)[]
   skip?: number[]
 }
+/** 내력벽(벽식) — rc_engine bearingWalls: 세대 경계벽(모든 X 그리드선 Y 방향) + 가운데 복도벽(X 방향 한 베이 걸러). 벽 속 기둥 생략 */
+export interface BearingInput { on?: boolean; thick?: number }
 export interface CoreLayout {
   nbx: number; nby: number; nx: number; ny: number; layout: 'same' | 'mirror' | 'each'
   towers: { building: number; on: boolean; ix: number; iy: number }[]
@@ -78,6 +80,7 @@ export interface BuildingSpec {
   seismic?: SeismicInput
   wind?: WindInput
   core?: CoreInput
+  bearing?: BearingInput
   walls?: any[]
   /** 슬래브 두께 mm — 바닥 DL 에 자중(두께×γc)으로 반영. 없으면 150 (src/codes/selfweight.ts) */
   slabThk?: number
@@ -106,6 +109,8 @@ export interface RCEngineApi {
   cumPos(spans: number[]): number[]
   coreLayout(p: Partial<BuildingSpec>, c?: CoreInput): CoreLayout
   coreWalls(p: Partial<BuildingSpec>, c?: CoreInput): any[]
+  bearingWalls(p: Partial<BuildingSpec>, bw?: BearingInput): any[]
+  specWalls(p: Partial<BuildingSpec>): any[]
   // ── 아래는 아직 미타입 (이전 시 구체화) ──
   [name: string]: any
 }

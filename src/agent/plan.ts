@@ -26,7 +26,7 @@ export function typeHeadHTML(p: BuildingSpec, openTag: string): string {
   const k = p.bldgType
   if (!k) return ''
   return `${openTag}<div><span class="plan-type">${bt(k, 'label')}</span>` +
-    `<span class="plan-desc">${bt(k, 'desc')}</span></div></div>`
+    `<span class="plan-desc">${p.bearing?.on ? t('bw_desc') : bt(k, 'desc')}</span></div></div>`
 }
 
 export function planSummaryHTML(p: BuildingSpec): string {
@@ -39,7 +39,7 @@ export function planSummaryHTML(p: BuildingSpec): string {
     t('ps_bs', p.buildings, p.stories) +
     t('ps_plane', p.bayX, p.bayY, p.spanX, p.spanY) +
     t('ps_h', p.h1, p.hTyp) +
-    t('ps_cb', p.colName, p.beamName) +
+    (p.bearing?.on ? t('ps_bw', p.bearing.thick ?? 200, p.beamName, p.slabThk ?? 150) : t('ps_cb', p.colName, p.beamName)) +
     (p.buildings >= 2 ? t('ps_link', p.connectFloor, p.gap) : '') +
     t('ps_mat', p.matName) +
     `<div class="plan-sub"><span class="k">${t('floor_make_up')}</span> ${floorCompoLine(p)}</div>` +

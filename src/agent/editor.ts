@@ -51,6 +51,8 @@ export interface EditorState {
   seis: LateralState
   wind: LateralState
   core: CoreState
+  /** 내력벽(벽식) — 세대 경계벽·복도벽, 벽 속 기둥 생략 */
+  bearing: { on: boolean; thick: string }
   /** 슬래브 두께 mm (바닥 DL 자중) */
   slabThk: string
 }
@@ -105,6 +107,7 @@ export function initEditor(p: BuildingSpec): EditorState {
       layout: c.layout === 'mirror' || c.layout === 'each' ? c.layout : 'same',
       pos: Array.isArray(c.pos) ? c.pos.slice() : [], skip: Array.isArray(c.skip) ? c.skip.slice() : [],
     },
+    bearing: { on: !!p.bearing?.on, thick: str(p.bearing?.thick ?? 200) },
     slabThk: str(slabThk(p)),
   }
 }
@@ -192,7 +195,10 @@ export function editorToSpec(st: EditorState, base: BuildingSpec): BuildingSpec 
   p.wind = wind
   const core = coreInput(st.core)
   p.core = core
-  p.walls = core.on ? RC.coreWalls(p, core) : []
+  const bt = parseFloat(st.bearing.thick)
+  p.bearing = st.bearing.on ? { on: true, thick: isNaN(bt) ? 200 : bt } : undefined
+  if (!p.bearing) delete p.bearing
+  p.walls = RC.specWalls(p)   // 코어 + 내력벽(base.bearing 보존)
   return p
 }
 

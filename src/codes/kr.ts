@@ -12,7 +12,7 @@
          표 5.5-2·5.5-3 K_zr, 표 5.7-1 외압계수(풍상 0.8k_z, 풍하 −0.5/−0.35), 5.6.1·5.6.2 G_D
    - 재료: KDS 14 20 10 4.3.3 E_c = 8500·∛f_cm, f_cm = f_ck + Δf(4~6 MPa)
    - 균열단면(41 17 00 7.3.2 ④ 「RC 는 균열단면의 영향을 고려」): KDS 14 20 20 4.4.4(2) 기둥 0.70·보 0.35·벽(비균열) 0.70 Ig
-           또는 14 20 10 4.3.6(2)② 전단면 50% → Gen db/ESSF(기둥·보 Iyy·Izz)·db/PSSF(벽 요소별). 풍 사용성(4.3.6(1) ×1.43) 구분 없이 전 하중 적용
+           또는 14 20 10 4.3.6(2)② 전단면 50% → Gen db/ESSF(기둥·보 Iyy·Izz)·db/WSSF(벽 요소별 BENDING). 풍 사용성(4.3.6(1) ×1.43) 구분 없이 전 하중 적용
    - 새 스펙 보정(prepareNew): 자유 골조 1동, 기둥(내력벽시스템 제외) = 내부 부담면적 Pu(1.2D+1.6L·1.4D) ≤ 0.9·φPn,max(KDS 14 20 20 4.1.2(7), ρ 1%·SD400·φ 0.65)
    알려진 단순화: 지형계수 K_zt·풍향계수 K_D = 1.0, 풍직각·비틀림 풍하중(5.9·5.10) 미구현, 풍 n_D 기본 = 1/Ta,
      풍방향 감쇠비 ζ_D 는 KDS 에 수치 없음(입력, 기본 0.02), 비틀림증폭 A_x(7.2.6.5)·± 편심 2케이스 미구현(+ 방향 1개),
@@ -135,8 +135,10 @@ export const SYSTEMS: Record<string, { R: number; Om: number; Cd: number; limD?:
   DI_OW: { R: 5.5, Om: 2.5, Cd: 4.5, limD: 60, frame: false, ref: '5-c' },
   SWF: { R: 4.5, Om: 2.5, Cd: 4, limD: 60, frame: false, ref: '7' },
 }
-const hasWalls = (p: BuildingSpec) => !!((p.core as any)?.on || (Array.isArray(p.walls) && p.walls.length))
-export const systemKR = (p: BuildingSpec, sp: Record<string, any>) => SYSTEMS[sp.system] ? sp.system as string : hasWalls(p) ? 'BF_OW' : 'IMF'
+const hasWalls = (p: BuildingSpec) => !!((p.core as any)?.on || p.bearing?.on || (Array.isArray(p.walls) && p.walls.length))
+/** 기본 시스템 — 내력벽(벽식) = 1-b 보통전단벽(범주 D 60m 제한) / 지상 60m 초과면 1-a 특수전단벽, 코어 = 건물골조 보통전단벽, 그 외 중간모멘트골조 */
+export const defaultSystemKR = (p: BuildingSpec) => p.bearing?.on ? (heightAboveGround(p) > 60 ? 'BW_SW' : 'BW_OW') : hasWalls(p) ? 'BF_OW' : 'IMF'
+export const systemKR = (p: BuildingSpec, sp: Record<string, any>) => SYSTEMS[sp.system] ? sp.system as string : defaultSystemKR(p)
 
 /* ── 지반·설계스펙트럼 (4.2) ── */
 const ZONE_Z: Record<string, number> = { 1: 0.11, 2: 0.07 }   // KDS 17 10 00 표 4.2-2 (KB 미보유 — 통상값), S = Z × 위험도계수 2.0 (3.2)
@@ -351,14 +353,32 @@ export const CRACK_KR: Record<string, { col: number; beam: number; wall: number 
 export function crackKR(sp: Record<string, any>, recs: ElemRec[]): MemberStiffness | null {
   const c = CRACK_KR[sp.crack] || CRACK_KR.kds
   if (c.col === 1 && c.beam === 1 && c.wall === 1) return null
-  const factors: MemberStiffness['factors'] = {}, plates: Record<number, number> = {}
+  const factors: MemberStiffness['factors'] = {}, walls: NonNullable<MemberStiffness['walls']> = {}
   const n = { col: 0, beam: 0, wall: 0 }
   for (const r of recs) {
     if (r.type === 'col') { factors[r.id] = { iyy: c.col, izz: c.col }; n.col++ }
     else if (r.type === 'beam' || r.type === 'link') { factors[r.id] = { iyy: c.beam, izz: c.beam }; n.beam++ }
-    else if (r.type === 'wall') { plates[r.id] = c.wall; n.wall++ }
+    else if (r.type === 'wall') { walls[r.id] = { shear: 1, bending: c.wall }; n.wall++ }   // 0.70·Ig = 휨 강성만
   }
-  return { factors, plates, log: t('kr_crack_log', c.col, n.col, c.beam, n.beam, c.wall, n.wall) }
+  return { factors, walls, log: t('kr_crack_log', c.col, n.col, c.beam, n.beam, c.wall, n.wall) }
+}
+
+/* ── 한국 아파트 벽식 템플릿 — 판상형 단순화(세대 폭 8.4m = 2베이 × 4.2m, 깊이 2베이 × 5.4m), 층고 2.9m,
+   슬래브 210mm(공동주택 바닥 최소두께 — 주택건설기준 등에 관한 규정 14조의2 통상값), 벽 200mm, 필로티·상가 없음.
+   기둥은 벽 속이라 생략(buildFrame colOmit), 보 B200x500 = 전·후면 인방 + 바닥하중 전달(벽 위 보는 자중 0) ── */
+export function aptBearingKR(p: BuildingSpec, explicit: string[] = []): BuildingSpec {
+  const q: BuildingSpec = { ...p }
+  const keep = (k: string) => explicit.includes(k)
+  if (!keep('bayX') && !keep('spanX') && !keep('span')) { q.bayX = 6; q.spanX = 4200 }
+  if (!keep('bayY') && !keep('spanY') && !keep('span')) { q.bayY = 2; q.spanY = 5400 }
+  if (!keep('h1')) q.h1 = 2900
+  if (!keep('hTyp')) q.hTyp = 2900
+  if (!keep('podium')) q.podium = 0
+  if (!keep('slabThk')) q.slabThk = 210
+  if (!keep('beamH') && !keep('beamB')) { q.beamH = 500; q.beamB = 200; q.beamName = 'B200x500' }
+  q.bearing = { on: true, thick: 200 }
+  delete (q as any).groups
+  return q
 }
 
 /* ── 새 스펙 기둥 크기 — KDS 14 20 20 4.1.2(7) 최대 설계축강도 φPn,max = 0.80·φ·[0.85f_ck(A_g−A_st)+f_y·A_st]
@@ -422,6 +442,7 @@ export const KR: CodeProfile = {
 
   floorUse: FLOOR_USE,
   concreteGamma: GAMMA,
+  memberGamma: 2400 * 9.80665e-3,   // Gen KS19(RC) DB 단위중량 2,400 kgf/m³ = 23.54 kN/m³ — 부재 자중(Gen 이 DB 값으로 계산, 라이브 −0.84% 차 원인)
   combos: kdsCombos,
   combosLogKey: 'load_combos_kds',
   comboRefs: { seismic: 'kLCB 1.2D+1.0E+1.0L · 0.9D+1.0E (+0.3E⊥)', wind: 'kLCB 1.0W' },
@@ -445,7 +466,7 @@ export const KR: CodeProfile = {
       num('S', () => t('kr_s'), () => ''),
       { key: 'imp', kind: 'select', label: () => t('kr_imp'), def: () => 'auto',
         options: () => (['auto', 'S', '1', '2', '3'] as const).map(v => ({ value: v, label: t(`kr_imp_${v}`) })) },
-      { key: 'system', kind: 'select', label: () => t('kr_sys'), def: p => (hasWalls(p) ? 'BF_OW' : 'IMF'),
+      { key: 'system', kind: 'select', label: () => t('kr_sys'), def: p => defaultSystemKR(p),
         options: () => Object.entries(SYSTEMS).map(([v, s]) => ({ value: v, label: `${t(`kr_sys_${v}` as any)} (R=${s.R})` })) },
       { key: 'regular', kind: 'select', label: () => t('tw_regular'), def: p => (isConnectedKR(p) ? 'N' : 'Y'),
         options: () => (['Y', 'N'] as const).map(v => ({ value: v, label: t(`kr_regular_${v}`) })) },
@@ -502,7 +523,13 @@ export const KR: CodeProfile = {
 
   /* 자유 골조 1동(2동+연결층 = 비정형 → '2동' 명시 시만) · 기둥 = φPn,max 기준 확대. explicit 항목은 보존 */
   prepareNew(p, explicit) {
-    const q: BuildingSpec = { ...p }, notes: string[] = []
+    let q: BuildingSpec = { ...p }
+    const notes: string[] = []
+    /* 아파트 = 벽식(내력벽) — 한국 공동주택 실무. 기둥 크기를 직접 주면 골조 의도로 보고 유지 */
+    if (q.bldgType === 'apartment' && !explicit.includes('col') && !explicit.includes('bearing') && !q.palette) {
+      q = aptBearingKR(q, explicit)
+      notes.push(t('kr_prep_bw', q.bearing!.thick!, q.slabThk!, defaultSystemKR(q) === 'BW_SW' ? '1-a' : '1-b'))
+    }
     if (!q.bldgType && !explicit.includes('buildings') && (q.buildings || 1) > 1) {
       q.buildings = 1; q.connectFloor = 0
       notes.push(t('kr_prep_single'))
@@ -518,7 +545,7 @@ export const KR: CodeProfile = {
     return { spec: q, notes }
   },
 
-  /* 균열단면 강성 — db/ESSF(기둥·보)·db/PSSF(벽) */
+  /* 균열단면 강성 — db/ESSF(기둥·보)·db/WSSF(벽) */
   memberStiffness(p, recs) {
     return crackKR((p.seismic as Record<string, any>) || {}, recs)
   },

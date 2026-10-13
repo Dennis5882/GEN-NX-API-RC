@@ -34,7 +34,11 @@ const FONT = 'IBM Plex Mono, Noto Sans KR, Noto Sans TC, Noto Sans SC'
 
 /** 표시할 형상 — 미리보기 스펙이면 buildFrame, 아니면 현재 모델 */
 function frameOf(s: AppState): any | null {
-  if (s.preview) return { ...RC.buildFrame(s.preview), spec: s.preview }
+  if (s.preview) {
+    /* 템플릿 카드처럼 벽이 아직 생성되지 않은 스펙 — 코어·내력벽을 스펙에서 생성(모델 생성과 같은 규칙) */
+    const pv = Array.isArray(s.preview.walls) && s.preview.walls.length ? s.preview : { ...s.preview, walls: RC.specWalls(s.preview) }
+    return { ...RC.buildFrame(pv), spec: pv }
+  }
   const m = s.model
   if (!m.nodes.length) return null
   return { nodes: m.nodes, cols: m.cols, beams: m.beams, links: m.links, braces: m.braces, walls: m.walls,

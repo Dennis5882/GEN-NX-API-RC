@@ -297,8 +297,7 @@ async function putFloorMembranes(p: BuildingSpec, f: any, recs: ElemRec[], eid: 
 
 export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any> {
   if (!S.connected) throw new Error(t('e_notconn'))
-  const core: any = p.core
-  if (core && core.on && !(Array.isArray(p.walls) && p.walls.length)) p.walls = RC.coreWalls(p, core)
+  if (!(Array.isArray(p.walls) && p.walls.length)) p.walls = RC.specWalls(p)   // 코어 + 내력벽
   const f = RC.buildFrame(p)
   S.review = null
   /* 이전 동적해석 상태 초기화 — 남아 있으면 새 모델 조합이 없는 RSX/RSY 를 참조 (doc/new 가 조합도 지움) */
@@ -322,7 +321,7 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
   f.beamMeta.forEach((c: any) => {
     const a = asg(c.iz); const id = ++eid
     elems.push({ id, n1: c.n1, n2: c.n2, sect: a.beamSect, matl: a.mat })
-    recs.push({ id, type: 'beam', sect: a.beamSect, matl: a.mat, b: c.b, iz: c.iz, n1: c.n1, n2: c.n2 })
+    recs.push({ id, type: 'beam', sect: a.beamSect, matl: a.mat, b: c.b, iz: c.iz, n1: c.n1, n2: c.n2, ...(c.inWall ? { inWall: true } : {}) })
   })
   f.linkMeta.forEach((c: any) => {
     const a = asg(c.iz); const id = ++eid
@@ -330,7 +329,9 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
     recs.push({ id, type: 'link', sect: a.beamSect, matl: a.mat, b: -1, iz: c.iz, n1: c.n1, n2: c.n2 })
   })
   await putElements(elems)
-  /* M2-A3: 전단벽/코어 (PLATE). 두께별 THIK 생성 → SECT 가 thik id 참조. (라이브 검증된 스키마) */
+  /* M2-A3: 전단벽/코어/내력벽 = Gen WALL 요소(STYPE 2 plate). 두께별 THIK → SECT. Wall ID = 동·벽 정의·평면별.
+     PLATE 는 Gen 층 결과(층간변위·비틀림·강성·전도모멘트)의 '수직 부재'로 인식되지 않음 → 기둥 없는 벽식 모델에서 표가 0
+     (라이브 2026-10-13). WALL 이면 인식되고 전도모멘트도 Frame/Wall 로 나뉨 */
   if (f.walls && f.walls.length) {
     const thmap: Record<number, number> = {}
     const thA: Record<number, any> = {}
@@ -340,9 +341,14 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
     })
     await mapi('PUT', 'thik', { Assign: thA })
     const wa: Record<number, any> = {}
+    const xyz = new Map(f.nodes.map((n: any) => [n.id, n]))
+    const wid = new Map<string, number>()
     f.walls.forEach((w: any) => {
       const id = ++eid; const a = asg(w.story)
-      wa[id] = { TYPE: 'PLATE', MATL: a.mat, SECT: thmap[w.thick], NODE: w.nodes, STYPE: 1, ANGLE: 0 }
+      const [p1, p2] = [xyz.get(w.nodes[0]) as any, xyz.get(w.nodes[1]) as any]
+      const key = `${w.building}|${w.w}|${Math.abs(p1.x - p2.x) < 1 ? 'X' + Math.round(p1.x) : 'Y' + Math.round(p1.y)}`
+      if (!wid.has(key)) wid.set(key, wid.size + 1)
+      wa[id] = { TYPE: 'WALL', MATL: a.mat, SECT: thmap[w.thick], NODE: w.nodes, STYPE: 2, WALL: wid.get(key), W_CON: 0, W_TYPE: 0, ANGLE: 0 }
       recs.push({ id, type: 'wall', sect: thmap[w.thick], matl: a.mat, b: w.building, iz: w.story, nodes: w.nodes })
     })
     await mapi('PUT', 'elem', { Assign: wa })
@@ -351,22 +357,29 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
   /* 부재 강성 배율(기준 훅) — db/ESSF 요소별(숫자 = IYY 만, 객체 = IYY·IZZ), db/PSSF 벽 요소별.
      doc/new 직후라 이전 배율 없음(ESSF 전체 DELETE 는 502 — 라이브 2026-10-13) */
   const stiff = clear ? profileOf(p).memberStiffness?.(p, recs, f.nodes, Object.fromEntries(R.sections.map((s: any, i: number) => [i + 1, s.H]))) : null
-  if (stiff && Object.keys(stiff.factors).length) {
+  /* 벽 위에 겹친 보(inWall) = 자중 0(벽 자중에 포함, 바닥하중 전달용으로만 유지) — 강성 배율과 같은 ESSF 항목에 합침 */
+  const inWall = recs.filter(r => r.inWall).map(r => r.id)
+  const factors = stiff?.factors || {}
+  if (Object.keys(factors).length || inWall.length) {
     const sa: Record<number, any> = {}
-    for (const [id, k] of Object.entries(stiff.factors)) {
+    const wall0 = new Set(inWall)
+    for (const id of new Set([...Object.keys(factors).map(Number), ...inWall])) {
+      const k = factors[id] ?? 1
       const [iy, iz] = typeof k === 'number' ? [k, 1] : [k.iyy, k.izz]
-      sa[+id] = { ITEMS: [{ ID: 1, AREA_SF: 1, ASY_SF: 1, ASZ_SF: 1, IXX_SF: 1, IYY_SF: iy, IZZ_SF: iz, WGT_SF: 1, GROUP_NAME: '' }] }
+      sa[id] = { ITEMS: [{ ID: 1, AREA_SF: 1, ASY_SF: 1, ASZ_SF: 1, IXX_SF: 1, IYY_SF: iy, IZZ_SF: iz, WGT_SF: wall0.has(id) ? 0 : 1, GROUP_NAME: '' }] }
     }
     await mapi('PUT', 'ESSF', { Assign: sa })
   }
-  if (stiff && stiff.plates && Object.keys(stiff.plates).length) {
-    const pa: Record<number, any> = {}
-    for (const [id, k] of Object.entries(stiff.plates))
-      pa[+id] = { ITEMS: [{ ID: 1, GROUP_NAME: '', AXIAL_X: k, AXIAL_Y: k, SHEAR: k, OUT_BENDING_X: k, OUT_BENDING_Y: k, OUT_TORSION: k, OUT_SHEAR_X: 1, OUT_SHEAR_Y: 1 }] }
-    /* PSSF 키 = 판 요소 번호(두께 id 아님 — 라이브 2026-10-13). 실패해도 모델링은 계속 */
-    try { await mapi('PUT', 'PSSF', { Assign: pa }) } catch (e: any) { log('⚠ PSSF: ' + (e?.message || e), 'warn') }
+  /* 벽 강성 — /db/WSSF 키 = WALL 요소 번호, BENDING = 면내 휨(T₁ ×0.7 → +12.9%), SHEAR = 면내 전단(+2.9%) — 라이브 2026-10-13.
+     PSSF 는 WALL 요소에 입력 불가. 실패해도 모델링은 계속 */
+  if (stiff && stiff.walls && Object.keys(stiff.walls).length) {
+    const wa2: Record<number, any> = {}
+    for (const [id, k] of Object.entries(stiff.walls))
+      wa2[+id] = { ITEMS: [{ ID: 1, GROUP_NAME: '', SHEAR: k.shear, BENDING: k.bending }] }
+    try { await mapi('PUT', 'WSSF', { Assign: wa2 }) } catch (e: any) { log('⚠ WSSF: ' + (e?.message || e), 'warn') }
   }
-  if (stiff && (Object.keys(stiff.factors).length || Object.keys(stiff.plates || {}).length)) log('▸ ' + stiff.log, 'ok')
+  if (stiff && (Object.keys(stiff.factors).length || Object.keys(stiff.walls || {}).length)) log('▸ ' + stiff.log, 'ok')
+  if (inWall.length) log('▸ ' + t('inwall_beams', inWall.length), 'ok')
   await putBoundary(f.baseNodes, '1111110')
   await putLoadCase(1, 'DL', 'D')
   await putSelfWeight(1, 'DL', -1)

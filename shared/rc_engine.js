@@ -133,15 +133,32 @@ function buildFrame(p){
       map[`${b},${ix},${iy},${iz}`]=nid;
       if(iz>=1){ (floorGroups[b+'_'+iz]=floorGroups[b+'_'+iz]||[]).push(nid); } } }
   const N=(b,ix,iy,iz)=>map[`${b},${ix},${iy},${iz}`];
+  /* 벽 그리드 편집 — 벽 패널 테두리 점(층별)·수평 테두리(레벨별). 내력벽(bearing.on)이면 벽 속 기둥 생략, 벽 위 보 = inWall(자중 0) */
+  const wallEdges=[];   // {b, x0,y0,x1,y1, from, to}
+  (p.walls||[]).forEach(w=>{
+    const from=Math.max(1,w.from||1), to=Math.min(p.stories,w.to||p.stories), b=Math.min(w.building||0,p.buildings-1);
+    const run=(dir,ix,iy,bays)=>{ for(let k=0;k<Math.max(1,bays);k++){
+      if(dir==='Y') wallEdges.push({b,x0:ix,y0:iy+k,x1:ix,y1:iy+k+1,from,to,w}); else wallEdges.push({b,x0:ix+k,y0:iy,x1:ix+k+1,y1:iy,from,to,w}); } };
+    if(w.kind==='core'){ const x0=Math.min(w.ix0,w.ix1),x1=Math.max(w.ix0,w.ix1),y0=Math.min(w.iy0,w.iy1),y1=Math.max(w.iy0,w.iy1);
+      run('X',x0,y0,x1-x0); run('X',x0,y1,x1-x0); run('Y',x0,y0,y1-y0); run('Y',x1,y0,y1-y0); }
+    else run(w.dir||'X', w.ix||0, w.iy||0, w.bays||1);
+  });
+  const wallPt=new Set(), wallLine=new Set();
+  const ek=(b,x0,y0,x1,y1)=> (x0<x1||(x0===x1&&y0<y1)) ? `${b}|${x0},${y0}|${x1},${y1}` : `${b}|${x1},${y1}|${x0},${y0}`;
+  wallEdges.forEach(e=>{ for(let s=e.from;s<=e.to;s++){
+    wallPt.add(`${e.b},${e.x0},${e.y0},${s}`); wallPt.add(`${e.b},${e.x1},${e.y1},${s}`);
+    wallLine.add(ek(e.b,e.x0,e.y0,e.x1,e.y1)+'@'+(s-1)); wallLine.add(ek(e.b,e.x0,e.y0,e.x1,e.y1)+'@'+s); } });
+  const colOmit=!!(p.bearing&&p.bearing.on);
   for(let b=0;b<p.buildings;b++) for(let iz=0;iz<p.stories;iz++)
     for(let iy=0;iy<npy;iy++) for(let ix=0;ix<npx;ix++){
+      if(colOmit && wallPt.has(`${b},${ix},${iy},${iz+1}`)) continue;
       const n1=N(b,ix,iy,iz),n2=N(b,ix,iy,iz+1); cols.push([n1,n2]);
       colMeta.push({n1,n2,b,iz:iz+1}); }
   for(let b=0;b<p.buildings;b++) for(let iz=1;iz<=p.stories;iz++){
     for(let iy=0;iy<npy;iy++) for(let ix=0;ix<nbx;ix++){
-      const n1=N(b,ix,iy,iz),n2=N(b,ix+1,iy,iz); beams.push([n1,n2]); beamMeta.push({n1,n2,b,iz}); }
+      const n1=N(b,ix,iy,iz),n2=N(b,ix+1,iy,iz); beams.push([n1,n2]); beamMeta.push({n1,n2,b,iz,inWall:wallLine.has(ek(b,ix,iy,ix+1,iy)+'@'+iz)}); }
     for(let ix=0;ix<npx;ix++) for(let iy=0;iy<nby;iy++){
-      const n1=N(b,ix,iy,iz),n2=N(b,ix,iy+1,iz); beams.push([n1,n2]); beamMeta.push({n1,n2,b,iz}); } }
+      const n1=N(b,ix,iy,iz),n2=N(b,ix,iy+1,iz); beams.push([n1,n2]); beamMeta.push({n1,n2,b,iz,inWall:wallLine.has(ek(b,ix,iy,ix,iy+1)+'@'+iz)}); } }
   if(p.buildings>=2 && p.connectFloor>=1 && p.connectFloor<=p.stories){ const iz=p.connectFloor;
     for(let iy=0;iy<npy;iy++){ const n1=N(0,nbx,iy,iz),n2=N(1,0,iy,iz);
       links.push([n1,n2]); linkMeta.push({n1,n2,iz}); } }
@@ -154,7 +171,7 @@ function buildFrame(p){
        {kind:'wall', dir:'X'|'Y', ix, iy, bays, from, to, thick}  // 한 줄 벽
        {kind:'core', ix0, iy0, ix1, iy1, from, to, thick}          // 사각 코어(4면)
      ix/iy = 0-based 그리드 교점 인덱스, from/to = 1-based story(미지정 시 전층), thick = mm */
-  const walls=[]; const wallThks=new Set();
+  const walls=[]; const wallThks=new Set(); const seen=new Set();   // 코어·내력벽 겹침 패널 중복 제거
   (p.walls||[]).forEach((w,wi)=>{
     const from=Math.max(1,w.from||1), to=Math.min(p.stories,w.to||p.stories);
     const b=Math.min(w.building||0,p.buildings-1), thick=+w.thick||250;
@@ -170,7 +187,8 @@ function buildFrame(p){
     for(let s=from;s<=to;s++){ const izb=s-1, izt=s;
       edges.forEach(e=>{ const n1=N(b,e[0],e[1],izb),n2=N(b,e[2],e[3],izb),
         n3=N(b,e[2],e[3],izt),n4=N(b,e[0],e[1],izt);
-        if(n1&&n2&&n3&&n4){ walls.push({nodes:[n1,n2,n3,n4],thick,story:s,building:b,w:wi}); wallThks.add(thick); } }); }
+        const dk=[n1,n2,n3,n4].slice().sort((a,c)=>a-c).join(',');
+        if(n1&&n2&&n3&&n4&&!seen.has(dk)){ seen.add(dk); walls.push({nodes:[n1,n2,n3,n4],thick,story:s,building:b,w:wi}); wallThks.add(thick); } }); }
   });
   return {nodes,cols,beams,links,colMeta,beamMeta,linkMeta,baseNodes,elev,floorGroups,floorCorners,
           walls,wallThks:[...wallThks].sort((a,b)=>a-b)};
@@ -202,6 +220,26 @@ function coreWalls(p, c){
   const L=coreLayout(p,c), thick=+(c&&c.thick)||250;
   return L.towers.filter(t=>t.on).map(t=>({kind:'core', building:t.building, ix0:t.ix, iy0:t.iy, ix1:t.ix+L.nx, iy1:t.iy+L.ny,
     from:1, to:p.stories, thick}));
+}
+/* 내력벽(벽식) 배치 — spec.bearing = {on, thick}. 한국 판상형 아파트 단순화:
+   세대 경계벽 = 모든 X 그리드선에 Y 방향 전체 깊이, 복도벽 = 가운데 Y 그리드선에 X 방향 양 끝에서 한 베이 걸러(좌우 대칭, 문 개구 단순화).
+   전·후면(발코니·창)은 벽 없음 → 보(인방). 동마다 같은 배치 */
+function bearingWalls(p, bw){
+  bw=bw||{}; const thick=+bw.thick||200;
+  const nbx=asSpans(p.spanX,p.bayX).length, nby=asSpans(p.spanY,p.bayY).length;
+  const out=[];
+  for(let b=0;b<Math.max(1,p.buildings||1);b++){
+    for(let ix=0;ix<=nbx;ix++) out.push({kind:'wall', dir:'Y', ix, iy:0, bays:nby, from:1, to:p.stories, thick, building:b, bearing:true});
+    if(nby>=2){ const iy=Math.floor(nby/2);
+      for(let ix=0;ix<nbx;ix++) if(Math.min(ix,nbx-1-ix)%2===0)   // 양 끝에서 한 베이 걸러 — 좌우 대칭(비틀림)
+        out.push({kind:'wall', dir:'X', ix, iy, bays:1, from:1, to:p.stories, thick, building:b, bearing:true}); }
+  }
+  return out;
+}
+/** 스펙의 전체 벽 = 코어(core.on) + 내력벽(bearing.on) */
+function specWalls(p){
+  const c=p.core||{}, bw=p.bearing||{};
+  return [...(c.on?coreWalls(p,c):[]), ...(bw.on?bearingWalls(p,bw):[])];
 }
 function autoCore(p, thick){
   const nbx=asSpans(p.spanX,p.bayX).length, nby=asSpans(p.spanY,p.bayY).length;
@@ -1064,7 +1102,7 @@ if(typeof window!=='undefined'){
     MATERIALS, FLOOR_USE, TYPE_USE, useOf, deriveFloorGroups, specToGroupRows,
     paletteFor, specSections,
     FG_ROLES, FG_USES, asSpans, cumPos, buildFrame, taiwanCombos,
-    DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType, autoCore, coreLayout, coreWalls,
+    DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType, autoCore, coreLayout, coreWalls, bearingWalls, specWalls,
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,
