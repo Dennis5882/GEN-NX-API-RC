@@ -326,7 +326,7 @@ main.splitting .right,main.splitting .chat{pointer-events:none}
   display:flex;align-items:center;justify-content:center;font:600 .55rem 'IBM Plex Mono',monospace;
   color:var(--acc);border:1px solid color-mix(in srgb,var(--acc) 50%,transparent)}
 .guide-open{
-  position:absolute;top:14px;left:0;
+  position:absolute;top:50%;left:0;transform:translateY(-50%);   /* 접힌 메뉴 탭 = 대화창 세로 가운데 */
   background:var(--panel);border:1px solid var(--border);border-left:none;
   border-radius:0 6px 6px 0;color:var(--muted);cursor:pointer;
   font-size:.66rem;padding:7px 4px;writing-mode:vertical-rl;
