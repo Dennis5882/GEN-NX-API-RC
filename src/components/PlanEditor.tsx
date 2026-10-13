@@ -3,11 +3,12 @@
 import { profileOf, type LateralGroup } from '../codes'
 import { RC, type BuildingSpec } from '../engine'
 import {
-  effectiveSel, newKey, paletteOf, renumber, TOP_KEYS,
-  type EditorState, type FgRow, type LateralState, type PalRow, type TopKey,
+  applyTop, coreInput, effectiveSel, newKey, paletteOf, renumber, TOP_KEYS,
+  type CoreState, type EditorState, type FgRow, type LateralState, type PalRow, type TopKey,
 } from '../agent/editor'
 import { typeHeadHTML } from '../agent/plan'
 import { roleLbl, t, tv, useLbl } from '../i18n'
+import { useState } from 'react'
 
 interface Props {
   base: BuildingSpec
@@ -20,6 +21,84 @@ const TOP_UNIT: Partial<Record<TopKey, string>> = { spanX: 'mm', spanY: 'mm', ga
 const TOP_TEXT: Partial<Record<TopKey, boolean>> = { spanX: true, spanY: true }
 
 function Unit({ u }: { u?: string }) { return u ? <span className="pe-u">{u}</span> : null }
+
+const TOWER = ['A', 'B', 'C', 'D']
+const SIZES: [number, number][] = [[1, 1], [2, 1], [1, 2], [2, 2]]
+
+/** 전단벽 코어 — 켜기·두께 + 미니 평면 격자(칸 클릭·화살표 이동)·크기 + 2동 이상 적용 동·배치(같은 위치/좌우 대칭/동별) */
+function CoreSection({ base, st, setSt }: Pick<Props, 'base' | 'st' | 'setSt'>) {
+  const c = st.core
+  const [ed, setEd] = useState(0)
+  const set = (fn: (c: CoreState) => CoreState) => setSt(s => ({ ...s, core: fn(s.core) }))
+  const geo = applyTop({ ...base }, st)
+  const L = RC.coreLayout(geo, coreInput(c))
+  const nb = L.towers.length
+  const edit = c.layout === 'each' && ed < nb ? ed : 0
+  const cur = L.towers[edit] || L.towers[0]
+  /** 편집 동 위치 지정 — 엔진과 같은 범위 보정 */
+  const place = (ix: number, iy: number) => set(k => {
+    ix = Math.min(Math.max(0, ix), L.nbx - L.nx); iy = Math.min(Math.max(0, iy), L.nby - L.ny)
+    if (edit === 0) return { ...k, ix, iy }
+    const pos = k.pos.slice(); pos[edit] = { ix, iy }; return { ...k, pos }
+  })
+  const centerAll = () => set(k => (edit === 0 ? { ...k, ix: null, iy: null } : { ...k, pos: k.pos.map((q, i) => (i === edit ? null : q)) }))
+  const btn = { padding: '2px 8px', minWidth: 28 } as const
+  const cell = Math.max(14, Math.min(26, Math.floor(220 / Math.max(L.nbx, L.nby))))
+  return (
+    <div style={{ marginTop: 12, borderTop: '1px dashed var(--border)', paddingTop: 12 }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '.82rem', color: 'var(--cyan)', fontWeight: 600 }}>
+        <input type="checkbox" checked={c.on} onChange={e => set(k => ({ ...k, on: e.target.checked }))} /> 🧱 {t('central_shear_wall_core_au')}
+      </label>
+      <div className="pe-grid" style={{ marginTop: 10 }}>
+        <div className="pe-f"><label>{t('wall_thick')}</label><div className="pe-in">
+          <input type="number" step="any" value={c.thick} onChange={e => set(k => ({ ...k, thick: e.target.value }))} /><Unit u="mm" /></div></div>
+        {c.on && <div className="pe-f"><label>{t('core_size')}</label><div className="pe-in">
+          <select value={`${L.nx}x${L.ny}`} onChange={e => { const [nx, ny] = e.target.value.split('x').map(Number); set(k => ({ ...k, nx, ny })) }}>
+            {SIZES.filter(([x, y]) => x <= L.nbx && y <= L.nby).map(([x, y]) => <option key={`${x}x${y}`} value={`${x}x${y}`}>{x}×{y}</option>)}
+          </select></div></div>}
+        {c.on && nb > 1 && <div className="pe-f"><label>{t('core_layout')}</label><div className="pe-in">
+          <select value={c.layout} onChange={e => set(k => ({ ...k, layout: e.target.value as CoreState['layout'] }))}>
+            {(['same', 'mirror', 'each'] as const).map(v => <option key={v} value={v}>{t(`core_layout_${v}`)}</option>)}
+          </select></div></div>}
+        {c.on && nb > 1 && <div className="pe-f"><label>{t('core_towers')}</label><div className="pe-in" style={{ gap: 10 }}>
+          {L.towers.map(tw => <label key={tw.building} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, cursor: 'pointer' }}>
+            <input type="checkbox" checked={tw.on} onChange={e => set(k => ({ ...k, skip: e.target.checked ? k.skip.filter(b => b !== tw.building) : [...k.skip, tw.building] }))} />{TOWER[tw.building]}
+          </label>)}
+        </div></div>}
+      </div>
+      {c.on && <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap', marginTop: 10 }}>
+        <div>
+          <div style={{ fontSize: '.74rem', color: 'var(--txt-2)', marginBottom: 4 }}>
+            {t('core_pos')}{nb > 1 ? ` · ${TOWER[edit]}` : ''} ({cur.ix + 1}, {cur.iy + 1})
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${L.nbx}, ${cell}px)`, gap: 2 }} role="grid">
+            {Array.from({ length: L.nby }, (_, r) => L.nby - 1 - r).flatMap(iy => Array.from({ length: L.nbx }, (_, ix) => {
+              const inCore = cur.on && ix >= cur.ix && ix < cur.ix + L.nx && iy >= cur.iy && iy < cur.iy + L.ny
+              return <button key={`${ix}_${iy}`} type="button" title={`X${ix + 1}–X${ix + 2} · Y${iy + 1}–Y${iy + 2}`}
+                onClick={() => place(ix, iy)}
+                style={{ width: cell, height: cell, padding: 0, border: '1px solid var(--border)', borderRadius: 2, cursor: 'pointer',
+                  background: inCore ? 'var(--cyan)' : 'transparent', opacity: inCore ? 0.85 : 1 }} />
+            }))}
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, auto)', gap: 3, alignSelf: 'center' }}>
+          <span /><button type="button" style={btn} onClick={() => place(cur.ix, cur.iy + 1)}>▲</button><span />
+          <button type="button" style={btn} onClick={() => place(cur.ix - 1, cur.iy)}>◀</button>
+          <button type="button" style={{ ...btn, fontSize: '.7rem' }} onClick={centerAll}>{t('core_center')}</button>
+          <button type="button" style={btn} onClick={() => place(cur.ix + 1, cur.iy)}>▶</button>
+          <span /><button type="button" style={btn} onClick={() => place(cur.ix, cur.iy - 1)}>▼</button><span />
+        </div>
+        {c.layout === 'each' && nb > 1 && <div style={{ alignSelf: 'center' }}>
+          <div style={{ fontSize: '.74rem', color: 'var(--txt-2)', marginBottom: 4 }}>{t('core_edit')}</div>
+          <div style={{ display: 'flex', gap: 4 }}>{L.towers.map(tw => <button key={tw.building} type="button" style={{ ...btn, fontWeight: edit === tw.building ? 700 : 400,
+            borderColor: edit === tw.building ? 'var(--cyan)' : undefined }} onClick={() => setEd(tw.building)}>{TOWER[tw.building]}</button>)}</div>
+        </div>}
+      </div>}
+      {c.on && <div className="pe-tip">{t('core_grid_tip')}{c.layout === 'mirror' && nb > 1 ? ` · ${t('core_mirror_tip')}` : ''}</div>}
+      <div className="pe-tip">{t('places_4_sided_plate_shear')}</div>
+    </div>
+  )
+}
 
 /** 횡하중(지진·풍) 섹션 — 항목·프리셋·안내문은 설계기준 프로필이 정의 */
 function LateralSection({ g, icon, st, set, first }: {
@@ -226,17 +305,8 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
         <LateralSection g={prof.seismic} icon="🌐" st={st.seis} set={v => setSt(s => ({ ...s, seis: v }))} first />
         <LateralSection g={prof.wind} icon="🌬" st={st.wind} set={v => setSt(s => ({ ...s, wind: v }))} />
 
-        {/* ── M2-A3 전단벽 중앙코어 ── */}
-        <div style={{ marginTop: 12, borderTop: '1px dashed var(--border)', paddingTop: 12 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '.82rem', color: 'var(--cyan)', fontWeight: 600 }}>
-            <input type="checkbox" checked={st.core.on} onChange={e => setSt(s => ({ ...s, core: { ...s.core, on: e.target.checked } }))} /> 🧱 {t('central_shear_wall_core_au')}
-          </label>
-          <div className="pe-grid" style={{ marginTop: 10 }}>
-            <div className="pe-f"><label>{t('wall_thick')}</label><div className="pe-in">
-              <input type="number" step="any" value={st.core.thick} onChange={e => setSt(s => ({ ...s, core: { ...s.core, thick: e.target.value } }))} /><Unit u="mm" /></div></div>
-          </div>
-          <div className="pe-tip">{t('places_4_sided_plate_shear')}</div>
-        </div>
+        {/* ── M2-A3 전단벽 코어 (위치·크기·동별) ── */}
+        <CoreSection base={base} st={st} setSt={setSt} />
 
         <div className="pe-tip">{t('edit_role_range_height_use')}</div>
         <div className="pe-tip" style={{ marginTop: 4 }}>{t('spanHint')}</div>

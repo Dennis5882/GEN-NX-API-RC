@@ -395,7 +395,7 @@ export const CN: CodeProfile = {
   },
 
   /* 中梁刚度放大(JGJ 3 5.2.2)·连梁刚度折减(5.2.1) — db/ESSF IYY_SF (src/codes/cnStiffness.ts) */
-  beamStiffness(p, recs, nodes, sectH) {
+  memberStiffness(p, recs, nodes, sectH) {
     const r = cnBeamStiffness(p.seismic as Record<string, any> || {}, recs, nodes, sectH)
     return { factors: r.factors, log: t('cn_stiff_log', r.amp, r.edgeAmp, r.count.mid, r.count.edge, r.cbRed, r.count.coupling) }
   },

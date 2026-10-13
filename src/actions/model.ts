@@ -298,7 +298,7 @@ async function putFloorMembranes(p: BuildingSpec, f: any, recs: ElemRec[], eid: 
 export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any> {
   if (!S.connected) throw new Error(t('e_notconn'))
   const core: any = p.core
-  if (core && core.on && !(Array.isArray(p.walls) && p.walls.length)) p.walls = [RC.autoCore(p, core.thick)]
+  if (core && core.on && !(Array.isArray(p.walls) && p.walls.length)) p.walls = RC.coreWalls(p, core)
   const f = RC.buildFrame(p)
   S.review = null
   /* 이전 동적해석 상태 초기화 — 남아 있으면 새 모델 조합이 없는 RSX/RSY 를 참조 (doc/new 가 조합도 지움) */
@@ -348,15 +348,25 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
     await mapi('PUT', 'elem', { Assign: wa })
     log('▸ ' + t('shear_wall_core') + ' <b>' + f.walls.length + '</b> (' + f.wallThks.map((tk: number) => tk + 'mm').join(', ') + ')', 'ok')
   }
-  /* 보 강성 배율(기준 훅) — db/ESSF 요소별 IYY_SF. doc/new 직후라 이전 배율 없음(전체 DELETE 는 502 — 라이브 2026-10-13) */
-  const stiff = clear ? profileOf(p).beamStiffness?.(p, recs, f.nodes, Object.fromEntries(R.sections.map((s: any, i: number) => [i + 1, s.H]))) : null
+  /* 부재 강성 배율(기준 훅) — db/ESSF 요소별(숫자 = IYY 만, 객체 = IYY·IZZ), db/PSSF 벽 요소별.
+     doc/new 직후라 이전 배율 없음(ESSF 전체 DELETE 는 502 — 라이브 2026-10-13) */
+  const stiff = clear ? profileOf(p).memberStiffness?.(p, recs, f.nodes, Object.fromEntries(R.sections.map((s: any, i: number) => [i + 1, s.H]))) : null
   if (stiff && Object.keys(stiff.factors).length) {
     const sa: Record<number, any> = {}
-    for (const [id, k] of Object.entries(stiff.factors))
-      sa[+id] = { ITEMS: [{ ID: 1, AREA_SF: 1, ASY_SF: 1, ASZ_SF: 1, IXX_SF: 1, IYY_SF: k, IZZ_SF: 1, WGT_SF: 1, GROUP_NAME: '' }] }
+    for (const [id, k] of Object.entries(stiff.factors)) {
+      const [iy, iz] = typeof k === 'number' ? [k, 1] : [k.iyy, k.izz]
+      sa[+id] = { ITEMS: [{ ID: 1, AREA_SF: 1, ASY_SF: 1, ASZ_SF: 1, IXX_SF: 1, IYY_SF: iy, IZZ_SF: iz, WGT_SF: 1, GROUP_NAME: '' }] }
+    }
     await mapi('PUT', 'ESSF', { Assign: sa })
-    log('▸ ' + stiff.log, 'ok')
   }
+  if (stiff && stiff.plates && Object.keys(stiff.plates).length) {
+    const pa: Record<number, any> = {}
+    for (const [id, k] of Object.entries(stiff.plates))
+      pa[+id] = { ITEMS: [{ ID: 1, GROUP_NAME: '', AXIAL_X: k, AXIAL_Y: k, SHEAR: k, OUT_BENDING_X: k, OUT_BENDING_Y: k, OUT_TORSION: k, OUT_SHEAR_X: 1, OUT_SHEAR_Y: 1 }] }
+    /* PSSF 키 = 판 요소 번호(두께 id 아님 — 라이브 2026-10-13). 실패해도 모델링은 계속 */
+    try { await mapi('PUT', 'PSSF', { Assign: pa }) } catch (e: any) { log('⚠ PSSF: ' + (e?.message || e), 'warn') }
+  }
+  if (stiff && (Object.keys(stiff.factors).length || Object.keys(stiff.plates || {}).length)) log('▸ ' + stiff.log, 'ok')
   await putBoundary(f.baseNodes, '1111110')
   await putLoadCase(1, 'DL', 'D')
   await putSelfWeight(1, 'DL', -1)

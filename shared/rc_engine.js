@@ -178,6 +178,31 @@ function buildFrame(p){
 
 /* 자동 중앙코어: 평면 중앙 1베이에 사각 코어(전단벽 4면, 전층) 배치.
    대부분의 표준층 RC가 중앙코어형(계단·EV) — 토글 ON 시 spec.walls 에 추가. */
+/* 코어 배치 — spec.core = {on, thick, ix, iy, nx, ny, layout:'same'|'mirror'|'each', pos:[{ix,iy}…](each, 동별), skip:[동 index]}
+   ix/iy = 코어 좌하단 베이 인덱스(0-based, 빈값 = 가운데), nx/ny = 코어 크기(베이 수). 범위 밖은 자동 보정.
+   2동 이상: same = 모든 동 같은 위치, mirror = 홀수 번째 동은 X 방향 대칭, each = 동별 pos. skip 에 든 동은 코어 없음 */
+function coreLayout(p, c){
+  c=c||{};
+  const nbx=asSpans(p.spanX,p.bayX).length, nby=asSpans(p.spanY,p.bayY).length;
+  const nx=Math.min(Math.max(1,Math.round(+c.nx||1)),nbx), ny=Math.min(Math.max(1,Math.round(+c.ny||1)),nby);
+  const fit=(v,nb,n)=> (v==null||v===''||!isFinite(+v)) ? Math.max(0,Math.floor((nb-n)/2)) : Math.min(Math.max(0,Math.round(+v)),nb-n);
+  const A={ix:fit(c.ix,nbx,nx), iy:fit(c.iy,nby,ny)};
+  const layout=['mirror','each'].includes(c.layout)?c.layout:'same';
+  const skip=Array.isArray(c.skip)?c.skip.map(Number):[];
+  const towers=[];
+  for(let b=0;b<Math.max(1,p.buildings||1);b++){
+    let q=A;
+    if(b>0 && layout==='mirror' && b%2===1) q={ix:nbx-nx-A.ix, iy:A.iy};
+    else if(b>0 && layout==='each'){ const e=(c.pos||[])[b]||{}; q={ix:fit(e.ix!=null?e.ix:A.ix,nbx,nx), iy:fit(e.iy!=null?e.iy:A.iy,nby,ny)}; }
+    towers.push({building:b, on:!skip.includes(b), ix:q.ix, iy:q.iy});
+  }
+  return {nbx,nby,nx,ny,layout,towers};
+}
+function coreWalls(p, c){
+  const L=coreLayout(p,c), thick=+(c&&c.thick)||250;
+  return L.towers.filter(t=>t.on).map(t=>({kind:'core', building:t.building, ix0:t.ix, iy0:t.iy, ix1:t.ix+L.nx, iy1:t.iy+L.ny,
+    from:1, to:p.stories, thick}));
+}
 function autoCore(p, thick){
   const nbx=asSpans(p.spanX,p.bayX).length, nby=asSpans(p.spanY,p.bayY).length;
   const bx=Math.max(0,Math.floor((nbx-1)/2)), by=Math.max(0,Math.floor((nby-1)/2));
@@ -1039,7 +1064,7 @@ if(typeof window!=='undefined'){
     MATERIALS, FLOOR_USE, TYPE_USE, useOf, deriveFloorGroups, specToGroupRows,
     paletteFor, specSections,
     FG_ROLES, FG_USES, asSpans, cumPos, buildFrame, taiwanCombos,
-    DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType, autoCore,
+    DEFAULT_SPEC, BUILDING_TYPES, TYPE_KEYWORDS, detectBuildingType, autoCore, coreLayout, coreWalls,
     _MPA2CNS, _CNS_CONC,
     storyElevations, planAreaM2, seismicStoryWeights, fundamentalPeriod,
     effSD1, seismicCs, seismicKExp, seismicStoryForces, SEISMIC_ZONES,

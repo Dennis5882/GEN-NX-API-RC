@@ -11,6 +11,9 @@
    - 풍: 41 12 00 5.2.1 W_D = G_D·q_H·(C_pe1 − C_pe2)·A, 5.5 q_H = ½ρV_H², V_H = V0·K_D·K_zr·K_zt·I_W,
          표 5.5-2·5.5-3 K_zr, 표 5.7-1 외압계수(풍상 0.8k_z, 풍하 −0.5/−0.35), 5.6.1·5.6.2 G_D
    - 재료: KDS 14 20 10 4.3.3 E_c = 8500·∛f_cm, f_cm = f_ck + Δf(4~6 MPa)
+   - 균열단면(41 17 00 7.3.2 ④ 「RC 는 균열단면의 영향을 고려」): KDS 14 20 20 4.4.4(2) 기둥 0.70·보 0.35·벽(비균열) 0.70 Ig
+           또는 14 20 10 4.3.6(2)② 전단면 50% → Gen db/ESSF(기둥·보 Iyy·Izz)·db/PSSF(벽 요소별). 풍 사용성(4.3.6(1) ×1.43) 구분 없이 전 하중 적용
+   - 새 스펙 보정(prepareNew): 자유 골조 1동, 기둥(내력벽시스템 제외) = 내부 부담면적 Pu(1.2D+1.6L·1.4D) ≤ 0.9·φPn,max(KDS 14 20 20 4.1.2(7), ρ 1%·SD400·φ 0.65)
    알려진 단순화: 지형계수 K_zt·풍향계수 K_D = 1.0, 풍직각·비틀림 풍하중(5.9·5.10) 미구현, 풍 n_D 기본 = 1/Ta,
      풍방향 감쇠비 ζ_D 는 KDS 에 수치 없음(입력, 기본 0.02), 비틀림증폭 A_x(7.2.6.5)·± 편심 2케이스 미구현(+ 방향 1개),
      지하층 지진력 미산정(지상만 분배), 상가 1층 활하중 5.0 대신 4.0(2층 이상 값) 일괄, P-Δ 증폭(7.2.8.1(3)) 미반영.
@@ -24,7 +27,8 @@ import type { BuildingSpec, MaterialProps } from '../engine/types'
 import { t } from '../i18n'
 import { num as numOf } from '../mapi/tables'
 import { heightAboveGround, modelDeadWeights } from './selfweight'
-import type { CodeProfile, Combo, LoadCaseRef, ParamField, StoryForce } from './types'
+import type { ElemRec } from '../state/store'
+import type { CodeProfile, Combo, LoadCaseRef, MemberStiffness, ParamField, StoryForce } from './types'
 import { krReviewEvaluate, krReviewTables } from './krReview'
 
 /* ── 재료 — KDS 14 20 10 4.3.3 (보통중량 m_c 2,300 kg/m³) ── */
@@ -117,7 +121,9 @@ export function impKR(p: BuildingSpec, imp?: string): ImpKR {
 }
 
 /* ── 지진력저항시스템 — 표 6.2-1 (RC 만). limD = 내진설계범주 D 높이 제한(m), frame = 모멘트골조 주기식 ── */
-export const SYSTEMS: Record<string, { R: number; Om: number; Cd: number; limD?: number; frame: boolean; ref: string }> = {
+export const SYSTEMS: Record<string, { R: number; Om: number; Cd: number; limD?: number; frame: boolean; ref: string; bearing?: boolean }> = {
+  BW_SW: { R: 5, Om: 2.5, Cd: 5, frame: false, ref: '1-a', bearing: true },          // 내력벽시스템 — 벽이 중력·횡력 모두 부담(벽식 아파트)
+  BW_OW: { R: 4, Om: 2.5, Cd: 4, limD: 60, frame: false, ref: '1-b', bearing: true },
   SMF: { R: 8, Om: 3, Cd: 5.5, frame: true, ref: '3-h' },
   IMF: { R: 5, Om: 3, Cd: 4.5, frame: true, ref: '3-i' },
   OMF: { R: 3, Om: 3, Cd: 2.5, limD: 30, frame: true, ref: '3-j' },
@@ -183,7 +189,7 @@ export function cuKR(SD1: number): number {
 }
 
 /** 7.2.1 W — w0 빈칸 = 모델 고정하중(부재+슬래브+마감, 사무실 칸막이 0.5 포함) + 활하중비(기본 0, 창고 0.25). 지하층 0 */
-function storyWeightsKR(p: BuildingSpec, sp: Record<string, any>): number[] {
+export function storyWeightsKR(p: BuildingSpec, sp: Record<string, any>): number[] {
   const D = sp.w0 != null ? null : modelDeadWeights(p, KR)
   const lr = sp.liveRatio != null ? +sp.liveRatio : 0
   const area = RC.planAreaM2(p) * (p.buildings || 1)
@@ -196,6 +202,19 @@ function storyWeightsKR(p: BuildingSpec, sp: Record<string, any>): number[] {
     W[s] = (D ? D[s] : area * sp.w0) + area * lr * fu.liveVal
   }
   return W
+}
+
+/** P-Δ 안정계수용 층별 수직하중(7.2.8.2 — 하중계수 1.0): D = 모델 고정하중, L = 바닥 활하중(지붕 Lr 제외) */
+export function storyGravityKR(p: BuildingSpec): { D: number[]; L: number[] } {
+  const D = modelDeadWeights(p, KR)
+  const area = RC.planAreaM2(p) * (p.buildings || 1)
+  const g = RC.deriveFloorGroups(p)
+  const L: number[] = []
+  for (let s = 1; s <= p.stories; s++) {
+    const fu = FLOOR_USE[(g[s] && g[s].use) || 'Residential'] || FLOOR_USE.Residential
+    L[s] = fu.live === 'LR' ? 0 : area * fu.liveVal
+  }
+  return { D, L }
 }
 
 /** 7.2.2 지진응답계수 C_s */
@@ -320,6 +339,59 @@ export function windKR(p: BuildingSpec, wp: Record<string, any>) {
   return { Vx, Vy, V10: V0, forcesX: fx, forcesY: fy, VH, qH, GX, GY, Iw, nD }
 }
 
+/** 2동 이상 + 연결층 = 연결된 동(격막 불연속·비정형 — 5.3 표 5.3-1) */
+export const isConnectedKR = (p: BuildingSpec) => (p.buildings || 1) >= 2 && (p.connectFloor || 0) > 0
+
+/* ── 균열단면 강성 (41 17 00 7.3.2 ④ → KDS 14 20 20 4.4.4(2) / 14 20 10 4.3.6(2)②) ── */
+export const CRACK_KR: Record<string, { col: number; beam: number; wall: number }> = {
+  kds: { col: 0.70, beam: 0.35, wall: 0.70 },     // 4.4.4(2)② — 벽은 비균열 0.70 (균열 벽 0.35 는 사용자가 half 또는 수정)
+  half: { col: 0.50, beam: 0.50, wall: 0.50 },    // 4.3.6(2)② 전 단면 강성의 50%
+  none: { col: 1, beam: 1, wall: 1 },
+}
+export function crackKR(sp: Record<string, any>, recs: ElemRec[]): MemberStiffness | null {
+  const c = CRACK_KR[sp.crack] || CRACK_KR.kds
+  if (c.col === 1 && c.beam === 1 && c.wall === 1) return null
+  const factors: MemberStiffness['factors'] = {}, plates: Record<number, number> = {}
+  const n = { col: 0, beam: 0, wall: 0 }
+  for (const r of recs) {
+    if (r.type === 'col') { factors[r.id] = { iyy: c.col, izz: c.col }; n.col++ }
+    else if (r.type === 'beam' || r.type === 'link') { factors[r.id] = { iyy: c.beam, izz: c.beam }; n.beam++ }
+    else if (r.type === 'wall') { plates[r.id] = c.wall; n.wall++ }
+  }
+  return { factors, plates, log: t('kr_crack_log', c.col, n.col, c.beam, n.beam, c.wall, n.wall) }
+}
+
+/* ── 새 스펙 기둥 크기 — KDS 14 20 20 4.1.2(7) 최대 설계축강도 φPn,max = 0.80·φ·[0.85f_ck(A_g−A_st)+f_y·A_st]
+   (띠철근 φ 0.65, ρ 1% = 4.3.2 최소, SD400). 내부 기둥 부담면적 × Σ 층별 max(1.4D, 1.2D+1.6L)/바닥면적 → Pu ≤ 0.9·φPn,max(휨 여유 10% 가정) ── */
+const FY_KR = 400, RHO_KR = 0.01, COL_UTIL_KR = 0.9
+export const phiPnMaxKR = (fck: number, Ag: number) => 0.8 * 0.65 * (0.85 * fck * Ag * (1 - RHO_KR) + FY_KR * RHO_KR * Ag) / 1000   // kN
+export function sizeColumnKR(p: BuildingSpec): { side: number; pu: number; cap: number } | null {
+  const fck = +(toKR(p.matName).match(/\d+/)?.[0] || 0); if (!(fck > 0)) return null
+  const mx = (s: number | number[], n: number) => Math.max(...RC.asSpans(s, n)) / 1000
+  const trib = mx(p.spanX, p.bayX) * mx(p.spanY, p.bayY)
+  const g = RC.deriveFloorGroups(p)
+  const Pu = (side: number) => {
+    const q = { ...p, colH: side, colB: side, colName: `C${side}x${side}` }
+    const D = modelDeadWeights(q, KR), area = RC.planAreaM2(q) * (q.buildings || 1)
+    let w = 0
+    for (let s = 1; s <= q.stories; s++) {
+      const fu = FLOOR_USE[(g[s] && g[s].use) || 'Residential'] || FLOOR_USE.Residential
+      const d = (D[s] || 0) / area, l = fu.liveVal
+      w += Math.max(1.4 * d, 1.2 * d + (fu.live === 'LR' ? 0.5 : 1.6) * l)
+    }
+    return w * trib
+  }
+  const side0 = Math.max(p.colH, p.colB)
+  const pu0 = Pu(side0)
+  if (pu0 <= COL_UTIL_KR * phiPnMaxKR(fck, p.colH * p.colB)) return null
+  let side = side0
+  for (let i = 0; i < 6 && side < 1500 && Pu(side) > COL_UTIL_KR * phiPnMaxKR(fck, side * side); i++) {
+    const need = Pu(side) * 1000 / (COL_UTIL_KR * 0.8 * 0.65 * (0.85 * fck * (1 - RHO_KR) + FY_KR * RHO_KR))
+    side = Math.min(1500, Math.max(side + 50, Math.ceil(Math.sqrt(need) / 50) * 50))
+  }
+  return { side, pu: pu0, cap: phiPnMaxKR(fck, p.colH * p.colB) }
+}
+
 const num = (key: string, label: () => string, def: ParamField['def'], unit?: string): ParamField =>
   ({ key, kind: 'number', label, def, unit })
 
@@ -375,8 +447,10 @@ export const KR: CodeProfile = {
         options: () => (['auto', 'S', '1', '2', '3'] as const).map(v => ({ value: v, label: t(`kr_imp_${v}`) })) },
       { key: 'system', kind: 'select', label: () => t('kr_sys'), def: p => (hasWalls(p) ? 'BF_OW' : 'IMF'),
         options: () => Object.entries(SYSTEMS).map(([v, s]) => ({ value: v, label: `${t(`kr_sys_${v}` as any)} (R=${s.R})` })) },
-      { key: 'regular', kind: 'select', label: () => t('tw_regular'), def: () => 'Y',
+      { key: 'regular', kind: 'select', label: () => t('tw_regular'), def: p => (isConnectedKR(p) ? 'N' : 'Y'),
         options: () => (['Y', 'N'] as const).map(v => ({ value: v, label: t(`kr_regular_${v}`) })) },
+      { key: 'crack', kind: 'select', label: () => t('kr_crack'), def: () => 'kds',
+        options: () => (['kds', 'half', 'none'] as const).map(v => ({ value: v, label: t(`kr_crack_${v}`) })) },
       num('w0', () => t('dead_w0'), () => '', 'kN/㎡'),   // 빈칸 = 모델 고정하중
       num('liveRatio', () => t('live'), () => 0),
       num('T', () => t('kr_t'), () => '', 's'),
@@ -424,6 +498,29 @@ export const KR: CodeProfile = {
     /* 7.2.6.4 우발편심 5% — 정적 EX/EY 에 MZ = F·0.05·L⊥, RS 는 Gen 네이티브 */
     staticAccEcc: 0.05,
     splcExtra: { bACCECC: true, bACCECC_AUTO: true, ACCECC_PERCENT: 5, bACCECC_CONSIDER_GL: false, bACCECC_MINIMUM_TORSION: false, aACCECC_ECCEN_LIST: [] },
+  },
+
+  /* 자유 골조 1동(2동+연결층 = 비정형 → '2동' 명시 시만) · 기둥 = φPn,max 기준 확대. explicit 항목은 보존 */
+  prepareNew(p, explicit) {
+    const q: BuildingSpec = { ...p }, notes: string[] = []
+    if (!q.bldgType && !explicit.includes('buildings') && (q.buildings || 1) > 1) {
+      q.buildings = 1; q.connectFloor = 0
+      notes.push(t('kr_prep_single'))
+    }
+    /* 내력벽시스템(벽식)은 벽이 중력을 부담 → 기둥 확대 제외 */
+    if (!explicit.includes('col') && !q.palette && !SYSTEMS[systemKR(q, (q.seismic as Record<string, any>) || {})].bearing) {
+      const r = sizeColumnKR(q)
+      if (r && r.side > Math.max(q.colH, q.colB)) {
+        notes.push(t('kr_prep_col', q.colName, `C${r.side}x${r.side}`, Math.round(r.pu), Math.round(COL_UTIL_KR * r.cap)))
+        q.colH = r.side; q.colB = r.side; q.colName = `C${r.side}x${r.side}`
+      }
+    }
+    return { spec: q, notes }
+  },
+
+  /* 균열단면 강성 — db/ESSF(기둥·보)·db/PSSF(벽) */
+  memberStiffness(p, recs) {
+    return crackKR((p.seismic as Record<string, any>) || {}, recs)
   },
 
   wind: {

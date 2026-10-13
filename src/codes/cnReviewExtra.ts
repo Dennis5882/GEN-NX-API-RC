@@ -43,12 +43,12 @@ export function cnExtraTables(ctx: { rs: boolean; model?: any }): ReviewTable[] 
 }
 
 /* ── 표 읽기 ── */
-const rowsOf = (j: any, key: string): Record<string, string>[] => {
+export const rowsOf = (j: any, key: string): Record<string, string>[] => {
   const tb = j?.[key]; if (!tb?.HEAD || !tb?.DATA) return []
   return tb.DATA.map((r: string[]) => Object.fromEntries(tb.HEAD.map((h: string, i: number) => [h, r[i]])))
 }
 /** 층 = 표의 Level(층 바닥 m) ↔ elev[s-1] */
-function storyByLevel(elev: number[], level: number): number {
+export function storyByLevel(elev: number[], level: number): number {
   for (let s = 1; s < elev.length; s++) if (Math.abs(elev[s - 1] / 1000 - level) < 0.01) return s
   return -1
 }
@@ -233,7 +233,7 @@ function stabItem(d: 'X' | 'Y', v: number, lo: number, hi: number, f: string, wh
     note: !isFinite(v) ? t('rv_no_data') : v < hi ? t('rv_stab_need_pd') : t('rv_stab_note') }
 }
 
-function storyName(p: BuildingSpec, s: number): string {
+export function storyName(p: BuildingSpec, s: number): string {
   const g = RC.deriveFloorGroups(p)
   let nb = 0
   for (let i = 1; i <= p.stories; i++) if (g[i] && g[i].role === 'BASEMENT') nb = i

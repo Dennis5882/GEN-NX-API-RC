@@ -33,7 +33,7 @@ export const slabLoad = (p: BuildingSpec, prof: CodeProfile): number => slabThk(
 export function modelDeadWeights(p: BuildingSpec, prof: CodeProfile): number[] {
   const core: any = p.core
   const q: BuildingSpec = core && core.on && !(Array.isArray(p.walls) && p.walls.length)
-    ? { ...p, walls: [RC.autoCore(p, core.thick)] } : p
+    ? { ...p, walls: RC.coreWalls(p, core) } : p
   const f = RC.buildFrame(q)
   const R = RC.specSections(q)
   const g = RC.deriveFloorGroups(q)

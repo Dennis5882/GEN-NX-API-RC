@@ -114,6 +114,15 @@ function specProps(): Record<string, any> {
     slabThk: { type: 'number', description: 'slab thickness mm (default 150) — slab self-weight is added to floor dead load; 0 if already in SDL' },
     seismic: lateralSchema(prof.seismic, 'seismic', p),
     wind: lateralSchema(prof.wind, 'wind', p),
+    core: { type: 'object', description: 'shear-wall core (4 walls around nx×ny bays, full height). Omitted position = plan center. To move it, give absolute bay indices (read the current ones from get_status/spec).',
+      properties: {
+        on: { type: 'boolean' }, thick: { type: 'number', description: 'wall thickness mm (default 250)' },
+        ix: { type: 'integer', description: 'lower-left bay index in X, 0-based (0 … bayX−nx)' }, iy: { type: 'integer', description: 'lower-left bay index in Y, 0-based (0 … bayY−ny)' },
+        nx: { type: 'integer', description: 'core width in bays (1–2)' }, ny: { type: 'integer', description: 'core depth in bays (1–2)' },
+        layout: { type: 'string', enum: ['same', 'mirror', 'each'], description: '2+ towers: same position / tower B mirrored in X / per tower (pos)' },
+        pos: { type: 'array', items: { type: 'object', properties: { ix: { type: 'integer' }, iy: { type: 'integer' } } }, description: 'layout=each: per-tower {ix,iy}, index = tower (0 = A uses ix/iy)' },
+        skip: { type: 'array', items: { type: 'integer' }, description: 'tower indices without a core (0 = A, 1 = B)' },
+      } },
   }
 }
 
@@ -203,8 +212,9 @@ Reply concisely in the user's language with correct structural terminology — K
 function buildSpec(inp: any, base: BuildingSpec): BuildingSpec {
   const tpl: any = inp.bldgType && RC.BUILDING_TYPES[inp.bldgType as keyof typeof RC.BUILDING_TYPES]
     ? { ...RC.BUILDING_TYPES[inp.bldgType as keyof typeof RC.BUILDING_TYPES], bldgType: inp.bldgType } : {}
-  const { seismic, wind, ...rest } = inp
+  const { seismic, wind, core, ...rest } = inp
   let p: BuildingSpec = { ...base, ...tpl, ...rest }
+  if (core) p.core = { ...(base.core || {}), ...core }
   if (seismic) p.seismic = { ...(base.seismic || {}), ...seismic }
   if (wind) p.wind = { ...(base.wind || {}), ...wind }
   if (inp.colH || inp.colB) { p.colH = inp.colH || p.colH; p.colB = inp.colB || p.colB; p.colName = `C${p.colH}x${p.colB}`; delete (p as any).palette }
@@ -212,6 +222,8 @@ function buildSpec(inp: any, base: BuildingSpec): BuildingSpec {
   if (inp.connectFloor === 0) p.connectFloor = 0
   if (Array.isArray(p.spanX)) p.bayX = p.spanX.length
   if (Array.isArray(p.spanY)) p.bayY = p.spanY.length
+  /* 코어 벽은 항상 현재 형상으로 다시 생성(층수·경간 변경 반영) */
+  if (p.core) p.walls = p.core.on ? RC.coreWalls(p, p.core) : []
   /* 편집카드(editorToSpec)와 같은 마무리 — 질량원 활하중비·풍↔지진 공유값(KR 중요도·시스템, TW I) */
   const seis = { ...(p.seismic || {}) }, wnd = { ...(p.wind || {}) }
   profileOf(p).finalizeLateral?.(seis, wnd)
@@ -320,10 +332,18 @@ async function callTool(name: string, inp: any): Promise<string> {
   if (name === 'set_theme') { if (!(THEMES as readonly string[]).includes(inp.theme)) return 'ERROR: unknown theme'; setTheme(inp.theme); return `Theme = ${inp.theme}.` }
   if (name === 'get_status') {
     const sp = S.model.spec
-    return plain(statusBrief()) + (sp ? ` Code ${sp.code}; seismic ${JSON.stringify(sp.seismic || {})}; wind ${JSON.stringify(sp.wind || {})}; slab ${sp.slabThk ?? 150} mm.` : '') +
+    return plain(statusBrief()) + (sp ? ` Code ${sp.code}; seismic ${JSON.stringify(sp.seismic || {})}; wind ${JSON.stringify(sp.wind || {})}; slab ${sp.slabThk ?? 150} mm; core ${coreBrief(sp)}.` : '') +
       (S.model.edits && S.model.edits.length ? (' Edits: ' + S.model.edits.join('; ')) : '')
   }
   return 'unknown tool'
+}
+
+/** 코어 현재 배치(LLM 이 상대 이동을 절대 인덱스로 바꿀 수 있게) */
+function coreBrief(sp: BuildingSpec): string {
+  const c: any = sp.core
+  if (!c?.on) return 'off'
+  const L = RC.coreLayout(sp, c)
+  return JSON.stringify({ thick: c.thick ?? 250, nx: L.nx, ny: L.ny, bays: [L.nbx, L.nby], layout: L.layout, towers: L.towers })
 }
 
 function genId(): string { return 'tc_' + Math.random().toString(36).slice(2, 10) }

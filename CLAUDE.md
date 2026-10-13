@@ -66,11 +66,14 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
   - 기준 선택: 헤더 select(`setCode`, localStorage `nx_code`). 미선택이면 언어 추종(zh-CN→CN, ko→KR). 새 스펙은 `stampSpec()`로 `spec.code` 기록 + `adaptSpec`(대만 재료명→GB 근사 C280→C35 등). 기존 모델은 자기 `spec.code` 유지.
 - `KR`(`src/codes/kr.ts` + `krReview.ts`, 2026-10-12) — **해석 범위**(TW·CN 과 같은 수준, 배근·도면 제외). 원문 KB `E:/MIDAS PROGRAM/COde/KR/knowledge`(KCSC OpenAPI, 26기준).
   - 중요도 KDS 41 10 05 3.(특·1·2·3, 자동 = 종합병원 특 / 학교·5층 이상 아파트·연면적 5,000㎡ 이상 판매 1 / 그 외 2) → 41 17 00 표 2.2-1 내진등급·I_E, 풍 I_W 표 5.5-5(초고층 1.05).
-  - 지진 41 17 00: S = 2.0Z(구역 I 0.22·II 0.14, Z 는 KDS 17 10 00 — KB 미보유 통상값) 또는 위험도지도 직접, 지반 S1~S5(기본 S4, 4.1.1③), Fa·Fv 표 4.2-1·4.2-2 보간, S_DS·S_D1(4.2.2), 스펙트럼 4.2.1(T_L 5s), 내진설계범주 5.2, 시스템 표 6.2-1(RC 10종 R·Ω0·Cd·범주 D 높이제한), Cs 7.2.2(상·하한), Ta 7.2.4(골조 0.0466hn^0.9 / 벽 0.0488hn^0.75), Cu 표 7.2-1, k 7.2.5, W 7.2.1(창고 활하중 25%), 우발편심 5%(7.2.6.4).
+  - 지진 41 17 00: S = 2.0Z(구역 I 0.22·II 0.14, Z 는 KDS 17 10 00 — KB 미보유 통상값) 또는 위험도지도 직접, 지반 S1~S5(기본 S4, 4.1.1③), Fa·Fv 표 4.2-1·4.2-2 보간, S_DS·S_D1(4.2.2), 스펙트럼 4.2.1(T_L 5s), 내진설계범주 5.2, 시스템 표 6.2-1(RC 12종 R·Ω0·Cd·범주 D 높이제한 — 2026-10-13 내력벽시스템 1-a 특수 R5·1-b 보통 R4/60m 추가, 벽식은 기둥 자동 확대 제외), Cs 7.2.2(상·하한), Ta 7.2.4(골조 0.0466hn^0.9 / 벽 0.0488hn^0.75), Cu 표 7.2-1, k 7.2.5, W 7.2.1(창고 활하중 25%), 우발편심 5%(7.2.6.4).
   - 동적 7.1: 범주 C 정형 ≥70m·21층 / 비정형 ≥20m·6층, D 정형 ≥70m / 비정형 >20m·5층 → RS 주 해석. RS 는 Gen 네이티브 `KDS(41-17-00:2019)` SPFC(IE·R_ 1.0 = 탄성 곡선) + SPLC SCALE I_E/R(7.3-3), V_t < 0.85V 이면 C_m(7.3.3.5).
   - 조합 41 12 00 1.7.1(풍 1.0W — 500년 강도설계 5.1.3), 지진 직교 100%+30%(8.1.3.3)를 범주 무관 항상 포함(정적 ±, RS +). 풍 5.: V_H = V0·K_zr(H)·I_W(K_D·K_zt 1.0), q_H = ½ρV_H², 표 5.7-1 풍상 0.8k_z(+0.05 D/B>1)·풍하 −0.5/−0.35, G_D 5.6.1(n_D ≤1Hz, β 골조 0.5/코어 1.0, 균등질량 M/M* = 2β+1)·5.6.2. n_D 기본 1/Ta, ζ_D 기본 0.02(KDS 에 수치 없음).
   - 재료 `KS19(RC)` + C21~C60, Ec = 8500∛(fck+Δf)(KDS 14 20 10 4.3.3), 단위중량 24 kN/m³(실무값). 사무실 칸막이: 활하중 +1.0(3.2.3) + SDL +0.5(7.2.1② 지진중량 = 동적 질량 일치, 중력은 0.5 보수적).
-  - 검토 지표: 내진설계범주·시스템 높이(범주 D)·해석법(7.1)·층간변위 Δ = Cd·δe/I_E ≤ 0.010/0.015/0.020h(RS 는 C_m 제외)·비틀림 비정형 H-1(>1.2)·유효질량 90%·C_m. P-Δ·A_x 미반영.
+  - 검토 지표: 내진설계범주·시스템 높이(범주 D)·해석법(7.1)·층간변위 Δ = Cd·δe/I_E ≤ 0.010/0.015/0.020h(RS 는 C_m 제외)·비틀림 비정형 H-1(>1.2)·유효질량 90%·C_m. P-Δ 증폭 a_d·A_x 미반영.
+    + (2026-10-13) 연층 V-1(표 5.3-2, 0.7·상층/0.8·상부 3층, `STIFFNESS_IRREGULARITY` K=V/Δ — 5.3.2 ① 130% 예외 미적용)·중량비 V-2(150%)·P-Δ 안정계수 θ = P_x/(I_E·K·h)(7.2.8.2, ≤0.1 / θ_max 0.5/C_d). 비정형 발견 + 등가정적 → 해석법 경고.
+  - **균열단면(2026-10-13, Gen NX 라이브)**: 41 17 00 7.3.2 ④ → 지진 입력 `crack` kds(KDS 14 20 20 4.4.4: 기둥 0.70·보 0.35·벽 0.70)/half(14 20 10 4.3.6 50%)/none. 프로필 훅 `memberStiffness`(CN 보 배율과 공용) → `db/ESSF` 기둥·보 IYY·IZZ + **`db/PSSF` 벽 — 키 = 판 요소 번호**(두께 id 로 넣으면 거부). 막요소 바닥 제외. 라이브 T₁: 순수 골조 10층 ×1.55, 코어 사무 10층 ×1.22. 풍 사용성 ×1.43(4.3.6(1)) 구분 없이 전 하중 적용(단순화).
+  - **새 스펙 보정 `prepareNew`(KR)**: 자유 골조 1동(2동+연결 = 격막 불연속 비정형, "2동" 명시 시만 — 그때 정형/비정형 기본 'N'), 기둥 = 내부 부담면적 Pu = Σmax(1.4D, 1.2D+1.6L) ≤ 0.9·φPn,max(14 20 20 4.1.2(7), ρ 1%·SD400·φ 0.65 — 0.9 는 휨 여유 가정). 결과: 자유 골조 10층 600→800, 사무 10층 600→950, 아파트 15층 500→900.
   - **Gen NX 라이브 확인(2026-10-12)**: 재료 `KS19(RC)` C18~C80 수용·Ec 앱 식과 −0.08%(매뉴얼 예시 `KS21(RC)` 는 이 빌드에서 Unknown Error, `KS01(RC)` 는 구 기준 Ec), 네이티브 KDS SPFC 곡선 = S_a·IE/R_(오차 0%), DCON `KDS 41 20 : 2022` 수용. 사무 10층(RS 지정)·25층(7.1 자동 RS) 전체 흐름: Gen 층중량 = 앱 산정 0.6% 이내, 0.85V 보정 후 1층 전단 = 0.85V 정확, 검토 지표 11항목. 검증 `krtest.mjs`(식 독립 재구현 76/76)·`kre2e.mjs`(가짜 MIDAS) — scratchpad.
   - 기준 자동 선택(직접 고르기 전): zh-CN→CN, **ko→KR**, 그 외 TW (`codeForLang`, store·session 공용). 한국어 도움말·가이드 재료 예시는 KDS 등급 `C30`. 기준 전환 재료 환산 `toKR(m, from)`: TW kgf/cm²→MPa, CN 입방체×0.8 → 가장 가까운 KDS 등급.
 - 대만 하드코딩 제거 지점: 빌드 메시지 조합 참조(`comboRefs`), 계수 표기(`coefLabel` Cs/α1), 동적해석 재산정 조건(`ready`), 질량원(`massLiveRatio`·`massLiveTypes`).
@@ -126,6 +129,12 @@ handleLocal(txt)  → intent에 따라 API 호출 or 즉시 응답
 **인텐트 목록**: `help` · `tab{3d|result|log|model}` · `conn_check` · `clear` · `build` · `modify_section` · `resize_subset` · `add_load` · `add_bracing` · `change_spec{matName|hTyp|stories}` · `dynamic` · `analyze` · `result{disp|react|force}` · `status` · `unknown`
 
 GUIDE 패널: `GUIDE` 배열(`src/agent/guide.ts`) → `Guide.tsx`. 그룹(2026-10-13): 모델 생성·모델 수정·해석·결과·모델 관리·도움말(사용자 매뉴얼·릴리즈 노트 — 인텐트 `release_notes` → `S.rnOpen`). 하중·보강(add_load·add_bracing)은 메뉴에서 제외 — 'add wind load' 는 옥상 연직 Fz 라 실제 풍하중 아님. **클릭 = 입력창에 타이핑해 보인 뒤 실행**(`runCmd` → Composer `typeAndRun`, 전 항목 동일). `need:'review'` = 그 프로필 훅이 있을 때만 표시. 채팅|우측 분할 폭 = `--split`(드래그, localStorage `nx_split`).
+
+## 전단벽 코어 배치 (2026-10-13)
+- `spec.core = {on, thick, ix, iy, nx, ny, layout, pos, skip}` → `RC.coreLayout`(범위 보정·동별 위치)·`RC.coreWalls`(동 번호 붙은 core 벽) — `autoCore` 는 Wizard 호환용으로만 남김. ix/iy 빈값 = 가운데(구 autoCore 와 동일).
+- 2동 이상: layout `same`(같은 위치)·`mirror`(짝수 번째 동 X 대칭)·`each`(동별 `pos`), `skip` = 코어 없는 동. **이전엔 2동이어도 A동에만 코어**(autoCore 가 동 번호 없음 — 결함 수정).
+- 편집 카드 `CoreSection`: 미니 평면 격자(칸 클릭 = 좌하단 이동)·◀▲▼▶·가운데·크기 1×1~2×2·적용 동·배치. LLM `build_frame/update_spec.core`, `get_status` 가 현재 배치(절대 인덱스) 제공. `buildSpec` 은 코어 벽을 항상 현재 형상으로 재생성.
+- 라이브(KR 2동 10층): PLATE 80 = 동마다 40, 좌우 대칭(바깥 끝) 비틀림 Y 1.33 → 1.05.
 
 ## 다중 단면·재료 모델링 (팔레트 + 구역 배정, 2026-06-29)
 
@@ -203,7 +212,7 @@ T₁은 `EIGENVALUEMODE` 테이블에서 회수 (`PARTICIPATIONVECTORMODE` 아�
 
 ## 현재 빌드 버전
 MIDAS GEN NX 2026 (v2.1), Build **06/12/2026**.  
-도구 버전: **`package.json` version 이 단일 출처**(현재 `3.8.0`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
+도구 버전: **`package.json` version 이 단일 출처**(현재 `3.9.0`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
 
 ## 개발 환경 주의
 - Node.js v24 / npm 설치됨 (winget, 2026-10 확인). 엔진 스모크 테스트는 node ESM으로 가능.
