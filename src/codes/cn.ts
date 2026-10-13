@@ -20,6 +20,7 @@ import type { CodeProfile, Combo, LoadCaseRef, ParamField, StoryForce } from './
 import { cnReviewEvaluate, cnReviewTables } from './cnReview'
 import { minShearScale } from '../mapi/tables'
 import { heightAboveGround, modelDeadWeights } from './selfweight'
+import { cnBeamStiffness } from './cnStiffness'
 
 /* ── 재료 — GB 50010-2010 표 4.1.5 Ec(N/mm²), νc 0.2. den: 철근콘크리트 25 kN/m³(GB 50009 附录A 24~25 상한) → 질량밀도 t/mm³ ── */
 const EC: Record<string, number> = { C20: 25500, C25: 28000, C30: 30000, C35: 31500, C40: 32500, C45: 33500, C50: 34500, C55: 35500, C60: 36000 }
@@ -106,6 +107,14 @@ function alphaOf(T: number, amax: number, Tg: number, zeta: number): number {
   return Math.max(0, eta2 * Math.pow(0.2, gamma) - eta1 * (T - 5 * Tg)) * amax
 }
 
+/** 周期折减系数 ψT — JGJ 3-2010 4.3.17 (비구조 填充墙 강성 반영). 입력 없으면 벽 유무로 자동:
+    框架 0.7(0.6~0.7) / 벽·코어 有 0.8(框架-剪力墙 0.7~0.8, 框架-核心筒 0.8~0.9). 0.5~1.0 으로 제한 */
+export function psiTCN(p: BuildingSpec | undefined, sp: Record<string, any>): number {
+  if (typeof sp.psiT === 'number' && sp.psiT > 0) return Math.min(1, Math.max(0.5, sp.psiT))
+  const walls = !!(p && ((Array.isArray(p.walls) && p.walls.length) || p.core?.on))
+  return walls ? 0.8 : 0.7
+}
+
 /** 정상부 부가지진작용계수 δn — 표 5.2.1 (T1 > 1.4Tg 일 때) */
 function deltaN(T1: number, Tg: number): number {
   if (T1 <= 1.4 * Tg) return 0
@@ -126,6 +135,19 @@ function storyWeightsCN(p: BuildingSpec, sp: Record<string, any>): number[] {
     W[s] = (D ? D[s] : area * sp.w0) + area * (fu.live === 'LR' ? 0 : psi * fu.liveVal)
   }
   return W
+}
+
+/** 층별 고정하중 D·바닥 활하중 L (kN, index = story) — 刚重比 G = 1.2D+1.4L (JGJ 3 5.4.1) 용. 不上人屋面 활하중 제외 */
+export function storyGravityCN(p: BuildingSpec): { D: number[]; L: number[] } {
+  const D = modelDeadWeights(p, CN)
+  const area = RC.planAreaM2(p) * (p.buildings || 1)
+  const g = RC.deriveFloorGroups(p)
+  const L: number[] = []
+  for (let s = 1; s <= p.stories; s++) {
+    const fu = FLOOR_USE[(g[s] && g[s].use) || 'Residential'] || FLOOR_USE.Residential
+    L[s] = fu.live === 'LR' ? 0 : area * fu.liveVal
+  }
+  return { D, L }
 }
 
 /** 주 해석 = 振型分解反应谱法 여부 — GB 50011 5.1.2: 底部剪力法은 H ≤ 40m·전단변형 위주·질량/강성 균일일 때만.
@@ -157,11 +179,15 @@ function seismicCN(p: BuildingSpec, sp: Record<string, any>, opt: { T?: number }
   const W = storyWeightsCN(p, sp)
   const elev = RC.storyElevations(p)
   const Wtot = W.reduce((a, b) => a + (b || 0), 0)
-  /* 기본주기: 모달 → 직접입력 → 경험식 GB 50009 F.2.2-1 */
+  /* 기본주기: 모달 → 직접입력 → 경험식 GB 50009 F.2.2-1.
+     周期折减 ψT(JGJ 3 4.3.17)는 해석(모달) 주기에만 — 경험식은 실측 기반(填充墙 포함), 직접입력은 최종 설계주기로 봄.
+     최소 剪重比 λ 의 주기 보정(4.2.3)은 구조 기본주기(미절감) 사용 */
   const T = opt.T ?? (sp.T > 0 ? sp.T : periodCN(p))
-  const a1 = alphaOf(T, it.amax, Tg, zeta)
+  const psiT = opt.T != null ? psiTCN(p, sp) : 1
+  const Te = psiT * T
+  const a1 = alphaOf(Te, it.amax, Tg, zeta)
   let FEk = a1 * 0.85 * Wtot                                    // Geq = 0.85·ΣG_E (5.2.1)
-  const dn = deltaN(T, Tg)
+  const dn = deltaN(Te, Tg)
   let denom = 0
   for (let s = 1; s <= p.stories; s++) denom += (W[s] || 0) * (elev[s] || 0)
   const forces: (StoryForce & { story: number; w: number })[] = []
@@ -179,7 +205,7 @@ function seismicCN(p: BuildingSpec, sp: Record<string, any>, opt: { T?: number }
   }
   if (eta > 1) { forces.forEach(f => { f.F *= eta }); FEk *= eta }
   /* Cs 자리에 α1(지진영향계수) — 화면 표기 coefLabel 'α1'. 최소전단 증폭은 V 에 반영 */
-  return { T, Cs: a1, V: FEk, Wtot, W, forces, Tg, deltaN: dn, lambda, lambdaScale: eta }
+  return { T, Teff: Te, psiT, Cs: a1, V: FEk, Wtot, W, forces, Tg, deltaN: dn, lambda, lambdaScale: eta }
 }
 
 /* ── 풍 — GB 50009 8.1.1 wk=βz·μs·μz·w0, 表8.2.1 μz(아래 식이 표값을 반올림 일치로 재현). GB 55001 4.6.2·4.6.5 하한 ── */
@@ -246,7 +272,7 @@ export const CN: CodeProfile = {
   /* 심사 지표(审图) — Gen 층 결과 테이블 → GB 한계 (src/codes/cnReview.ts) */
   review: {
     tables: ctx => cnReviewTables(ctx),
-    evaluate: (p, sp, data, ctx) => cnReviewEvaluate(p, sp, data, { ...ctx, lambda: lambdaMin(siteParams(sp).it.amax, ctx.T1 || 0) }),
+    evaluate: (p, sp, data, ctx) => cnReviewEvaluate(p, sp, data, { ...ctx, lambda: lambdaMin(siteParams(sp).it.amax, ctx.T1 || 0), grav: storyGravityCN(p) }),
   },
 
   seismic: {
@@ -267,6 +293,9 @@ export const CN: CodeProfile = {
       num('w0', () => t('dead_w0'), () => '', 'kN/㎡'),   // 빈칸 = 모델 고정하중
       num('psiL', () => t('cn_psil'), () => 0.5),
       num('T', () => t('cn_t1'), () => '', 's'),
+      num('psiT', () => t('cn_psit'), () => ''),          // 빈칸 = 자동(框架 0.7 / 벽 有 0.8)
+      num('beamAmp', () => t('cn_beamamp'), () => 2.0),   // 中梁刚度放大 Bk — 가장자리 보 (1+Bk)/2
+      num('cbRed', () => t('cn_cbred'), () => 0.7),       // 连梁刚度折减
       { key: 'category', kind: 'select', label: () => t('cn_cat'), def: () => 'auto',   // GB 50223 — 심사 지표 抗震等级에만 영향(지진작용 불변)
         options: () => (['auto', 'B', 'C'] as const).map(v => ({ value: v, label: t(`cn_cat_${v}`) })) },
       { key: 'method', kind: 'select', label: () => t('cn_method'), def: () => 'auto',
@@ -288,8 +317,25 @@ export const CN: CodeProfile = {
     storyForces: (p, sp, opt) => seismicCN(p, sp, opt),
     storyWeights: (p, sp) => storyWeightsCN(p, sp),
     /* Gen NX 네이티브 GB50011-2010 스펙트럼 (SPEC_CODE CH2010) — 라이브 확인: EQ_ 대문자, 생성 곡선 = alphaOf */
-    spectrum(sp) {
+    spectrum(sp, p) {
       const { it, grp, site, Tg, zeta } = siteParams(sp)
+      /* 周期折减 ψT < 1: 네이티브 CH2010 엔 주기 절감 항목이 없음 → 같은 곡선을 주기축 1/ψT 로 늘린 USER 스펙트럼
+         α'(T) = α(ψT·T) — 각 모드 주기에 ψT 를 곱해 α 를 읽는 것과 동일(YJK·PKPM 방식) */
+      const psiT = psiTCN(p, sp)
+      if (psiT < 1) {
+        const pts = new Set<number>([0, 0.05, 0.1, 6])
+        for (const T of [0.1, Tg, 5 * Tg]) pts.add(+(T / psiT).toFixed(4))
+        for (let T = 0.1; T <= 6; T += 0.05) pts.add(+T.toFixed(4))
+        const aFUNC = [...pts].filter(T => T <= 6).sort((a, b) => a - b)
+          .map(T => ({ PERIOD: T, VALUE: +alphaOf(psiT * T, it.amax, Tg, zeta).toFixed(6) }))
+        return {
+          name: 'CN-RS',
+          spfc: { NAME: 'CN-RS', iTYPE: 1, iMETHOD: 0, SCALE: 1, GRAV: 9.806, DRATIO: zeta,
+            DESC: `GB50011-2010 5.1.5 alpha(psiT*T) psiT=${psiT}`, STR: { SPEC_CODE: 'USER' }, aFUNC },
+          logSuffix: ` · ${it.label} ${site} G${grp} · αmax=${it.amax} Tg=${Tg}s · ψT=${psiT}`,
+          reportSuffix: ` GB50011-2010 ${it.label} ${site} G${grp} · αmax=${it.amax} Tg=${Tg}s ζ=${zeta} · ψT=${psiT} (JGJ 3 4.3.17)`,
+        }
+      }
       return {
         name: 'CN-RS',
         spfc: { NAME: 'CN-RS', iTYPE: 1, iMETHOD: 0, SCALE: 1, GRAV: 9.806, DRATIO: zeta,
@@ -305,6 +351,12 @@ export const CN: CodeProfile = {
     /* 우발편심 ±5% — GB 50011 5.2.3 / 高规 4.3.3 실무 요구. Gen NX SPLC 네이티브(bACCECC) 라이브 확인 2026-10-12 */
     staticAccEcc: 0.05,
     splcExtra: { bACCECC: true, bACCECC_AUTO: true, ACCECC_PERCENT: 5, bACCECC_CONSIDER_GL: false, bACCECC_MINIMUM_TORSION: false, aACCECC_ECCEN_LIST: [] },
+  },
+
+  /* 中梁刚度放大(JGJ 3 5.2.2)·连梁刚度折减(5.2.1) — db/ESSF IYY_SF (src/codes/cnStiffness.ts) */
+  beamStiffness(p, recs, nodes, sectH) {
+    const r = cnBeamStiffness(p.seismic as Record<string, any> || {}, recs, nodes, sectH)
+    return { factors: r.factors, log: t('cn_stiff_log', r.amp, r.edgeAmp, r.count.mid, r.count.edge, r.cbRed, r.count.coupling) }
   },
 
   wind: {

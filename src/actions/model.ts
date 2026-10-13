@@ -291,6 +291,15 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
     await mapi('PUT', 'elem', { Assign: wa })
     log('▸ ' + t('shear_wall_core') + ' <b>' + f.walls.length + '</b> (' + f.wallThks.map((tk: number) => tk + 'mm').join(', ') + ')', 'ok')
   }
+  /* 보 강성 배율(기준 훅) — db/ESSF 요소별 IYY_SF. doc/new 직후라 이전 배율 없음(전체 DELETE 는 502 — 라이브 2026-10-13) */
+  const stiff = clear ? profileOf(p).beamStiffness?.(p, recs, f.nodes, Object.fromEntries(R.sections.map((s: any, i: number) => [i + 1, s.H]))) : null
+  if (stiff && Object.keys(stiff.factors).length) {
+    const sa: Record<number, any> = {}
+    for (const [id, k] of Object.entries(stiff.factors))
+      sa[+id] = { ITEMS: [{ ID: 1, AREA_SF: 1, ASY_SF: 1, ASZ_SF: 1, IXX_SF: 1, IYY_SF: k, IZZ_SF: 1, WGT_SF: 1, GROUP_NAME: '' }] }
+    await mapi('PUT', 'ESSF', { Assign: sa })
+    log('▸ ' + stiff.log, 'ok')
+  }
   await putBoundary(f.baseNodes, '1111110')
   await putLoadCase(1, 'DL', 'D')
   await putSelfWeight(1, 'DL', -1)

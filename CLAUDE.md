@@ -50,6 +50,17 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
   - **Gen NX 라이브 확인 완료(2026-10-12)** → `unverified` 해제: 재료 `GB/T10(RC)`·`GB(RC)` + `C20~C80` 수용(`GB19(RC)`는 `C30` 거부), Gen DB 의 Ec = 10⁵/(2.2+34.7/fcu)(표값과 ≤1%), SPFC `CH2010` `EQ_` 은 `FREQUENT/MIDDLE/SCARCE` 대문자만, **생성 곡선이 앱 `alphaOf` 와 전 구간 일치**(감쇠 0.04~0.07 포함 4사례 오차 0), DCON `GB/T50010-10`·`GB50010-02` 수용, **SSEIS/SWIND 중국 코드 미지원**(Wrong Field). SPFC 는 PUT 키와 무관하게 1부터 재번호(이름으로 참조).
   - **JGJ 3-2010·GB 55008-2021 KB 추가 후 재대조(2026-10-12)**: 심사 지표에 房屋高度(JGJ 3 3.3.1 A/B级 — 框架는 B级 없음)·抗震等级(GB 55002 5.2.1)·混凝土强度等级(GB 55008 2.0.2: RC ≥C25, 抗震等级 二级 이상 ≥C30) 추가. 周期比 = JGJ 3 3.4.5 대조 완료(A 0.9/B 0.85, **고층(1.0.2)에만**), 扭转位移比 상한 A 1.5/B 1.4 + 층간변위각 ≤40% 층 1.6(注), 층간변위각 150~250m 보간(3.7.3). CN 재료 카탈로그에서 C20 제외(素混凝土용). 강성비(3.5.2)는 Gen `STIFFNESS_IRREGULARITY_*` 헤더 라이브 확인 후 추가 예정. 강구조 규범(GB 50017·50018·55006)은 범위 밖.
   - **GB 50223-2008 KB 추가 후(2026-10-12)**: 지진 입력 `category`(抗震设防类别 auto/B/C) — auto = 병원(4.0.3-2)·학교(6.0.8) → 乙类, 그 외 丙类(3.0.4·6.0.12). 乙类 = 내진조치 열도 +1도로 抗震等级 산정(GB 55002 2.3.2-2), 9度+1 → 特一级(JGJ 3 3.9.3), 올린 열도의 표 높이 상한 초과 → warn(GB 50011 6.1.3-4). **지진작용은 불변**(해석 영향 없음, 심사 지표 抗震等级·混凝土强度等级만). 甲·丁类·대형 상가 규모 판정은 미구현(사용자가 B 선택).
+  - **周期折减·中梁刚度放大·连梁刚度折减(2026-10-13, Gen NX 라이브 확인)** — 지진 입력 `psiT`·`beamAmp`·`cbRed`:
+    - ψT(JGJ 3 4.3.17) 빈칸 = 자동(벽·코어 없음 0.7 / 있음 0.8). **모달 주기에만** 곱해 α1·δn 산정(경험식·T1 직접입력은 미적용, 최소 剪重比 λ 주기보정은 미절감 T). RS 는 CH2010 에 절감 항목이 없어 ψT<1 이면 **USER 스펙트럼 α(ψT·T)**(122점) — ψT=1 이면 네이티브 CH2010. 라이브: 같은 SPLC 배율에서 USER α(T) = 네이티브 밑면전단 0.001% 일치.
+    - 中梁刚度放大 Bk(5.2.2, 기본 2.0) / 가장자리 보 (1+Bk)/2 (YJK 규칙, 층·동별 평면 외곽선) / 连梁(양 끝 벽 절점·벽 패널 테두리 아님·跨高比<5, 7.1.3) × cbRed(기본 0.7, ≥0.5). 프로필 훅 `beamStiffness` → `actBuildFrame` 이 **`/db/ESSF` 요소별 IYY_SF** PUT(보 연직 휨 = Iyy, 요소 ESSF 가 SECF 보다 우선, 전체 DELETE 502·개별 삭제 정상). 순수 함수 `src/codes/cnStiffness.ts`.
+    - 라이브(사무 10층): 보 310 = 중간 ×2 170 + 가장자리 ×1.5 140, T₁ 2.194→1.849s, RS 밑면전단 ψT 0.7/1.0 = 1.33배. 단순화: 连梁 折减을 풍하중에도 적용, 연결보(link) 1.0.
+  - **审图 추가 지표(2026-10-13, `src/codes/cnReviewExtra.ts`, Gen NX 라이브 확인)**:
+    - 侧向刚度比 JGJ 3 3.5.2(框架 γ1 0.7·상부3층 0.8 / 벽 有 고층 γ2 0.9·1.1·嵌固层 1.5, 비고층 GB 50011 3.4.3) — `STIFFNESS_IRREGULARITY_X/Y` + `ADDITIONAL.SET_CALCULATION_METHOD.STORY_STIFFNESS_METHOD:'Story Shear / Story Drift'`(K = V/Δ kN/m, 라이브). 표 행 Level = 층 바닥 표고 → elev 로 층 매핑.
+    - 刚重比 5.4.4/5.4.1 — 框架 Di·hi/ΣGj ≥10(≥20 P-Δ 생략), 벽 有 EJd = 11·V0·H³/(60u)(정적 EX/EY, `STORY_DISPLACEMENT` 평균변위) ≥1.4(2.7). G = 1.2D+1.4L(`storyGravityCN`).
+    - 倾覆力矩比 8.1.3 — 벽 有만. 판 요소 벽은 Gen `OVERTURNING_MOMENT` 가 Wall 로 분류 못 함(Frame=전체) → 총 M0 는 표, 框架 Mc = Σ 기둥전단×층고 직접(BEAMFORCE). EY 는 Angle1 열이 '-'. 검증: 골조 전용에서 100.0%.
+    - 轴压比 GB 50011 6.3.6 — N = 1.3(D+0.5L)+1.4|E|(RS 또는 정적), fc GB 50010 표4.1.4. 라이브: Gen 조합(gLCB) 축력과 일치(μ 1.148 vs 1.15). 框剪 계열은 倾覆力矩比 >50% 면 框架 한계, 特一级 −0.05.
+    - 嵌固端刚度比 5.3.7·E.0.1(지하층 있을 때) — 등가전단강성 G·A/h 기하 산정. 风振舒适度(H≥150m)는 안내만(附录 J·H 횡풍 스펙트럼 필요).
+    - 기둥 국부축: EX → Shear-z(단면 H ∥ 전역 X). review 훅 ctx 에 `model` 전달, `ReviewTable.extra` 로 post/table 인자 확장.
   - 알려진 단순화: 기계실(表4.2.2-7) ψc 0.9 대신 0.7 일괄, 최소전단 미달 시 층별이 아닌 전체 동일 배율 증폭, 풍 지형·풍향 계수 1.0.
   - 기준 선택: 헤더 select(`setCode`, localStorage `nx_code`). 미선택이면 언어 추종(zh-CN→CN, ko→KR). 새 스펙은 `stampSpec()`로 `spec.code` 기록 + `adaptSpec`(대만 재료명→GB 근사 C280→C35 등). 기존 모델은 자기 `spec.code` 유지.
 - `KR`(`src/codes/kr.ts` + `krReview.ts`, 2026-10-12) — **해석 범위**(TW·CN 과 같은 수준, 배근·도면 제외). 원문 KB `E:/MIDAS PROGRAM/COde/KR/knowledge`(KCSC OpenAPI, 26기준).
@@ -190,7 +201,7 @@ T₁은 `EIGENVALUEMODE` 테이블에서 회수 (`PARTICIPATIONVECTORMODE` 아�
 
 ## 현재 빌드 버전
 MIDAS GEN NX 2026 (v2.1), Build **06/12/2026**.  
-도구 버전: **`package.json` version 이 단일 출처**(현재 `3.6.4`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
+도구 버전: **`package.json` version 이 단일 출처**(현재 `3.7.0`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
 
 ## 개발 환경 주의
 - Node.js v24 / npm 설치됨 (winget, 2026-10 확인). 엔진 스모크 테스트는 node ESM으로 가능.

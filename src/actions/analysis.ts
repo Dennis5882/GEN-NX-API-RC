@@ -98,7 +98,7 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   /* 3) (옵션) 응답스펙트럼: 기준별 설계스펙트럼 → SPFC, RSX·RSY → SPLC(CQC) */
   let ds: ReturnType<typeof prof.seismic.spectrum> = null
   if (doRS) {
-    ds = prof.seismic.spectrum(sp)
+    ds = prof.seismic.spectrum(sp, p)
     if (!ds) {
       log('▸ ' + t('no_sds_sd1_rs_skipped'), 'warn')
     } else {
@@ -159,7 +159,7 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   if (modal.T1 && prof.seismic.ready(sp)) {
     const r = prof.seismic.storyForces(p, sp, { T: modal.T1 })
     const old = S.model.seismic
-    fb = { Tdyn: modal.T1, Ta: (old && old.T) || null, CsOld: (old && old.Cs) || null, Cs: r.Cs, Vold: (old && old.V) || null, V: r.V }
+    fb = { Tdyn: modal.T1, psiT: (r as any).psiT, Ta: (old && old.T) || null, CsOld: (old && old.Cs) || null, Cs: r.Cs, Vold: (old && old.V) || null, V: r.V }
     S.model.dynamic = { T1: modal.T1, modes: modal.modes, Cs: r.Cs, V: r.V, Ta: fb.Ta, rs: !!ds, ...(primary ? { rsPrimary: true } : {}), ...(ds && rsChk ? { rsChk } : {}) }
   } else {
     S.model.dynamic = { T1: modal.T1, modes: modal.modes, rs: !!ds, ...(primary ? { rsPrimary: true } : {}), ...(ds && rsChk ? { rsChk } : {}) }
@@ -178,6 +178,7 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   if (fb) {
     msg += '<br>' + t('seismic_cs_update_empirica')
     if (fb.Ta) msg += `<br>　Ta=${fb.Ta.toFixed(3)}s → T₁=${fb.Tdyn.toFixed(3)}s`
+    if (fb.psiT && fb.psiT < 1) msg += ` · ψT ${fb.psiT} → T=${(fb.psiT * fb.Tdyn).toFixed(3)}s`   // 周期折减(JGJ 3 4.3.17) — 지진력 산정 주기
     if (fb.CsOld != null) msg += ` · Cs ${fb.CsOld.toFixed(3)}→<b>${fb.Cs.toFixed(3)}</b>`
     if (fb.Vold != null) msg += ` · V ${Math.round(fb.Vold)}→<b>${Math.round(fb.V)}</b>kN`
   }

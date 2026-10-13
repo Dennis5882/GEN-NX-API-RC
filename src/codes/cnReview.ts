@@ -16,10 +16,11 @@ import { t } from '../i18n'
 import { classifyModes, num, subTableObjs, tableObjs } from '../mapi/tables'
 import { heightAboveGround } from './selfweight'
 import type { ReviewItem, ReviewTable } from './types'
+import { cnExtraItems, cnExtraTables } from './cnReviewExtra'
 
 const DRIFT_COL = 'Maximum Drift of All Vertical Elements/Story Drift'
 
-export function cnReviewTables(ctx: { rs: boolean }): ReviewTable[] {
+export function cnReviewTables(ctx: { rs: boolean; model?: any }): ReviewTable[] {
   const [lx, ly] = ctx.rs ? ['RSX(RS)', 'RSY(RS)'] : ['EX(ST)', 'EY(ST)']
   const out: ReviewTable[] = [
     { key: 'EV', type: 'EIGENVALUEMODE' },
@@ -29,6 +30,7 @@ export function cnReviewTables(ctx: { rs: boolean }): ReviewTable[] {
     { key: 'TY', type: 'TORSIONAL_IRREGULARITY_Y', lcs: ['EY(ST)'] },
   ]
   if (ctx.rs) out.push({ key: 'SX', type: 'STORY_SHEAR_FORCE_COEFFICIENT', lcs: ['RSX(RS)'] }, { key: 'SY', type: 'STORY_SHEAR_FORCE_COEFFICIENT', lcs: ['RSY(RS)'] })
+  out.push(...cnExtraTables(ctx))   // 侧向刚度比·刚重比·倾覆力矩比·轴压比 (cnReviewExtra.ts)
   return out
 }
 
@@ -109,7 +111,7 @@ export function driftLimitCN(p: BuildingSpec, H = heightAboveGround(p)): { lim: 
   return { lim, sys: SYS_ZH[sys] }
 }
 
-export function cnReviewEvaluate(p: BuildingSpec, sp: Record<string, any>, data: Record<string, any>, ctx: { rs: boolean; T1: number | null; lambda: number | null }): ReviewItem[] {
+export function cnReviewEvaluate(p: BuildingSpec, sp: Record<string, any>, data: Record<string, any>, ctx: { rs: boolean; T1: number | null; lambda: number | null; model?: any; grav?: { D: number[]; L: number[] } }): ReviewItem[] {
   const items: ReviewItem[] = []
   const src = ctx.rs ? 'RS' : 'ST'
   const H = heightAboveGround(p), sys = sysOf(p), c = col(sp.intensity), deg = +String(sp.intensity || '7')[0]
@@ -207,5 +209,10 @@ export function cnReviewEvaluate(p: BuildingSpec, sp: Record<string, any>, data:
   } else {
     items.push({ id: 'mass', label: t('rv_mass'), value: '-', limit: '≥ 90%', status: 'info', clause: 'GB 50011 5.2.2 条文说明', note: t('rv_no_data') })
   }
+  /* 5) 侧向刚度比·刚重比·倾覆力矩比·轴压比·嵌固端刚度比 (cnReviewExtra.ts) */
+  const fg = RC.deriveFloorGroups(p)
+  let nb = 0
+  for (let s = 1; s <= p.stories; s++) if (fg[s] && fg[s].role === 'BASEMENT') nb = s
+  items.push(...cnExtraItems(p, data, ctx.model, { sys, tall, H, frameGrade: sg.frame, grav: ctx.grav || { D: [], L: [] }, nb }))
   return items
 }

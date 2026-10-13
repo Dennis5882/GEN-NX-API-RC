@@ -5,6 +5,7 @@
 ════════════════════════════════════════════════════════════ */
 import type { BuildingSpec, MaterialProps } from '../engine/types'
 import type { I18nKey } from '../i18n'
+import type { ElemRec, Node3 } from '../state/store'
 
 export type CodeId = 'TW' | 'CN' | 'KR'
 
@@ -66,7 +67,8 @@ export interface RsCtx {
 }
 
 /** post/table 요청 1건 — key 는 TABLE_NAME(응답 키) */
-export interface ReviewTable { key: string; type: string; lcs?: string[] }
+/** extra = post/table Argument 에 덧붙일 항목 (예: ADDITIONAL·NODE_ELEMS·PARTS) */
+export interface ReviewTable { key: string; type: string; lcs?: string[]; extra?: Record<string, any> }
 
 export interface Combo { name: string; desc: string; terms: [string, number, string?][] }
 export interface LoadCaseRef { name: string; type: string }
@@ -103,7 +105,7 @@ export interface CodeProfile {
     storyForces(p: BuildingSpec, sp: Record<string, any>, opt?: { T?: number }): SeismicResult
     storyWeights(p: BuildingSpec, sp: Record<string, any>): number[]
     /** 응답스펙트럼 — 입력 부족이면 null. spfc = db/SPFC 항목, name = SPLC 가 참조할 함수명 */
-    spectrum(sp: Record<string, any>): SpectrumDef | null
+    spectrum(sp: Record<string, any>, p?: BuildingSpec): SpectrumDef | null
     spectrumLogKey: I18nKey
     /** 응답스펙트럼이 주 해석인지 (예: 중국 GB 50011 5.1.2 — 지상 40m 초과). 없으면 false = 정적이 주 해석 */
     rsPrimary?(p: BuildingSpec, sp: Record<string, any>): boolean
@@ -125,11 +127,13 @@ export interface CodeProfile {
   comboRefs: { seismic: string; wind: string }
   /** 심사 지표(审图) — 동적해석 뒤 Gen 층 결과 테이블로 산정. 없으면 패널 미표시 */
   review?: {
-    tables(ctx: { rs: boolean }): ReviewTable[]
-    evaluate(p: BuildingSpec, sp: Record<string, any>, data: Record<string, any>, ctx: { rs: boolean; T1: number | null; rsChk?: any }): ReviewItem[]
+    tables(ctx: { rs: boolean; model?: any }): ReviewTable[]
+    evaluate(p: BuildingSpec, sp: Record<string, any>, data: Record<string, any>, ctx: { rs: boolean; T1: number | null; rsChk?: any; model?: any }): ReviewItem[]
   }
   /** 원문 대조 전 값이 포함됐는지 — UI 에 '미검증' 표시 */
   unverified?: boolean
   /** 편집 카드 → 스펙 변환 마지막 보정 (예: 대만 풍하중 I 를 지진 I 와 공유) */
   finalizeLateral?(seis: Record<string, any>, wind: Record<string, any>): void
+  /** 보 강성 배율 — 요소 id → Iyy 배율(Gen NX db/ESSF, 보 연직 휨). 예: 중국 中梁刚度放大·连梁刚度折减. sectH = 단면 id → 춤(mm) */
+  beamStiffness?(p: BuildingSpec, recs: ElemRec[], nodes: Node3[], sectH: Record<number, number>): { factors: Record<number, number>; log: string } | null
 }

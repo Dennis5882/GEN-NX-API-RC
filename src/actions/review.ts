@@ -33,13 +33,13 @@ export async function actReview(): Promise<string> {
   if (!dyn) return t('rv_need_dynamic')
   const rs = !!dyn.rs
   const data: Record<string, any> = {}
-  for (const tb of prof.review.tables({ rs })) {
+  for (const tb of prof.review.tables({ rs, model: S.model })) {
     try {
       data[tb.key] = await mapi('POST', '/post/table', { Argument: { TABLE_NAME: tb.key, TABLE_TYPE: tb.type,
-        UNIT: { FORCE: 'KN', DIST: 'M' }, STYLES: { FORMAT: 'Fixed', PLACE: 5 }, ...(tb.lcs ? { LOAD_CASE_NAMES: tb.lcs } : {}) } })
+        UNIT: { FORCE: 'KN', DIST: 'M' }, STYLES: { FORMAT: 'Fixed', PLACE: 5 }, ...(tb.lcs ? { LOAD_CASE_NAMES: tb.lcs } : {}), ...(tb.extra || {}) } })
     } catch (e: any) { log('▸ ' + t('rv_fetch_failed') + tb.type + ' — ' + e.message, 'warn') }
   }
-  const items = prof.review.evaluate(p, p.seismic || {}, data, { rs, T1: dyn.T1 ?? null, rsChk: dyn.rsChk })
+  const items = prof.review.evaluate(p, p.seismic || {}, data, { rs, T1: dyn.T1 ?? null, rsChk: dyn.rsChk, model: S.model })
   S.review = { items, rs }
   notify()
   return reviewHtml(items, rs)
