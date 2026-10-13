@@ -16,7 +16,7 @@ import { t } from '../i18n'
 import { classifyModes, num, subTableObjs, tableObjs } from '../mapi/tables'
 import { heightAboveGround } from './selfweight'
 import type { ReviewItem, ReviewTable } from './types'
-import { cnExtraItems, cnExtraTables } from './cnReviewExtra'
+import { MU_LIM, cnExtraItems, cnExtraTables } from './cnReviewExtra'
 
 const DRIFT_COL = 'Maximum Drift of All Vertical Elements/Story Drift'
 
@@ -103,6 +103,18 @@ function seismicGrade(sys: Sys, deg: number, H: number): { frame: number; wall?:
   return { frame: row[1], wall: row[2] }
 }
 
+/** 기둥 轴压比 한계 (GB 50011 표 6.3.6, 特一级 −0.05 JGJ 3 3.10.4) — 抗震等级은 설방분류·열도·높이로 산정. 새 스펙 기둥 크기 산정용 */
+export function axialLimitCN(p: BuildingSpec, sp: Record<string, any>): { lim: number; grade: number; sys: string } {
+  const H = heightAboveGround(p), sys = sysOf(p), deg = +String(sp.intensity || '7')[0]
+  const md = categoryCN(p, sp) === 'B' ? deg + 1 : deg
+  const g = md > 9 ? 0 : seismicGrade(sys, md, H).frame
+  const base = (sys === 'frame' ? MU_LIM.frame : MU_LIM.wall)[Math.max(0, Math.min(3, (g || 1) - 1))]
+  return { lim: +(g === 0 ? base - 0.05 : base).toFixed(2), grade: g, sys: SYS_ZH[sys] }
+}
+
+/** 연체 구조(2동 이상 + 연결층) — JGJ 3 10.5 복잡 고층 */
+export const isConnectedCN = (p: BuildingSpec) => (p.buildings || 1) > 1 && (p.connectFloor || 0) > 0
+
 /** 층간변위각 한계 — 구조형식 + 높이(JGJ 3 3.7.3: ≥250m 1/500, 150~250m 선형보간) */
 export function driftLimitCN(p: BuildingSpec, H = heightAboveGround(p)): { lim: number; sys: string } {
   const sys = sysOf(p)
@@ -125,6 +137,12 @@ export function cnReviewEvaluate(p: BuildingSpec, sp: Record<string, any>, data:
     limit: `${aTxt}${hg.b != null ? ` · B ≤ ${hg.b} m` : ''} (${SYS_ZH[sys]})`,
     status: hg.grade === 'A' ? 'ok' : hg.grade === 'B' ? 'warn' : 'ng', where: hg.grade === 'A' ? t('rv_grade_a') : hg.grade === 'B' ? t('rv_grade_b') : t('rv_grade_over'),
     clause: 'JGJ 3-2010 3.3.1' })
+  /* 연체 구조 — 앱이 다루지 않는 JGJ 3 10.5 요구를 안내 (7度 0.15g·8度는 수직지진 10.5.2 필요) */
+  if (isConnectedCN(p)) {
+    const vert = sp.intensity === '7_015' || String(sp.intensity || '').startsWith('8')
+    items.push({ id: 'conn', label: t('rv_conn'), value: t('rv_conn_val', p.buildings, p.connectFloor), limit: 'JGJ 3 10.5', status: 'warn',
+      where: vert ? t('rv_conn_vert') : undefined, clause: 'JGJ 3 10.5.2 · 10.5.4 · 10.5.6', note: t('rv_conn_note') })
+  }
   const cat = categoryCN(p, sp), md = cat === 'B' ? deg + 1 : deg   // 내진조치 열도
   const sg = md > 9 ? { frame: 0, wall: sys === 'frame' ? undefined : 0 } : seismicGrade(sys, md, H)
   const beyond = cat === 'B' && md <= 9 && H > H_TOP[sys][md]

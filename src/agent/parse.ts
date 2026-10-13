@@ -138,15 +138,16 @@ export function parseCommand(txt: string): Command {
   const bldgType = RC.detectBuildingType(t)
   if (/만들|생성|모델링|세워|짓|建立|生成|建模|建造|蓋|做一個|做個|create|build/.test(t) || bldgType || /건물|골조|프레임|建築|構架|構架系統|剛架|frame|building/.test(t)) {
     const p: BuildingSpec = bldgType ? { ...RC.BUILDING_TYPES[bldgType], bldgType } as BuildingSpec : { ...RC.DEFAULT_SPEC, bldgType: null }
-    const stories = num(/(\d+)\s*(?:층|樓|層)/, t) || num(/(\d+)\s*stor/, t); if (stories) p.stories = stories
-    const bld = num(/(\d+)\s*동|(\d+)\s*棟|(\d+)\s*building/, t); if (bld) p.buildings = bld
+    const ex: string[] = []   // 사용자가 직접 준 항목 — 기준별 새 스펙 보정(prepareNew)이 덮어쓰지 않음
+    const stories = num(/(\d+)\s*(?:층|樓|層)/, t) || num(/(\d+)\s*stor/, t); if (stories) { p.stories = stories; ex.push('stories') }
+    const bld = num(/(\d+)\s*동|(\d+)\s*棟|(\d+)\s*building/, t); if (bld) { p.buildings = bld; ex.push('buildings') }
     const bx = num(/(\d+)\s*(?:베이|跨|開間|bay)/, t); if (bx) p.bayX = bx
     let by = num(/(?:x|×)\s*(\d+)\s*(?:베이|跨|開間|bay)/, t)
     if (!by && bx) { const mm = t.match(/(?:베이|跨|開間|bay)\s*[x×]\s*(\d+)/); if (mm) by = +mm[1] }
     if (by) p.bayY = by
     const col = t.match(/(?:기둥|柱|column)\s*(\d+)\s*[x×]\s*(\d+)/)
-    if (col) { const h = +col[1], b = +col[2]; p.colH = h; p.colB = b; p.colName = `C${h}x${b}` }
-    else { const colSq = t.match(/(?:기둥|柱|column)\s+(\d{3,4})(?!\s*[x×\d])/); if (colSq) { const s = +colSq[1]; p.colH = s; p.colB = s; p.colName = `C${s}x${s}` } }
+    if (col) { const h = +col[1], b = +col[2]; p.colH = h; p.colB = b; p.colName = `C${h}x${b}`; ex.push('col') }
+    else { const colSq = t.match(/(?:기둥|柱|column)\s+(\d{3,4})(?!\s*[x×\d])/); if (colSq) { const s = +colSq[1]; p.colH = s; p.colB = s; p.colName = `C${s}x${s}`; ex.push('col') } }
     const bm = t.match(/(?:보|梁|beam)\s*(\d+)\s*[x×]\s*(\d+)/)
     if (bm) { const h = +bm[1], b = +bm[2]; p.beamH = h; p.beamB = b; p.beamName = `B${b}x${h}` }
     else { const bmSq = t.match(/(?:보|梁|beam)\s+(\d{3,4})(?!\s*[x×\d])/); if (bmSq) { const s = +bmSq[1]; p.beamH = s; p.beamB = s; p.beamName = `B${s}x${s}` } }
@@ -154,7 +155,7 @@ export function parseCommand(txt: string): Command {
     else { const spanM = t.match(/(?:스팬|跨距|跨度|span)\s*(\d+\.?\d*)\s*m(?!m)/); if (spanM) { const v = Math.round(+spanM[1] * 1000); p.spanX = v; p.spanY = v } }
     const gap = num(/간격\s*(\d+)|間距\s*(\d+)|gap\s*(\d+)/, t); if (gap) p.gap = gap
     const pod = num(/기단부\s*(\d+)|裙樓\s*(\d+)|裙房\s*(\d+)|podium\s*(\d+)/, t); if (pod) p.podium = pod
-    const cf = num(/(\d+)\s*(?:층|樓|層)\s*(?:에서|處)?\s*(?:연결|連接)|connect\D*(\d+)/, t); if (cf) p.connectFloor = cf
+    const cf = num(/(\d+)\s*(?:층|樓|層)\s*(?:에서|處)?\s*(?:연결|連接)|connect\D*(\d+)/, t); if (cf) { p.connectFloor = cf; ex.push('connectFloor') }
     /* 층고 — 미터 단위 지원 (e.g. "층고 3.5m" → 3500) */
     const htBM = t.match(/(?:층고|樓高|floor\s*height)\s*(\d+\.?\d*)\s*m(?!m)/)
     const htBMM = num(/(?:층고|樓高|floor\s*height)\s*(\d{3,5})/, t)
@@ -162,6 +163,7 @@ export function parseCommand(txt: string): Command {
     if (htBVal && htBVal >= 2000 && htBVal <= 8000) p.hTyp = htBVal
     if (p.buildings >= 2 && !p.gap) p.gap = 14000
     if (p.buildings >= 2 && !p.connectFloor) p.connectFloor = Math.max(1, Math.round(p.stories * 0.8))
+    p._explicit = ex
     return { intent: 'build', params: p }
   }
   return { intent: 'unknown' }

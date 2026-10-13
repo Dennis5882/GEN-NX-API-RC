@@ -43,14 +43,14 @@ function frameOf(s: AppState): any | null {
 
 function gax(title: string, P: Pal) {
   return {
-    title: { text: title, font: { color: P.axis, size: 10, family: FONT } },
+    title: { text: title, font: { color: P.axis, size: 13, family: FONT } },
     color: P.axis, gridcolor: P.grid, zerolinecolor: P.grid,
     backgroundcolor: P.scene, showbackground: true,
-    tickfont: { color: P.axis, size: 9, family: FONT },
+    tickfont: { color: P.axis, size: 11, family: FONT },
   }
 }
 
-function buildTraces(f: any, vis: Record<VisKey, boolean>, P: Pal) {
+function buildTraces(f: any, vis: Record<VisKey, boolean>, P: Pal, cam: Cam) {
   const ROLE_C3 = P.role
   const byId: Record<number, { x: number; y: number; z: number }> = {}
   ;(f.nodes || []).forEach((n: any) => { byId[n.id] = n })
@@ -120,14 +120,14 @@ function buildTraces(f: any, vis: Record<VisKey, boolean>, P: Pal) {
     idx.node.push(traces.length)
     traces.push({ type: 'scatter3d', mode: 'markers', name: t('show_node'),
       x: regNodes.map((n: any) => n.x), y: regNodes.map((n: any) => n.y), z: regNodes.map((n: any) => n.z), visible: vis.node,
-      text: regNodes.map((n: any) => `N${n.id}  (${n.x.toFixed(0)}, ${n.y.toFixed(0)}, ${n.z.toFixed(0)})`),
+      text: regNodes.map((n: any) => `N${n.id}  (${M(n.x)}, ${M(n.y)}, ${M(n.z)}) m`),
       hovertemplate: '%{text}<extra></extra>', marker: { size: 2.5, color: P.node, opacity: 0.85 } })
   }
   if (supNodes.length) {
     idx.node.push(traces.length)
     traces.push({ type: 'scatter3d', mode: 'markers', name: t('support'),
       x: supNodes.map((n: any) => n.x), y: supNodes.map((n: any) => n.y), z: supNodes.map((n: any) => n.z), visible: vis.node,
-      text: supNodes.map((n: any) => `Fixed  N${n.id}  (${n.x.toFixed(0)}, ${n.y.toFixed(0)}, 0)`),
+      text: supNodes.map((n: any) => `Fixed  N${n.id}  (${M(n.x)}, ${M(n.y)}, 0) m`),
       hovertemplate: '%{text}<extra></extra>',
       marker: { size: 5, color: P.sup, symbol: 'diamond', opacity: 1, line: { color: P.supBd, width: 1 } } })
   }
@@ -153,12 +153,48 @@ function buildTraces(f: any, vis: Record<VisKey, boolean>, P: Pal) {
         line: { color: P.floor, width: 1 }, hoverinfo: 'skip' })
     }
   }
-  return { traces, idx }
+  /* ── 8. 축선 버블 (평면도 전용) — 기둥 위치 X1·X2… / Y1·Y2… , 지붕 높이에 점선 축선 + 바깥쪽 원 ── */
+  const grid: number[] = []
+  const gl = gridLines(f)
+  if (gl) {
+    const { xs, ys, x0, x1, y0, y1, off, z } = gl
+    const lx: any[] = [], ly: any[] = [], lz: any[] = []
+    xs.forEach(x => { lx.push(x, x, null); ly.push(y0 - off * 0.75, y1 + off * 0.25, null); lz.push(z, z, null) })
+    ys.forEach(y => { lx.push(x0 - off * 0.75, x1 + off * 0.25, null); ly.push(y, y, null); lz.push(z, z, null) })
+    grid.push(traces.length)
+    traces.push({ type: 'scatter3d', mode: 'lines', name: 'grid', showlegend: false, x: lx, y: ly, z: lz, visible: cam === 'top',
+      line: { color: P.axis, width: 1, dash: 'dash' }, hoverinfo: 'skip' })
+    const bx = [...xs, ...ys.map(() => x0 - off)], by = [...xs.map(() => y0 - off), ...ys], bz = bx.map(() => z)
+    grid.push(traces.length)
+    traces.push({ type: 'scatter3d', mode: 'markers+text', name: 'grid-bubble', showlegend: false, x: bx, y: by, z: bz, visible: cam === 'top',
+      text: [...xs.map((_, i) => `X${i + 1}`), ...ys.map((_, i) => `Y${i + 1}`)], textposition: 'middle center',
+      textfont: { color: P.txt, size: 11, family: FONT },
+      marker: { size: 8, symbol: 'circle-open', color: P.axis, line: { color: P.axis, width: 1.5 } }, hoverinfo: 'skip' })   // scatter3d 원 크기는 화면에서 약 3.5배로 보임(라이브 캡처)
+  }
+
+  /* 표시 단위 m — 모델 좌표(mm, Gen NX 전송 단위)는 그대로 두고 그릴 때만 ÷1000 (Plotly 가 30000 을 '30k' 로 줄여 쓰던 문제) */
+  for (const tr of traces) for (const k of ['x', 'y', 'z'] as const) if (Array.isArray(tr[k])) tr[k] = tr[k].map((v: number | null) => (v == null ? v : v / 1000))
+  return { traces, idx, grid }
 }
+
+/** 축선 — 기둥 절점의 서로 다른 X·Y 위치(mm). off = 버블을 평면 밖으로 띄우는 거리 */
+function gridLines(f: any) {
+  const ids = new Set<number>(); (f.cols || []).forEach(([a, b]: [number, number]) => { ids.add(a); ids.add(b) })
+  const pts = (f.nodes || []).filter((n: any) => ids.has(n.id))
+  if (!pts.length) return null
+  const uniq = (v: number[]) => [...new Set(v.map(x => Math.round(x)))].sort((a, b) => a - b)
+  const xs = uniq(pts.map((n: any) => n.x)), ys = uniq(pts.map((n: any) => n.y))
+  const x0 = xs[0], x1 = xs[xs.length - 1], y0 = ys[0], y1 = ys[ys.length - 1]
+  const off = Math.max(3500, 0.12 * Math.max(x1 - x0, y1 - y0))
+  return { xs, ys, x0, x1, y0, y1, off, z: Math.max(...(f.nodes || []).map((n: any) => n.z)) }
+}
+
+/** mm → m 표기 (소수 둘째 자리, 끝 0 제거) */
+const M = (mm: number) => String(+(mm / 1000).toFixed(2))
 
 const layout = (P: Pal) => ({
   paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', showlegend: true,
-  legend: { font: { color: P.txt, family: FONT, size: 10 }, orientation: 'h', x: 0, y: 1.03,
+  legend: { font: { color: P.txt, family: FONT, size: 11 }, orientation: 'h', x: 0, y: 1.03,
     bgcolor: P.legend, bordercolor: P.legendBd, borderwidth: 1 },
   margin: { l: 0, r: 0, t: 28, b: 0 },
   modebar: { bgcolor: 'rgba(0,0,0,0)', color: P.axis, activecolor: P.txt },
@@ -191,6 +227,7 @@ export function View3D() {
   const s = useStore()
   const plotRef = useRef<HTMLDivElement>(null)
   const idxRef = useRef<Record<VisKey, number[]>>({ col: [], beam: [], node: [], floor: [] })
+  const gridRef = useRef<number[]>([])   // 축선 버블 트레이스 — 평면(top)에서만 표시
   const { cam, vis, zoom } = s.view3d
   const visible = s.panel === 'viewP'
   /* 형상은 draw3D()/previewSpec() 시점(viewNonce)에만 갱신 — 바닐라와 동일 */
@@ -205,11 +242,11 @@ export function View3D() {
       if (!alive) return
       if (!f) { Plotly.purge(el); return }
       const P = palette()
-      const { traces, idx } = buildTraces(f, vis, P)
-      idxRef.current = idx
+      const { traces, idx, grid } = buildTraces(f, vis, P, cam)
+      idxRef.current = idx; gridRef.current = grid
       void Plotly.newPlot(el, traces, {
         ...layout(P),
-        scene: { ...sceneOf(f, cam, zoom), xaxis: gax('X', P), yaxis: gax('Y', P), zaxis: gax('Z', P), camera: camOf(cam, zoom), bgcolor: 'rgba(0,0,0,0)' },
+        scene: { ...sceneOf(f, cam, zoom), xaxis: gax('X (m)', P), yaxis: gax('Y (m)', P), zaxis: gax('Z (m)', P), camera: camOf(cam, zoom), bgcolor: 'rgba(0,0,0,0)' },
       } as any, CONFIG as any)
     })
     return () => { alive = false }
@@ -221,7 +258,10 @@ export function View3D() {
     const el = plotRef.current
     if (!visible || !el || !f) return
     const sc = sceneOf(f, cam, zoom)
-    void loadPlotly().then(P => P.relayout(el, { 'scene.camera': camOf(cam, zoom), 'scene.aspectmode': sc.aspectmode, ...(sc.aspectratio ? { 'scene.aspectratio': sc.aspectratio } : {}) } as any))
+    void loadPlotly().then(async P => {
+      if (gridRef.current.length) await P.restyle(el, { visible: cam === 'top' } as any, gridRef.current)
+      await P.relayout(el, { 'scene.camera': camOf(cam, zoom), 'scene.aspectmode': sc.aspectmode, ...(sc.aspectratio ? { 'scene.aspectratio': sc.aspectratio } : {}) } as any)
+    })
   }, [cam, zoom])
   useEffect(() => {
     const el = plotRef.current
@@ -274,7 +314,9 @@ const camOf = (c: Cam, zoom: number) => {
 function sceneOf(f: any, c: Cam, zoom: number): Record<string, any> {
   if (c === 'iso' || !f?.nodes?.length) return { aspectmode: 'data' }
   const ext = (k: 'x' | 'y' | 'z') => { const v = f.nodes.map((n: any) => n[k]); return Math.max(...v) - Math.min(...v) || 1 }
-  const d = { x: ext('x'), y: ext('y'), z: ext('z') }, m = Math.max(d.x, d.y, d.z), k = 1.6 / zoom
+  /* 평면: 축선 버블이 평면 밖(−off)까지 그려지므로 그 폭만큼 x·y 범위를 넓혀야 비율이 맞음 */
+  const g = c === 'top' ? gridLines(f) : null, add = g ? g.off * 1.25 : 0
+  const d = { x: ext('x') + add, y: ext('y') + add, z: ext('z') }, m = Math.max(d.x, d.y, d.z), k = 1.6 / zoom
   return { aspectmode: 'manual', aspectratio: { x: d.x / m * k, y: d.y / m * k, z: d.z / m * k } }
 }
 

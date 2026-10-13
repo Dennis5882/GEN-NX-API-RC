@@ -20,7 +20,7 @@ export interface Table { head: string[]; data: string[][] }
 
 export interface ElemRec {
   id: number
-  type: 'col' | 'beam' | 'link' | 'wall' | 'brace'
+  type: 'col' | 'beam' | 'link' | 'wall' | 'brace' | 'slab'
   sect: number
   matl?: number
   b: number

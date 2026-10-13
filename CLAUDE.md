@@ -61,6 +61,7 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
     - 轴压比 GB 50011 6.3.6 — N = 1.3(D+0.5L)+1.4|E|(RS 또는 정적), fc GB 50010 표4.1.4. 라이브: Gen 조합(gLCB) 축력과 일치(μ 1.148 vs 1.15). 框剪 계열은 倾覆力矩比 >50% 면 框架 한계, 特一级 −0.05.
     - 嵌固端刚度比 5.3.7·E.0.1(지하층 있을 때) — 등가전단강성 G·A/h 기하 산정. 风振舒适度(H≥150m)는 안내만(附录 J·H 횡풍 스펙트럼 필요).
     - 기둥 국부축: EX → Shear-z(단면 H ∥ 전역 X). review 훅 ctx 에 `model` 전달, `ReviewTable.extra` 로 post/table 인자 확장.
+  - **새 스펙 보정 `prepareNew`(2026-10-13, CN 만)**: 자유 골조 = 1동(2동 연결은 JGJ 3 10.5 연체 구조 — "2栋" 명시 시만), 기둥 = 내부 부담면적×Σ1.3(D+0.5L) 로 축력 추정해 μ ≤ 0.9×轴压比 한계(`axialLimitCN`) 되게 정사각 확대(50mm 단위). 명령·도구 인자로 직접 준 항목(`_explicit`)은 보존, 안내는 계획 카드 `prepNotes`. 결과: 자유 골조 10층 600→850(라이브 μ 0.52), 사무 10층 600→900. **연체 구조**(2동+연결층) = 주 해석 RS 강제 + 审图 '连体结构' 경고(10.5.2 수직지진·10.5.4·10.5.6 미처리).
   - 알려진 단순화: 기계실(表4.2.2-7) ψc 0.9 대신 0.7 일괄, 최소전단 미달 시 층별이 아닌 전체 동일 배율 증폭, 풍 지형·풍향 계수 1.0.
   - 기준 선택: 헤더 select(`setCode`, localStorage `nx_code`). 미선택이면 언어 추종(zh-CN→CN, ko→KR). 새 스펙은 `stampSpec()`로 `spec.code` 기록 + `adaptSpec`(대만 재료명→GB 근사 C280→C35 등). 기존 모델은 자기 `spec.code` 유지.
 - `KR`(`src/codes/kr.ts` + `krReview.ts`, 2026-10-12) — **해석 범위**(TW·CN 과 같은 수준, 배근·도면 제외). 원문 KB `E:/MIDAS PROGRAM/COde/KR/knowledge`(KCSC OpenAPI, 26기준).
@@ -155,6 +156,7 @@ GUIDE 패널: `GUIDE` 배열(`src/agent/guide.ts`) → `Guide.tsx`. 그룹(2026-
 - **SWIND USER TYPE**: `SCALE_FACTOR_X`, `SCALE_FACTOR_Y` 필수 포함.
 - `ope/STORPROP` = 현재 빌드(06/12/2026) 404 미탑재.
 - **층 결과 테이블(STORY_DRIFT·STORY_SHEAR_FORCE_COEFFICIENT·TORSIONAL/STIFFNESS/WEIGHT_IRREGULARITY 등)은 GUI 없이 동작** — `db/STOR`+`ope/STOR`만으로 충분(2026-10-12 라이브). SSEIS/SWIND 만 GUI Auto Generate 의존.
+- **다이어프램(2026-10-13 라이브)**: Story Data `bFLOOR_DIAPHRAGM` 은 층 전체 절점을 한 강체로 묶음(떨어진 2동도 매 층 한 몸 — 동 A 만 가력해도 동 B 동일 변위). **`db/RIGD` 가 `db/STOR` 와 함께 있으면 해석 거부**('Analysis is not allowed', RIGD 1개만 있어도 / STOR 없으면 허용) → rigd 옵션은 Story Data 사용 시 story 다이어프램으로 대체. **2동 이상 = 다이어프램 OFF + 동별 막요소 바닥**(`putFloorMembranes`: PLSTRS STYPE 1, 사용자 재료 DEN·MASS 0, 두께 = 슬래브, 연결층은 동 사이 연결 슬래브) — PLSTRS+STOR 해석 허용, 동 지붕 DX 편차 0.1~0.2%, 동 B/A 0.73(연결층 경유). 정적 우발편심은 2동이면 동별 강체회전 힘 짝(합력 0)으로, Story Data 우발편심 폭 = 1동 폭.
 - **`DELETE db/LCOM-GEN` 은 Assign 번호를 무시하고 조합 전체를 지움**(2026-10-12 라이브) → `putCombos` 는 조합 수가 줄 때만 PUT 앞에서 전체 DELETE.
 - **SPLC `DIR`은 `"XY"`/`"Z"`만** — 수평 RSX/RSY 는 `ANGLE` 0°/90°. 우발편심 `bACCECC` 네이티브(Gen NX 전용).
 - **자동저장 `doc/saveas` = `C:/temp/…` 고정** — 사용자 폴더 추정 경로는 Gen NX 모달("잘못된 경로")로 해석을 막음.
@@ -201,7 +203,7 @@ T₁은 `EIGENVALUEMODE` 테이블에서 회수 (`PARTICIPATIONVECTORMODE` 아�
 
 ## 현재 빌드 버전
 MIDAS GEN NX 2026 (v2.1), Build **06/12/2026**.  
-도구 버전: **`package.json` version 이 단일 출처**(현재 `3.7.0`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
+도구 버전: **`package.json` version 이 단일 출처**(현재 `3.8.0`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
 
 ## 개발 환경 주의
 - Node.js v24 / npm 설치됨 (winget, 2026-10 확인). 엔진 스모크 테스트는 node ESM으로 가능.

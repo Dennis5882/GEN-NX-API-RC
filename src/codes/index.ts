@@ -21,9 +21,20 @@ export function profileOf(p: BuildingSpec | null | undefined): CodeProfile {
 /** 새 스펙에 현재 기준을 기록하고 기준에 맞게 변환 (템플릿 재료명 등) */
 export function stampSpec(p: BuildingSpec): BuildingSpec {
   const prof = profile()
-  const q = prof.adaptSpec ? prof.adaptSpec(p) : { ...p }
+  const explicit = (p._explicit as string[] | undefined) || []
+  let q = prof.adaptSpec ? prof.adaptSpec(p) : { ...p }
+  delete q._explicit
   q.code = prof.id
+  /* 기준별 새 스펙 보정(prepareNew) — 안내 문구는 prepNotes 로 넘겨 계획 카드·LLM 응답에 표시 후 제거 */
+  if (prof.prepareNew) { const r = prof.prepareNew(q, explicit); q = r.spec; if (r.notes.length) q.prepNotes = r.notes }
   return q
+}
+
+/** stampSpec 이 붙인 안내 문구를 꺼내고 스펙에서 지움 */
+export function takePrepNotes(p: BuildingSpec): string[] {
+  const n = (p.prepNotes as string[] | undefined) || []
+  delete p.prepNotes
+  return n
 }
 
 export type * from './types'

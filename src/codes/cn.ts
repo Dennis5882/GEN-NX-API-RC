@@ -17,7 +17,8 @@ import { RC } from '../engine'
 import type { BuildingSpec, MaterialProps } from '../engine/types'
 import { t } from '../i18n'
 import type { CodeProfile, Combo, LoadCaseRef, ParamField, StoryForce } from './types'
-import { cnReviewEvaluate, cnReviewTables } from './cnReview'
+import { axialLimitCN, cnReviewEvaluate, cnReviewTables, isConnectedCN } from './cnReview'
+import { FC } from './cnReviewExtra'
 import { minShearScale } from '../mapi/tables'
 import { heightAboveGround, modelDeadWeights } from './selfweight'
 import { cnBeamStiffness } from './cnStiffness'
@@ -150,11 +151,33 @@ export function storyGravityCN(p: BuildingSpec): { D: number[]; L: number[] } {
   return { D, L }
 }
 
+/** 새 스펙 기둥 크기 — 내부 기둥 부담면적 × Σ 1.3(D+0.5L) 로 축력 추정, μ ≤ 0.9×한계(지진 축력 여유)가 되도록 정사각 단면(50mm 단위, ≤1500).
+    현재 단면으로 이미 만족하면 null. 축력 추정 = 층별 1.3(D+0.5L)/바닥면적 합 × 경간 최대값 곱 */
+export function sizeColumnCN(p: BuildingSpec): { side: number; mu0: number; lim: number } | null {
+  const { lim } = axialLimitCN(p, (p.seismic as Record<string, any>) || {})
+  const fc = FC[p.matName]; if (!fc) return null
+  const mx = (s: number | number[], n: number) => Math.max(...RC.asSpans(s, n)) / 1000
+  const trib = mx(p.spanX, p.bayX) * mx(p.spanY, p.bayY)
+  const Nof = (h: number, b: number) => {
+    const q = { ...p, colH: h, colB: b, colName: `C${h}x${b}` }
+    const gr = storyGravityCN(q), area = RC.planAreaM2(q) * (q.buildings || 1)
+    let w = 0; for (let s = 1; s <= q.stories; s++) w += 1.3 * ((gr.D[s] || 0) + 0.5 * (gr.L[s] || 0)) / area
+    return w * trib
+  }
+  const target = 0.9 * lim
+  const mu0 = Nof(p.colH, p.colB) * 1000 / (fc * p.colH * p.colB)
+  if (mu0 <= target) return null
+  let side = Math.max(p.colH, p.colB)
+  for (let i = 0; i < 4; i++) side = Math.min(1500, Math.max(side, Math.ceil(Math.sqrt(Nof(side, side) * 1000 / (target * fc)) / 50) * 50))
+  return { side, mu0, lim }
+}
+
 /** 주 해석 = 振型分解反应谱法 여부 — GB 50011 5.1.2: 底部剪力法은 H ≤ 40m·전단변형 위주·질량/강성 균일일 때만.
     method: 'auto'(H>40m → RS) / 'ESL'(底部剪力法 강제) / 'RS'(반응스펙트럼 강제) */
 export function rsPrimaryCN(p: BuildingSpec, sp: Record<string, any>): boolean {
   if (sp.method === 'RS') return true
   if (sp.method === 'ESL') return false
+  if (isConnectedCN(p)) return true          // 연체 구조 = 비정형(GB 50011 3.4.3·JGJ 3 10.5) → 底部剪力法 부적합
   return heightAboveGround(p) > 40
 }
 
@@ -302,7 +325,7 @@ export const CN: CodeProfile = {
         options: () => (['auto', 'ESL', 'RS'] as const).map(v => ({ value: v, label: t(`cn_method_${v}`) })) },
     ],
     rsPrimary: (p, sp) => rsPrimaryCN(p, sp),
-    rsPrimaryWhy: p => t('rs_primary_auto', +heightAboveGround(p).toFixed(1)),
+    rsPrimaryWhy: p => isConnectedCN(p) ? t('cn_rs_primary_conn', p.connectFloor) : t('rs_primary_auto', +heightAboveGround(p).toFixed(1)),
     /* GB 55002 4.2.3 — 층별 V_i/ΣG_j ≥ λ, 미달 방향은 전 층 동일 배율 증폭(5.2.5 조문설명: 내력·변위 모두) */
     rsAdjust(_p, sp, ctx) {
       const lambda = lambdaMin(siteParams(sp).it.amax, ctx.T1 || 0)
@@ -351,6 +374,24 @@ export const CN: CodeProfile = {
     /* 우발편심 ±5% — GB 50011 5.2.3 / 高规 4.3.3 실무 요구. Gen NX SPLC 네이티브(bACCECC) 라이브 확인 2026-10-12 */
     staticAccEcc: 0.05,
     splcExtra: { bACCECC: true, bACCECC_AUTO: true, ACCECC_PERCENT: 5, bACCECC_CONSIDER_GL: false, bACCECC_MINIMUM_TORSION: false, aACCECC_ECCEN_LIST: [] },
+  },
+
+  /* 새 스펙 보정 — (B) 자유 골조는 1동(2동 연결은 JGJ 3 10.5 연체 구조라 직접 지정할 때만), (D) 轴压比 기준 기둥 크기.
+     사용자가 동 수·기둥을 직접 주면 그대로 둠 */
+  prepareNew(p, explicit) {
+    const q: BuildingSpec = { ...p }, notes: string[] = []
+    if (!q.bldgType && !explicit.includes('buildings') && (q.buildings || 1) > 1) {
+      q.buildings = 1; q.connectFloor = 0
+      notes.push(t('cn_prep_single'))
+    }
+    if (!explicit.includes('col') && !q.palette) {
+      const r = sizeColumnCN(q)
+      if (r && r.side > Math.max(q.colH, q.colB)) {
+        notes.push(t('cn_prep_col', q.colName, `C${r.side}x${r.side}`, r.mu0.toFixed(2), r.lim))
+        q.colH = r.side; q.colB = r.side; q.colName = `C${r.side}x${r.side}`
+      }
+    }
+    return { spec: q, notes }
   },
 
   /* 中梁刚度放大(JGJ 3 5.2.2)·连梁刚度折减(5.2.1) — db/ESSF IYY_SF (src/codes/cnStiffness.ts) */

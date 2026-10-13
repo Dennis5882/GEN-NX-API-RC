@@ -10,7 +10,7 @@ import { actAnalyze, actDynamic } from '../actions/analysis'
 import { actAddBracing, actAddLoad, actBuildFrame, actModifySection, actResizeSubset, clearModel } from '../actions/model'
 import { actReview } from '../actions/review'
 import { actStoryWeightVerify, actSseisVerify, actSwindVerify } from '../actions/verify'
-import { CODE_IDS, PROFILES, profile, profileOf, stampSpec, type CodeId, type LateralGroup } from '../codes'
+import { CODE_IDS, PROFILES, profile, profileOf, stampSpec, takePrepNotes, type CodeId, type LateralGroup } from '../codes'
 import { onView3DTab, setView } from '../components/View3D'
 import { RC, type BuildingSpec } from '../engine'
 import { escapeHtml, t } from '../i18n'
@@ -220,11 +220,21 @@ function buildSpec(inp: any, base: BuildingSpec): BuildingSpec {
   return p
 }
 
+/** 도구 인자로 직접 준 항목 → stampSpec 의 prepareNew 가 덮어쓰지 않음 */
+function withExplicit(p: BuildingSpec, inp: any): BuildingSpec {
+  const ex = Object.keys(inp || {}).filter(k => inp[k] != null)
+  if (inp?.colH || inp?.colB) ex.push('col')
+  if (Array.isArray(inp?.spanX) || Array.isArray(inp?.spanY)) ex.push('span')
+  p._explicit = ex
+  return p
+}
+
 async function callTool(name: string, inp: any): Promise<string> {
   if (name === 'build_frame') {
-    const p = stampSpec(buildSpec(inp, { ...RC.DEFAULT_SPEC } as BuildingSpec))   // 현재 설계기준 기록 + 재료명 변환
+    const p = stampSpec(withExplicit(buildSpec(inp, { ...RC.DEFAULT_SPEC } as BuildingSpec), inp))   // 현재 설계기준 기록 + 재료명 변환 + 기준별 보정
+    const notes = takePrepNotes(p)
     tab('logP'); await actBuildFrame(p)
-    return `Built ${p.buildings} tower(s) × ${p.stories} stories (code ${p.code}). Nodes=${S.model.nodes.length}, elements=${S.model.cols.length + S.model.beams.length + S.model.links.length}. Seismic ${p.seismic?.on ? 'on' : 'off'}, wind ${p.wind?.on ? 'on' : 'off'}.`
+    return (notes.length ? `Code defaults applied: ${notes.map(n => n.replace(/<[^>]+>/g, '')).join(' / ')}. ` : '') + `Built ${p.buildings} tower(s) × ${p.stories} stories (code ${p.code}). Nodes=${S.model.nodes.length}, elements=${S.model.cols.length + S.model.beams.length + S.model.links.length}. Seismic ${p.seismic?.on ? 'on' : 'off'}, wind ${p.wind?.on ? 'on' : 'off'}.`
   }
   if (name === 'update_spec') {
     if (!S.model.spec) return 'ERROR: no model — use build_frame'
@@ -273,9 +283,10 @@ async function callTool(name: string, inp: any): Promise<string> {
     renderModelState(); return 'Model cleared.'
   }
   if (name === 'propose_model') {
-    const p = stampSpec(buildSpec(inp, { ...RC.DEFAULT_SPEC } as BuildingSpec))
+    const p = stampSpec(withExplicit(buildSpec(inp, { ...RC.DEFAULT_SPEC } as BuildingSpec), inp))
+    const notes = ((p.prepNotes as string[]) || []).map(n => n.replace(/<[^>]+>/g, ''))   // proposeBuild 가 카드에 표시 후 제거
     proposeBuild(p, false)   // 확인 카드 + 3D 미리보기 (Gen NX 불필요)
-    return `Proposal card shown with 3D preview: ${p.buildings} tower(s) × ${p.stories} stories, ${p.colName}/${p.beamName}, ${p.matName} (code ${p.code}). Waiting for the user to press Run (or call confirm_build).`
+    return (notes.length ? `Code defaults applied: ${notes.join(' / ')}. ` : '') + `Proposal card shown with 3D preview: ${p.buildings} tower(s) × ${p.stories} stories, ${p.colName}/${p.beamName}, ${p.matName} (code ${p.code}). Waiting for the user to press Run (or call confirm_build).`
   }
   if (name === 'confirm_build') {
     if (!S.pendingBuild) return 'ERROR: no pending proposal — use propose_model or build_frame'

@@ -5,7 +5,7 @@
 import { actAnalyze, actDynamic } from '../actions/analysis'
 import { actReview } from '../actions/review'
 import { actAddBracing, actAddLoad, actBuildFrame, actModifySection, actResizeSubset, clearModel } from '../actions/model'
-import { profileOf, stampSpec } from '../codes'
+import { profileOf, stampSpec, takePrepNotes } from '../codes'
 import type { BuildingSpec } from '../engine'
 import { t } from '../i18n'
 import { S, notify } from '../state/store'
@@ -16,9 +16,11 @@ import { resultBrief, statusBrief } from './results'
 
 /** 빌드 확인 카드 생성 (건물유형 → 설명카드 / 자유골조 → 편집카드) */
 export function proposeBuild(p: BuildingSpec, editable: boolean): void {
+  const notes = takePrepNotes(p)
   S.pendingBuild = p
   S.pendingBuildId++
-  addPlanMsg({ intro: t(editable ? 'plan_intro_custom' : 'plan_intro_tpl'), spec: p, editable, buildId: S.pendingBuildId, epoch: S.buildEpoch })
+  const intro = t(editable ? 'plan_intro_custom' : 'plan_intro_tpl') + notes.map(n => `<br><span style="color:var(--amber)">▸ ${n}</span>`).join('')
+  addPlanMsg({ intro, spec: p, editable, buildId: S.pendingBuildId, epoch: S.buildEpoch })
   tab('viewP'); previewSpec(p)
 }
 

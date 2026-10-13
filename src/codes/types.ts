@@ -134,6 +134,9 @@ export interface CodeProfile {
   unverified?: boolean
   /** 편집 카드 → 스펙 변환 마지막 보정 (예: 대만 풍하중 I 를 지진 I 와 공유) */
   finalizeLateral?(seis: Record<string, any>, wind: Record<string, any>): void
+  /** 새 스펙(템플릿·자유 골조) 기준별 기본값 보정 — explicit = 사용자가 명령·도구 인자로 직접 준 항목(덮어쓰지 않음).
+      notes = 계획 카드에 보여줄 변경 안내. 예: 중국 자유 골조 1동, 轴压比 기준 기둥 크기 */
+  prepareNew?(p: BuildingSpec, explicit: string[]): { spec: BuildingSpec; notes: string[] }
   /** 보 강성 배율 — 요소 id → Iyy 배율(Gen NX db/ESSF, 보 연직 휨). 예: 중국 中梁刚度放大·连梁刚度折减. sectH = 단면 id → 춤(mm) */
   beamStiffness?(p: BuildingSpec, recs: ElemRec[], nodes: Node3[], sectH: Record<number, number>): { factors: Record<number, number>; log: string } | null
 }

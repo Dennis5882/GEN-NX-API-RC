@@ -54,9 +54,9 @@ function storyByLevel(elev: number[], level: number): number {
 }
 
 /** GB 50010 表 4.1.4-1 fc (N/mm²) */
-const FC: Record<string, number> = { C25: 11.9, C30: 14.3, C35: 16.7, C40: 19.1, C45: 21.1, C50: 23.1, C55: 25.3, C60: 27.5 }
+export const FC: Record<string, number> = { C25: 11.9, C30: 14.3, C35: 16.7, C40: 19.1, C45: 21.1, C50: 23.1, C55: 25.3, C60: 27.5 }
 /** GB 50011 表 6.3.6 [一, 二, 三, 四] */
-const MU_LIM = { frame: [0.65, 0.75, 0.85, 0.90], wall: [0.75, 0.85, 0.90, 0.95] }
+export const MU_LIM = { frame: [0.65, 0.75, 0.85, 0.90], wall: [0.75, 0.85, 0.90, 0.95] }
 
 export interface CnExtraInfo {
   sys: 'frame' | 'frameWall' | 'frameCore'

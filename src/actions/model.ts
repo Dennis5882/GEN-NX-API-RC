@@ -200,13 +200,28 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
     const ecc = profileOf(p).seismic.staticAccEcc || 0
     const Lx = RC.asSpans(p.spanX, p.bayX).reduce((a: number, b: number) => a + b, 0)
     const Ly = RC.asSpans(p.spanY, p.bayY).reduce((a: number, b: number) => a + b, 0)
+    /* 2동 이상: 다이어프램이 동별 막요소라 절점 MZ 는 전달이 불확실 → 동마다 우발편심 비틀림을 강체 회전 분포의 절점 힘 짝(합력 0)으로 */
+    const nodeAt = new Map<number, any>(f.nodes.map((n: any) => [n.id, n]))
+    const multiB = (p.buildings || 1) > 1
     for (const k in byStory) {
       const iz = +k
       const ns = byStory[iz]
       const F = (r.forces[iz - 1] ? r.forces[iz - 1].F : 0) * 1000
       if (!F || !ns.length) continue
       const per = F / ns.length
-      if (ecc) {
+      if (ecc && multiB) {
+        for (let b = 0; b < p.buildings; b++) {
+          const g: number[] = f.floorGroups[`${b}_${iz}`] || []; if (!g.length) continue
+          const pts = g.map(id => nodeAt.get(id)), xc = pts.reduce((a, n) => a + n.x, 0) / pts.length, yc = pts.reduce((a, n) => a + n.y, 0) / pts.length
+          const J = pts.reduce((a, n) => a + (n.x - xc) ** 2 + (n.y - yc) ** 2, 0) || 1
+          const Fb = per * g.length, mzx = Fb * ecc * Ly, mzy = Fb * ecc * Lx       // EX → Y 치수, EY → X 치수
+          g.forEach((nid, i) => {
+            const n = pts[i], rx = n.x - xc, ry = n.y - yc
+            push(nid, { LCNAME: 'EX', FX: per - mzx * ry / J, FY: mzx * rx / J })
+            push(nid, { LCNAME: 'EY', FX: -mzy * ry / J, FY: per + mzy * rx / J })
+          })
+        }
+      } else if (ecc) {
         const mx = F * ecc * Ly / ns.length, my = F * ecc * Lx / ns.length
         ns.forEach(nid => { push(nid, { LCNAME: 'EX', FX: per, FY: 0, MZ: mx }); push(nid, { LCNAME: 'EY', FX: 0, FY: per, MZ: my }) })
       } else ns.forEach(nid => { push(nid, { LCNAME: 'EX', FX: per, FY: 0 }); push(nid, { LCNAME: 'EY', FX: 0, FY: per }) })
@@ -238,6 +253,48 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
   if (Object.keys(a).length) await mapi('PUT', 'cnld', { Assign: a })
 }
 
+/** 동별 막요소 바닥 — PLSTRS(평면응력, 회전자유도 비활성) 경간마다 1개, 사용자 재료 밀도 0(슬래브 자중·질량은 이미 바닥 DL 에 있음).
+    면내 강성만 주고 휨·질량은 그대로 → 동마다 강성 바닥, 동 사이는 연결층(connectFloor)의 연결 슬래브로만 묶임(JGJ 3 10.5.4 강접합 가정).
+    라이브 2026-10-13: PLSTRS + Story Data 는 해석 허용. 반환 = 마지막 요소 번호 */
+async function putFloorMembranes(p: BuildingSpec, f: any, recs: ElemRec[], eid: number, matId: number, thkId: number): Promise<number> {
+  const prof = profileOf(p)
+  const E = prof.materials[p.matName]?.E || p.E
+  await mapi('PUT', 'matl', { Assign: { [matId]: { TYPE: 'USER', NAME: 'SLAB-MEMB', HE_SPEC: 0, HE_COND: 0, PLMT: 0, P_NAME: '', bMASS_DENS: true, DAMP_RAT: 0.05,
+    PARAM: [{ P_TYPE: 2, ELAST: E, POISN: 0.2, THERMAL: 1e-5, DEN: 0, MASS: 0 }] } } })
+  const tk = Math.max(100, slabThk(p) || 0)
+  await mapi('PUT', 'thik', { Assign: { [thkId]: { NAME: `SLAB${tk}M`, TYPE: 'VALUE', bINOUT: false, T_IN: tk, T_OUT: 0, O_VALUE: 0 } } })
+  const key = (x: number, y: number, z: number) => `${Math.round(x)}_${Math.round(y)}_${Math.round(z)}`
+  const at = new Map<string, number>(f.nodes.map((n: any) => [key(n.x, n.y, n.z), n.id]))
+  const byId = new Map<number, any>(f.nodes.map((n: any) => [n.id, n]))
+  const A: Record<number, any> = {}
+  let nFloor = 0, nConn = 0
+  const quad = (x0: number, x1: number, y0: number, y1: number, z: number, b: number, iz: number) => {
+    const q = [at.get(key(x0, y0, z)), at.get(key(x1, y0, z)), at.get(key(x1, y1, z)), at.get(key(x0, y1, z))]
+    if (q.some(v => v == null)) return false
+    A[++eid] = { TYPE: 'PLSTRS', MATL: matId, SECT: thkId, NODE: q, ANGLE: 0, STYPE: 1 }
+    recs.push({ id: eid, type: 'slab', sect: thkId, matl: matId, b, iz, nodes: q as number[] })
+    return true
+  }
+  const uniq = (v: number[]) => [...new Set(v.map(Math.round))].sort((a, b) => a - b)
+  for (const k in (f.floorGroups || {})) {
+    const [b, iz] = k.split('_').map(Number)
+    const ns = (f.floorGroups[k] as number[]).map(id => byId.get(id))
+    const xs = uniq(ns.map(n => n.x)), ys = uniq(ns.map(n => n.y)), z = ns[0].z
+    for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < ys.length - 1; j++) if (quad(xs[i], xs[i + 1], ys[j], ys[j + 1], z, b, iz)) nFloor++
+  }
+  /* 연결층 — 이웃 동 마주 보는 외곽선 사이 */
+  const cf = p.connectFloor || 0
+  if (cf > 0) for (let b = 0; b < p.buildings - 1; b++) {
+    const L = (f.floorGroups[`${b}_${cf}`] || []).map((id: number) => byId.get(id)), Rn = (f.floorGroups[`${b + 1}_${cf}`] || []).map((id: number) => byId.get(id))
+    if (!L.length || !Rn.length) continue
+    const xL = Math.max(...L.map((n: any) => n.x)), xR = Math.min(...Rn.map((n: any) => n.x)), ys = uniq(L.map((n: any) => n.y)), z = L[0].z
+    for (let j = 0; j < ys.length - 1; j++) if (quad(xL, xR, ys[j], ys[j + 1], z, -1, cf)) nConn++
+  }
+  if (Object.keys(A).length) await mapi('PUT', 'elem', { Assign: A })
+  log('▸ ' + t('dia_per_bldg', p.buildings, nFloor, tk, nConn ? cf : 0, nConn), 'ok')
+  return eid
+}
+
 export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any> {
   if (!S.connected) throw new Error(t('e_notconn'))
   const core: any = p.core
@@ -255,7 +312,7 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
   await putNodes(f.nodes)
   const asg = (iz: number) => R.storyAssign[iz] || R.def
   let eid = 0
-  const elems: { id: number; n1: number; n2: number; sect: number; matl?: number }[] = []
+  const elems: { id: number; n1: number; n2: number; sect: number; matl?: number }[] = []   // eid 는 막요소(putFloorMembranes)가 이어서 씀
   const recs: ElemRec[] = []
   f.colMeta.forEach((c: any) => {
     const a = asg(c.iz); const id = ++eid
@@ -303,8 +360,16 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
   await putBoundary(f.baseNodes, '1111110')
   await putLoadCase(1, 'DL', 'D')
   await putSelfWeight(1, 'DL', -1)
-  /* M1.7: 다이어프램. 기본=story(db/STOR bFLOOR_DIAPHRAGM). 'rigd' 명시 시만 db/rigd 사용. */
-  if (p.diaphragmMethod === 'rigd') {
+  /* M1.7: 다이어프램. 기본=story(db/STOR bFLOOR_DIAPHRAGM). 'rigd' 명시 시만 db/rigd 사용.
+     ⚠ Gen NX(0612)는 db/rigd 와 db/STOR 가 함께 있으면 해석 거부('Analysis is not allowed', 라이브 2026-10-13) →
+       Story Data 를 쓰는 기본 경로에선 rigd 를 쓰지 않고 story 다이어프램으로 대체.
+     2동 이상은 story 다이어프램이 층 전체를 한 강체로 묶어(동 A 만 가력해도 동 B 같은 변위 — 라이브) 떨어진 동이 매 층 한 몸이 됨 →
+       다이어프램 OFF + 동별 막요소 바닥(putFloorMembranes) */
+  const multi = (p.buildings || 1) > 1
+  let diaMethod: string | undefined = multi ? 'none' : p.diaphragmMethod
+  if (diaMethod === 'rigd' && p.storyData !== false) { diaMethod = 'story'; log('▸ ' + t('rigd_story_conflict'), 'warn') }
+  if (multi) eid = await putFloorMembranes(p, f, recs, eid, R.mats.length + 1, (f.wallThks || []).length + 1)
+  if (diaMethod === 'rigd') {
     const dia: Record<number, any> = {}
     let rid = 1
     const dg = RC.deriveFloorGroups(p)
@@ -322,7 +387,7 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
   /* M2-A8: Story 정보(db/STOR) 자동 생성 — 표준층 모델 기본 ON(p.storyData!==false)
      ope/STOR(putStoryCalc)는 해석 후 actAnalyze에서 호출(해석 전 호출 시 [SS] no-result 알림 발생). */
   if (p.storyData !== false) {
-    try { await putStoryData(p, f) } catch (e: any) {
+    try { await putStoryData({ ...p, diaphragmMethod: diaMethod as any }, f) } catch (e: any) {
       log('⚠ ' + t('story_data_skipped') + (e.message || e), 'err')
     }
   }
@@ -330,7 +395,7 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
   R.sections.forEach((s: any, i: number) => { secMap[i + 1] = { name: s.name, H: s.H, B: s.B } })
   Object.assign(S.model, { spec: p, colSect: p.colName, beamSect: p.beamName,
     nodes: f.nodes, cols: f.cols, beams: f.beams, links: f.links, walls: f.walls || [],
-    elemRecs: recs, nextEid: eid + 1, nextSect: R.sections.length + 1, nextMat: R.mats.length + 1, nextLC: 2,
+    elemRecs: recs, nextEid: eid + 1, nextSect: R.sections.length + 1, nextMat: R.mats.length + 1 + (multi ? 1 : 0), nextLC: 2,
     sections: secMap, secReg: R, materials: R.mats.slice(),
     baseNodes: f.baseNodes, elev: f.elev, loadCases: [{ name: 'DL', type: 'D' }], edits: [], seismic: null, wind: null })
   await applyFloorLoads(p, f)
