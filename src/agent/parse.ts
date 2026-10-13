@@ -8,7 +8,7 @@ import { profileOf } from '../codes'
 import { S, type ResultTab } from '../state/store'
 
 export type Command =
-  | { intent: 'help' | 'conn_check' | 'clear' | 'analyze' | 'status' | 'review' | 'unknown' }
+  | { intent: 'help' | 'release_notes' | 'conn_check' | 'clear' | 'analyze' | 'status' | 'review' | 'unknown' }
   | { intent: 'tab'; which: '3d' | 'result' | 'log' | 'model' }
   | { intent: 'build'; params: BuildingSpec }
   | { intent: 'modify_section'; target: 'col' | 'beam'; H: number; B: number }
@@ -66,7 +66,8 @@ export function parseCommand(txt: string): Command {
   const t = normalizeZh(txt.toLowerCase())
   const hasModel = S.model && S.model.nodes && S.model.nodes.length > 0
   /* ── 최우선: 뷰·도움말·연결 확인 (모델 여부 무관) ── */
-  if (/도움말|뭘\s*할|어떻게\s*써|어떤\s*명령|使用說明|指令說明|help|what\s*can|commands?\s*list/.test(t))
+  if (/릴리[즈스]\s*노트|변경\s*(?:이력|내역)|release\s*notes?|changelog|版本(?:紀錄|記錄|說明)|更新(?:紀錄|記錄|日誌|日志)/.test(t)) return { intent: 'release_notes' }
+  if (/도움말|매뉴얼|메뉴얼|뭘\s*할|어떻게\s*써|어떤\s*명령|使用說明|使用手[冊册]|用[戶户]手[冊册]|指令說明|help|manual|what\s*can|commands?\s*list/.test(t))
     return { intent: 'help' }
   if (/3[dD]|3디|입체|삼차원|三維|透視/.test(t)) return { intent: 'tab', which: '3d' }
   if (/결과\s*(?:탭|tab|보여)|탭.*결과|result\s*tab|tab.*result|show\s*results?\b|顯示\s*結果|显示\s*结果|結果\s*(?:分頁|頁|面板|選項卡)|结果\s*(?:选项卡|页|面板)/.test(t)) return { intent: 'tab', which: 'result' }

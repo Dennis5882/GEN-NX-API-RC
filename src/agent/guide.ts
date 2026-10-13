@@ -39,27 +39,25 @@ export const GUIDE: GuideSection[] = [
     { icon: '🧱', key: 'g_section_7' },
     { note: 'g_section_note' },
   ] },
-  { id: 'load', acc: 'amber', icon: '⬇', open: true, items: [
-    { icon: '↓', key: 'g_load_1' },
-    { icon: '↓', key: 'g_load_2' },
-    { icon: '✕', key: 'g_load_3' },
-    { icon: '✕', key: 'g_load_4' },
-  ] },
   { id: 'analysis', acc: 'green', icon: '∑', open: true, items: [
     { icon: '▶', key: 'g_analysis_1' },
     { icon: '〜', key: 'g_analysis_7' },
     { icon: '📋', key: 'g_analysis_8', need: 'review' },
+  ] },
+  { id: 'result', acc: 'amber', icon: '▤', open: true, items: [
     { icon: '⇣', key: 'g_analysis_2' },
     { icon: '⊥', key: 'g_analysis_3' },
     { icon: '≋', key: 'g_analysis_4' },
-    { icon: '◎', key: 'g_analysis_5' },
-    { div: true },
-    { icon: '◈', key: 'g_analysis_6' },
   ] },
   { id: 'misc', acc: 'violet', icon: '⊟', open: false, items: [
-    { icon: '↺', key: 'g_misc_1' },
-    { div: true },
-    { icon: '❓', key: 'g_misc_2' },
+    { icon: '◎', key: 'g_analysis_5' },
+    { icon: '◈', key: 'g_analysis_6' },
     { icon: '◉', key: 'g_misc_3' },
+    { div: true },
+    { icon: '↺', key: 'g_misc_1' },
+  ] },
+  { id: 'help', acc: 'cyan', icon: '?', open: false, items: [
+    { icon: '📖', key: 'g_misc_2' },
+    { icon: '📝', key: 'g_misc_4' },
   ] },
 ]

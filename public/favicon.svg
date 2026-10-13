@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Gen NX RC 모델링 — 2경간 3층 RC 골조(기둥·보) + 절점 -->
+  <rect width="32" height="32" rx="7" fill="#1f3a8a"/>
+  <g stroke="#fff" stroke-linecap="round">
+    <path d="M7 26V8M16 26V8M25 26V8" stroke-width="2.6"/>
+    <path d="M7 8H25M7 14H25M7 20H25" stroke-width="2"/>
+    <path d="M4 26H28" stroke-width="2.2" stroke="#9fb4ff"/>
+  </g>
+  <g fill="#38e1d6">
+    <circle cx="7" cy="8" r="1.9"/><circle cx="16" cy="8" r="1.9"/><circle cx="25" cy="8" r="1.9"/>
+  </g>
+</svg>

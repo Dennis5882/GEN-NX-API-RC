@@ -89,19 +89,19 @@ header h1 small{display:block;font-size:.64rem;color:var(--muted);font-weight:40
 header .spacer{flex:1}
 .pill{
   font-family:'IBM Plex Mono',var(--cjk);font-size:.7rem;padding:5px 11px;border-radius:20px;border:1px solid var(--border);
-  display:flex;align-items:center;gap:7px;color:var(--muted);cursor:pointer;transition:.2s;white-space:nowrap;
+  display:flex;align-items:center;gap:7px;color:var(--txt-2);cursor:pointer;transition:.2s;white-space:nowrap;
 }
-.pill:hover{border-color:var(--dim)}
+.pill:hover{border-color:var(--dim);color:var(--txt-hi)}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--dim);transition:.3s}
 .pill.on .dot{background:var(--green);box-shadow:0 0 8px var(--green)}
 .pill.err .dot{background:var(--red);box-shadow:0 0 8px var(--red)}
-.gear{cursor:pointer;color:var(--muted);font-size:1.2rem;padding:4px 8px;border-radius:6px;transition:.2s}
+.gear{cursor:pointer;color:var(--txt-2);font-size:1.2rem;padding:4px 8px;border-radius:6px;transition:.2s}
 .gear:hover{color:var(--cyan);background:color-mix(in srgb,var(--cyan) 8%,transparent)}
 .gear.active{color:var(--cyan)}
 .langsel{display:flex;align-items:center;margin-right:4px}
 .langsel select{font-family:'IBM Plex Mono',var(--cjk);font-size:.72rem;padding:4px 8px;border-radius:6px;
-  border:1px solid var(--border);background:var(--bg);color:var(--dim);cursor:pointer;outline:none;transition:.15s}
-.langsel select:hover{border-color:var(--dim);color:var(--txt)}
+  border:1px solid var(--border);background:var(--bg);color:var(--txt-2);cursor:pointer;outline:none;transition:.15s}
+.langsel select:hover{border-color:var(--dim);color:var(--txt-hi)}
 
 /* main split */
 main{flex:1;display:grid;grid-template-columns:minmax(0,var(--split,49%)) 6px minmax(0,1fr);background:var(--border);overflow:hidden}
@@ -265,12 +265,12 @@ main.splitting .right,main.splitting .chat{pointer-events:none}
 .gsec[data-acc="violet"]{--acc:var(--violet)}
 .gsec-hd{
   display:flex;align-items:center;gap:8px;padding:7px 6px 6px;border-radius:6px;
-  font-family:'IBM Plex Mono',var(--cjk);font-size:.64rem;letter-spacing:1.2px;font-weight:600;
-  color:var(--txt-2);text-transform:uppercase;cursor:pointer;user-select:none;transition:.15s;
+  font-family:'IBM Plex Sans',var(--cjk);font-size:.78rem;letter-spacing:.2px;font-weight:600;   /* 명령 행(.gcmd)과 같은 크기 — 굵기로만 구분 */
+  color:var(--txt-2);cursor:pointer;user-select:none;transition:.15s;
 }
 .gsec-hd:hover{color:var(--txt-hi);background:var(--hover)}
 .gsec-hd .gsec-ic{
-  width:20px;height:20px;border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
   font-size:.72rem;color:var(--acc);background:color-mix(in srgb,var(--acc) 12%,transparent);
   border:1px solid color-mix(in srgb,var(--acc) 28%,transparent);
 }

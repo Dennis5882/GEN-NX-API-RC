@@ -186,6 +186,7 @@ export const S = {
   viewNonce: 0,                           // 3D 재플롯 트리거
   /* 3D 뷰 카메라·표시 — 툴바 버튼과 LLM(set_view)이 같은 상태를 조작. zoom = 카메라 거리 배율(1 = 기본, <1 확대) */
   view3d: { cam: 'iso' as CamId, zoom: 1, vis: { col: true, beam: true, node: true, floor: true } as Record<VisKey, boolean> },
+  rnOpen: false,                          // 릴리즈 노트 창(하단 버전 버튼·가이드 '릴리즈 노트')
   busy: false,
   log: [] as LogEntry[],
   msgs: [] as ChatMsg[],

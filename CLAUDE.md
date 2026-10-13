@@ -113,7 +113,7 @@ handleLocal(txt)  → intent에 따라 API 호출 or 즉시 응답
 
 **인텐트 목록**: `help` · `tab{3d|result|log|model}` · `conn_check` · `clear` · `build` · `modify_section` · `resize_subset` · `add_load` · `add_bracing` · `change_spec{matName|hTyp|stories}` · `dynamic` · `analyze` · `result{disp|react|force}` · `status` · `unknown`
 
-GUIDE 패널: `GUIDE` 배열(`src/agent/guide.ts`) → `Guide.tsx`. **클릭 = 입력창에 타이핑해 보인 뒤 실행**(`runCmd` → Composer `typeAndRun`, 전 항목 동일). `need:'review'` = 그 프로필 훅이 있을 때만 표시. 채팅|우측 분할 폭 = `--split`(드래그, localStorage `nx_split`).
+GUIDE 패널: `GUIDE` 배열(`src/agent/guide.ts`) → `Guide.tsx`. 그룹(2026-10-13): 모델 생성·모델 수정·해석·결과·모델 관리·도움말(사용자 매뉴얼·릴리즈 노트 — 인텐트 `release_notes` → `S.rnOpen`). 하중·보강(add_load·add_bracing)은 메뉴에서 제외 — 'add wind load' 는 옥상 연직 Fz 라 실제 풍하중 아님. **클릭 = 입력창에 타이핑해 보인 뒤 실행**(`runCmd` → Composer `typeAndRun`, 전 항목 동일). `need:'review'` = 그 프로필 훅이 있을 때만 표시. 채팅|우측 분할 폭 = `--split`(드래그, localStorage `nx_split`).
 
 ## 다중 단면·재료 모델링 (팔레트 + 구역 배정, 2026-06-29)
 
@@ -190,7 +190,7 @@ T₁은 `EIGENVALUEMODE` 테이블에서 회수 (`PARTICIPATIONVECTORMODE` 아�
 
 ## 현재 빌드 버전
 MIDAS GEN NX 2026 (v2.1), Build **06/12/2026**.  
-도구 버전: **`package.json` version 이 단일 출처**(현재 `3.6.2`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
+도구 버전: **`package.json` version 이 단일 출처**(현재 `3.6.3`) — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 릴리즈 시 version 올리고 `CHANGELOG.md` 맨 위에 항목 추가 + git 태그 `vX.Y.Z`. (바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터.) 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
 
 ## 개발 환경 주의
 - Node.js v24 / npm 설치됨 (winget, 2026-10 확인). 엔진 스모크 테스트는 node ESM으로 가능.

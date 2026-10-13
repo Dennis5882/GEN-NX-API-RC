@@ -89,6 +89,9 @@ export async function handleLocal(txt: string): Promise<void> {
       } catch (e: any) { th.remove(); addMsg('bot', t('err', e.message)) }
       return
     }
+    case 'release_notes':
+      S.rnOpen = true; notify()
+      return
     case 'help':
       addMsg('bot', t('help_html'))
       return
