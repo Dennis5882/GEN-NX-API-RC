@@ -252,7 +252,6 @@ export type I18nKey =
   | 'live'
   | 'llm_err'
   | 'llm_mode'
-  | 'llm_mode_desc'
   | 'load_combos_gb'
   | 'load_combos_kds'
   | 'load_combos_twd_usd112'

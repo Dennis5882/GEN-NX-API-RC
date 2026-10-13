@@ -63,7 +63,6 @@ function LlmDrawer({ open, onClose }: { open: boolean; onClose(): void }) {
         <div className="toggle-row" style={{ border: 'none', paddingTop: 0, marginBottom: 18 }}>
           <div>
             <div style={{ fontSize: '.85rem' }}>{t('llm_mode')}</div>
-            <div style={{ fontSize: '.7rem', color: 'var(--muted)' }}>{t('llm_mode_desc')}</div>
           </div>
           <label className="switch">
             <input type="checkbox" checked={s.llm} onChange={e => { S.llm = e.target.checked; notify() }} />
