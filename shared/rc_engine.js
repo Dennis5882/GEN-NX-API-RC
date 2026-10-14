@@ -616,7 +616,9 @@ function buildStoryData(p, f){
    ⚠ 그 외 縣市는 해당 震區表 입수 후 확장. */
 const SEISMIC_ZONES=[
   /* 臺北盆地 微分區 (表2-6a, Sederes 조회값) — Sa1=N/A, T0로 정의 → SD1=SDS·T0 */
-  {city:'臺北盆地', dist:'臺北三區', SDS:0.6, T0:1.6, SD1:0.96, note:'盆地(예: 大安區 仁愛里). 부지별 상이 — Sederes 확인 권장'},
+  {city:'臺北盆地', dist:'臺北一區', SDS:0.6, T0:1.6,  SD1:0.96, SMS:0.8, SM1:1.28, note:'표2-6(c) T0=1.60 (예: 大安區 仁愛里). 里별 微分區 상이 — Sederes 확인'},
+  {city:'臺北盆地', dist:'臺北二區', SDS:0.6, T0:1.3,  SD1:0.78, SMS:0.8, SM1:1.04, note:'표2-6(c) T0=1.30'},
+  {city:'臺北盆地', dist:'臺北三區', SDS:0.6, T0:1.05, SD1:0.63, SMS:0.8, SM1:0.84, note:'표2-6(c) T0=1.05'},
   {city:'新北市', dist:'三峽區',  SDS:0.7, SD1:0.40},
   {city:'新北市', dist:'石碇區',  SDS:0.7, SD1:0.40},
   {city:'新北市', dist:'坪林區',  SDS:0.7, SD1:0.40},

@@ -17,7 +17,8 @@ import { RC } from '../engine'
 import type { BuildingSpec } from '../engine/types'
 import { t } from '../i18n'
 import { num as numOf } from '../mapi/tables'
-import { heightAboveGround, modelDeadWeights } from './selfweight'
+import { heightAboveGround, modelColumnWeights, modelDeadWeights } from './selfweight'
+import { twReviewEvaluate, twReviewTables } from './twReview'
 import type { CodeProfile, Combo, LoadCaseRef, ParamField, StoryForce } from './types'
 
 const KGF = 0.00980665                  // kgf/m² → kN/m²
@@ -27,6 +28,11 @@ const ALPHA_Y = 1.0                     // RC 극한강도설계 (112 5.3 해설
 /** 바닥하중 — 활하중은 엔진 표(대만 건축기술규칙 값), SDL 에 칸막이 75kgf/m² 가산(지붕 제외) */
 const FLOOR_USE: CodeProfile['floorUse'] = Object.fromEntries(Object.entries(RC.FLOOR_USE as CodeProfile['floorUse'])
   .map(([u, v]) => [u, { ...v, sdl: u === 'Roof' ? v.sdl : +(v.sdl + PARTITION).toFixed(4) }]))
+
+/** 112 19.2.2.1(b) Ec = 12,000√fc' (kgf/cm²) → MPa. Gen CNS560(RC) DB 는 구판식(≈15,000√fc')이라 1.241배 — 라이브 2026-10-14 */
+const ecMPa = (grade: string) => Math.round(12000 * Math.sqrt(+String(grade).replace(/\D/g, '')) * 0.0980665)
+const MATERIALS112: CodeProfile['materials'] = Object.fromEntries(Object.entries(RC.MATERIALS as CodeProfile['materials'])
+  .map(([k, v]) => [k, { ...v, E: ecMPa(k) }]))
 
 /* ── 지진 ─────────────────────────────────────────────── */
 
@@ -105,7 +111,7 @@ function basementCount(p: BuildingSpec): number {
 }
 
 /** 2.2 W — w0 빈칸 = 모델 고정하중(부재+슬래브+마감+칸막이), 입력 시 면적×w0. 활하중비(기본 0, 창고·서고 0.25) 가산. 지하층 0 */
-function storyWeightsTW(p: BuildingSpec, sp: Record<string, any>): number[] {
+export function storyWeightsTW(p: BuildingSpec, sp: Record<string, any>): number[] {
   const D = sp.w0 != null ? null : modelDeadWeights(p, TW)
   const lr = sp.liveRatio != null ? +sp.liveRatio : 0
   const area = RC.planAreaM2(p) * (p.buildings || 1)
@@ -118,6 +124,41 @@ function storyWeightsTW(p: BuildingSpec, sp: Record<string, any>): number[] {
     W[s] = (D ? D[s] : area * sp.w0) + area * lr * fu.liveVal
   }
   return W
+}
+
+/** 2.13 P-Δ 용 중력 — D = 지진 W 의 고정하중(w0 우선), L = 면적×활하중(지붕 제외) */
+export function storyGravityTW(p: BuildingSpec, sp: Record<string, any>): { D: number[]; L: number[] } {
+  const area = RC.planAreaM2(p) * (p.buildings || 1)
+  const nb = basementCount(p)
+  const D = sp.w0 != null
+    ? Array.from({ length: p.stories + 1 }, (_, s) => (s > nb ? area * sp.w0 : 0))
+    : modelDeadWeights(p, TW)
+  const g = RC.deriveFloorGroups(p)
+  const L: number[] = []
+  for (let s = 1; s <= p.stories; s++) {
+    const fu = FLOOR_USE[(g[s] && g[s].use) || 'Residential'] || FLOOR_USE.Residential
+    L[s] = fu.live === 'LR' ? 0 : area * fu.liveVal
+  }
+  return { D, L }
+}
+
+/** 2.18 수직지진 — SaD,V = ½SaD (단주기 평탄부 = SDS), F_uv: R=3 → Ra = 1+2/1.5 (분지 2.0), Fuv = √(2Ra−1) (2-12 중간 구간).
+    보·바닥 K_z = I/(1.4αy)·(SaD,V/Fuv)m (C2-10, 표 C2-11a 계수) — 2.10.1 하한 V* 형(Fuv/4.2·…)이 크면 그 값.
+    기둥·벽 = 0.40·SDS·I/(2αy) (2.18 해설: 지반과 함께 상하 운동). 층별 연직력 = K_z(W−Wc) + kc·Wc */
+export function verticalTW(p: BuildingSpec, sp: Record<string, any>) {
+  const { SDS, basin } = siteTW(sp)
+  if (!(SDS > 0) || sp.vertical === 'N') return null
+  const I = sp.I != null ? +sp.I : 1.0
+  const Ra = 1 + 2 / (basin ? 2.0 : 1.5), Fuv = Math.sqrt(2 * Ra - 1)
+  const x = 0.5 * SDS / Fuv
+  const m = x <= 0.15 ? x : x < 0.4 ? 0.52 * x + 0.072 : 0.70 * x
+  const Kz = Math.max(I / (1.4 * ALPHA_Y) * m, I * Fuv / ((basin ? 3.5 : 4.2) * ALPHA_Y) * m)
+  const kc = 0.4 * SDS * I / (2 * ALPHA_Y)
+  const W = storyWeightsTW(p, { ...sp, liveRatio: 0 }), Wc = modelColumnWeights(p, TW)
+  const nb = basementCount(p)
+  const F: number[] = []
+  for (let s = 1; s <= p.stories; s++) F[s] = s > nb ? Kz * Math.max(0, (W[s] || 0) - (Wc[s] || 0)) + kc * (Wc[s] || 0) : 0
+  return { F, Kz, kc }
 }
 
 /** 2.11 수직분포 — Ft = 0.07TV (≤0.25V, T≤0.7s 이면 0) 정상부 + (V−Ft)·W_x h_x / ΣW h. h = 기면(지상) 기준 */
@@ -161,6 +202,7 @@ function twCombos(loadCases: LoadCaseRef[]): Combo[] {
   ;(loadCases || []).forEach(l => { (by[l.type] = by[l.type] || []).push(l.name) })
   const D = [...(by.D || []), ...(by.DC || []), ...(by.DW || [])], L = by.L || []
   const Lr = [...(by.LR || []), ...(by.S || []), ...(by.R || [])], W = by.W || []
+  const EV = (by.USER || []).filter(n => n === 'EV')
   /* 응답스펙트럼 주 해석이면 지진 = RSX/RSY (ANAL 'RS'), 정적 EX/EY 는 모델에만 */
   const RS = by.RS || [], E = RS.length ? RS : by.E || [], eAnal = RS.length ? 'RS' : 'ST'
   if (!D.length) return []
@@ -178,6 +220,14 @@ function twCombos(loadCases: LoadCaseRef[]): Combo[] {
   E.forEach(e => {
     defs.push([`1.2D+1.0${e}+1.0L`, true, [...T([D, 1.2], [L, 1.0]), [e, 1.0, eAnal]]])                // (e)
     defs.push([`0.9D+1.0${e}`, true, [...T([D, 0.9]), [e, 1.0, eAnal]]])                               // (g)
+    /* 2.18 해설: 수평 100% + 수직 30%, 수평 30% + 수직 100% (수직 ± 양방향) — EV = 하향 양수 */
+    EV.forEach(v => {
+      for (const [kh, kv] of [[1.0, 0.3], [0.3, 1.0]] as const) for (const sg of [1, -1]) {
+        const vs = `${sg > 0 ? '+' : '-'}${kv}${v}`
+        defs.push([`1.2D+${kh}${e}${vs}+1.0L`, true, [...T([D, 1.2], [L, 1.0], [[v], sg * kv]), [e, kh, eAnal]]])
+        defs.push([`0.9D+${kh}${e}${vs}`, true, [...T([D, 0.9], [[v], sg * kv]), [e, kh, eAnal]]])
+      }
+    })
   })
   return defs.filter(d => d[1] && d[2].length).map((d, i) => ({ name: `cLCB${i + 1}`, desc: d[0], terms: d[2] }))
 }
@@ -238,12 +288,12 @@ export const TW: CodeProfile = {
   id: 'TW',
   designCode: 'TWN-USD112',
 
-  materials: RC.MATERIALS,
+  materials: MATERIALS112,
   defaultMat: 'C280',
   /* M1.7: Taiwan material - concrete CNS560(RC) (live-verified). MPa 등급명은 CNS 표기로 정규화. */
   concreteMatl(name) {
     const shown = RC._MPA2CNS[name] || (RC._CNS_CONC.includes(name) ? name : 'C280')
-    return { TYPE: 'CONC', NAME: shown, PARAM: [{ P_TYPE: 1, STANDARD: 'CNS560(RC)', DB: shown }] }
+    return { TYPE: 'CONC', NAME: shown, PARAM: [{ P_TYPE: 1, STANDARD: 'CNS560(RC)', DB: shown, bELAST: true, ELAST: ecMPa(shown) }] }
   },
   comboRefs: { seismic: 'cLCB 1.2D+1.0E+1.0L · 0.9D+1.0E', wind: 'cLCB 1.6W · 0.8W' },
 
@@ -273,6 +323,8 @@ export const TW: CodeProfile = {
       num('T', () => t('tw_t'), () => '', 's'),
       { key: 'method', kind: 'select', label: () => t('cn_method'), def: () => 'auto',
         options: () => (['auto', 'ESL', 'RS'] as const).map(v => ({ value: v, label: t(`tw_method_${v}`) })) },
+      { key: 'vertical', kind: 'select', label: () => t('tw_vertical'), def: () => 'Y',
+        options: () => (['Y', 'N'] as const).map(v => ({ value: v, label: t(`tw_vertical_${v}`) })) },
       { key: 'regular', kind: 'select', label: () => t('tw_regular'), def: () => 'Y',
         options: () => (['Y', 'N'] as const).map(v => ({ value: v, label: t(`tw_regular_${v}`) })) },
       num('Cs', () => 'V/W ' + t('ovr'), () => ''),
@@ -280,7 +332,7 @@ export const TW: CodeProfile = {
     ],
     presets: {
       labelKey: 'site_preset',
-      list: () => RC.SEISMIC_ZONES.map(z => ({ label: `${z.city} ${z.dist} · SDS ${z.SDS}`, values: { SDS: z.SDS, SD1: z.SD1, T0: z.T0 } })),
+      list: () => RC.SEISMIC_ZONES.map(z => ({ label: `${z.city} ${z.dist} · SDS ${z.SDS}`, values: { SDS: z.SDS, SD1: z.SD1, T0: z.T0, SMS: z.SMS, SM1: z.SM1 } })),
     },
     storyForces: (p, sp, opt = {}) => seismicTW(p, sp, opt),
     storyWeights: (p, sp) => storyWeightsTW(p, sp),
@@ -341,6 +393,13 @@ export const TW: CodeProfile = {
       num('G', () => t('gust_g'), () => 1.88),
     ],
     storyForces: (p, wp) => windTW(p, wp),
+  },
+
+  /* 검토 지표 — Gen 층 결과 테이블 → 耐震規範 한계 (src/codes/twReview.ts) */
+  verticalForces: (p, sp) => verticalTW(p, sp),
+  review: {
+    tables: ctx => twReviewTables(ctx),
+    evaluate: (p, sp, data, ctx) => twReviewEvaluate(p, sp, data, { ...ctx, V: ctx.model?.dynamic?.V ?? ctx.model?.seismic?.V ?? null }),
   },
 
   /* 질량원 활하중비 = 지진 W 의 활하중비 (2.2 와 동적 질량 일치) */

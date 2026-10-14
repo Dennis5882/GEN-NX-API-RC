@@ -128,6 +128,8 @@ export interface CodeProfile {
   /** 빌드 완료 메시지에 붙는 조합 참조 (예: 대만 'cLCB5/7') */
   comboRefs: { seismic: string; wind: string }
   /** 심사 지표(审图) — 동적해석 뒤 Gen 층 결과 테이블로 산정. 없으면 패널 미표시 */
+  /** 수직지진 — 층별 연직 하중(kN, 하향 양수). 있으면 EV 케이스(type USER)로 재하 */
+  verticalForces?(p: BuildingSpec, sp: Record<string, any>): { F: number[]; Kz: number; kc: number } | null
   review?: {
     tables(ctx: { rs: boolean; model?: any }): ReviewTable[]
     evaluate(p: BuildingSpec, sp: Record<string, any>, data: Record<string, any>, ctx: { rs: boolean; T1: number | null; rsChk?: any; model?: any }): ReviewItem[]

@@ -21,7 +21,7 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 | `src/engine/` | `shared/rc_engine.js` 브리지(side-effect import → `RC`) + `types.ts` 점진 타입화 |
 | `src/i18n/` | `shared/i18n.js` 브리지 — plain `t()`/`tl()`/`tv()`/`pick()` (S.lang 기준, 액션에서도 사용) |
 | `shared/rc_engine.js` | 구조 계산 로직 단일 소스 (React 앱·Wizard 공용, 이전 완료 전까지 유지) |
-| `shared/i18n.js` | 다국어 사전 (window.I18N 235키, ko/en/zh) |
+| `shared/i18n.js` | 다국어 사전 (window.I18N ~550키, ko/en/zh-TW/zh-CN) |
 | `shared/app.css` | 스타일 단일 소스 (React 앱이 import, 바닐라 클래스명 유지) |
 | `archive/vanilla-v1.2.1/` | 바닐라 단일 HTML 백업 (git tag `vanilla-v1.2.1`) |
 | `archive/` | 구버전 동결 — 수정 금지 |
@@ -86,7 +86,7 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 - **CN 응답스펙트럼 주 해석**: 지진 입력 `method` auto/ESL/RS, auto = 지상 H>40m(GB 50011 5.1.2, `heightAboveGround` 지하 제외). `actDynamic` 에서 RS 강제 → `S.model.rsCases`(RSX/RSY, 조합 vCOMB `ANAL:'RS'`)로 지진 조합 교체(정적 EX/EY 는 规定水平力 참고용으로 모델에 남김, `loadCases` 와 분리 — 정적 결과 회수가 `(ST)` 를 붙이므로) → `STORY_SHEAR_FORCE_COEFFICIENT` 로 층별 剪重比 ≥ λ 검사 → 미달 방향은 **SPLC SCALE η 후 재해석**(5.2.5 조문설명: 내력·변위 모두 조정). 전 층 동일 배율 = 단순화.
 - 라이브: Gen 층중량 = 앱 산정(CN 8,747=8,747, TW 7,886/7,882 kN), RS 조합 `ANAL:'RS'` 수용, SCALE 재해석 반영(TW 1F V = 0.9×정적 V 정확), 심사 지표 9항목 값. 질량참여는 SUB_TABLES `PRINTOUT (1)`(%)만 — `(2)` 는 절대질량.
 - **CN 정적 EX/EY 우발편심**: `seismic.staticAccEcc` 0.05 → 층 비틀림 MZ = F·0.05·L⊥ 를 CNLD 에 함께 재하(3.4.3 '具有偶然偏心的规定水平力'). + 방향 1개만.
-- **심사 지표(审图) 패널**: 프로필 `review` 훅(`src/codes/cnReview.ts`) + `actions/review.ts` → `S.review` → 결과 탭 상단 표 + 채팅 요약. 동적해석 끝에 자동, 인텐트 `review`(심사/审图/指标/review). 항목: 층간변위각(5.5.1, 框架 1/550·벽 有 1/800, Δ/h 는 Gen 'Story Drift'/높이 — Gen 'Modified Drift' 는 코드계수 포함이라 미사용), 剪重比(55002 4.2.3), 扭转位移比(3.4.3 >1.2·3.4.4 ≤1.5, 정적 EX/EY), 유효질량 ≥90%(5.2.2 조문설명), 주기비 ≤0.9(**JGJ 3-2010 3.4.5 — KB 없음, 미대조**). RS 미실행이면 변위는 EX/EY(ST).
+- **심사 지표(审图) 패널**: 프로필 `review` 훅(`src/codes/cnReview.ts`) + `actions/review.ts` → `S.review` → 결과 탭 상단 표 + 채팅 요약. 동적해석 끝에 자동, 인텐트 `review`(심사/审图/指标/review). 항목: 층간변위각(5.5.1, 框架 1/550·벽 有 1/800, Δ/h 는 Gen 'Story Drift'/높이 — Gen 'Modified Drift' 는 코드계수 포함이라 미사용), 剪重比(55002 4.2.3), 扭转位移比(3.4.3 >1.2·3.4.4 ≤1.5, 정적 EX/EY), 유효질량 ≥90%(5.2.2 조문설명), 주기비 ≤0.9(JGJ 3-2010 3.4.5 — 이후 KB 대조 완료, 위 'JGJ 3-2010·GB 55008' 항목). RS 미실행이면 변위는 EX/EY(ST).
   - 층 결과 테이블은 Story Calc(`ope/STOR`) 전제 → CN 은 동적해석 doc/anal **앞**에서 `putStoryCalc` (뒤에 부르면 결과 무효화).
 - **2동 층력 중복 재하 수정**(바닐라부터 있던 결함): `applyLateral` 이 층력 합계를 동마다 통째로 재하 → CNLD 합 = 2V(풍 동일). 이제 같은 층 모든 동 절점에 합계를 분배(층력 함수는 동 수를 이미 곱함). 1동 출력 불변.
 - **대만 프로필 원문 재구현(2026-10-12, 사용자 결정 A)** — `src/codes/tw.ts` 가 더 이상 `rc_engine` 의 ASCE 7 식(Cs=SDS·I/R, 0.0466hn^0.9, k 지수, TL 장주기, 1.0W 조합, qz=0.613Vz²)을 쓰지 않음(Wizard 는 여전히 rc_engine 사용). KB `E:/MIDAS PROGRAM/COde/TW/knowledge/{seismic-design-code,wind-load-2014,concrete-design-code-112}`:
@@ -96,6 +96,9 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
   - 조합 112 5.3.1 (a)~(g), 방향별(EX·EY 동시 조합 없음 — 바닐라는 같은 조합에 동시 포함), 풍 1.6W·0.8W, L 0.5 감소(5.3.3) 미사용.
   - 풍 2014: q(z)=0.06K(z)[I·V10(C)]² kgf/m², K=2.774(z/zg)^2α(표2.2), G 1.88, 풍상 0.8q(z)+풍하 Cp(L/B)·q(h)(표2.4), 풍 I(2.5: 병원·학교·상업 1.1) — 지진 I 와 분리.
   - 단순화: 지하층 지진력(2.12)·Ax 증폭·±편심 2케이스·VM 지배 시 SaM 스펙트럼(SaD×비율 근사)·풍 가로/비틀림/유연건물 미구현. 검증 `twtest.mjs`(scratchpad) 27/27 — 식은 테스트 안에서 원문대로 독립 재구현.
+  - **KB 재변환판 대조(2026-10-14)**: 지진·풍·조합·활하중·단위중량 식은 청크 원문과 일치. 수정 3건 — ① **Ec = 12,000√fc'(112 19.2.2.1b)**: Gen `CNS560(RC)` DB 는 구판식 ≈15,000√fc'(1.241배, 라이브) → `concreteMatl` 이 `bELAST:true, ELAST` 로 덮어씀(C350 22,016 MPa), `materials` E 도 동일식. ② 臺北盆地 프리셋 = 一·二·三區 T0 1.60/1.30/1.05(표 2-6(c), SMS 0.8·SM1 = 0.8·T0 → V_M 활성; 이전 '三區 1.6' 은 一區 값). ③ **검토 지표 훅** `src/codes/twReview.ts` — 층간변위각 ≤0.005(2.16.1, Gen 결과를 V*(I=1·T 무제한)/현재 V 로 환산)·비틀림 1.2(표1-2)·軟層 0.7/0.8·極軟層 0.6/0.7(표1-1)·질량 150%·P-Δ θ<0.1(2.13)·해석법 3.1·유효질량 90%(3.5)·RS 조정 η(3.3). 라이브(사무 10층): 변위각 0.0028/0.0029, θ 0.106 → warn.
+  - **수직지진 2.18(2026-10-14, 사용자 확정 해석)**: 프로필 훅 `verticalForces`(`verticalTW`) → 케이스 `EV`(type USER, 하향 양수, 층 절점 균등). SaD,V = ½SDS, F_uv: R=3 → Ra 1+2/1.5(분지 2.0)·√(2Ra−1), 보·바닥 K_z = max(I/1.4·m, I·F_uv/4.2·m)(C2-10·C2-11a), 기둥·벽 0.4·SDS·I/2(`modelColumnWeights`). 조합: 112 (e)(g) 에 Eh 100%+EV ±30%·Eh 30%+EV ±100% 추가(해설 C2-12~15 의 비율, 계수는 112 5.3.1). 지진 입력 `vertical` Y/N. 라이브: 사무 10층 EV 합 8,757 kN, 조합 29.
+  - **미구현**: 2.10·2.11 풍 횡풍·비틀림 · 2.15 전도모멘트 · 2.17 극한층전단강도 · 표1-1 3(입면기하)·표1-2 2~5.
 - **CN(GB) 참고 메모**: Gen NX 라벨 `GB/T50010-10`, 철근 DB `GB 50917-13(RC)`/`GB/T10(RC)`, 강종 HPB300~HRB600 (`E:/AI Study/Rebar-repair/src/data/rcCodePresets.ts`). 응답스펙트럼은 `db/SPFC` `SPEC_CODE:"CH2010"`(GB50011-2010) **네이티브** 지원(`MIDAS-API/docs/manual/09_DB_Dynamic_Loads.md` 1-2-E). 콘크리트 재료 DB(STANDARD) 이름은 미확인 → 라이브 확인 필요. GB50010 원문 KB: `E:/MIDAS PROGRAM/COde/CN/knowledge/gb50010-2010/`(조문 503, chunks.jsonl). GB50011·50009·55001·55002 원문 KB 는 2026-10-12 추가됨(위 대조 완료 참조).
 
 
@@ -111,7 +114,7 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
   - **zh-TW**: `E:/AI Study/MIDAS-GEN-NX-UI-Local/glossary/glossary.json`(확정 용어 238 + 대륙→대만 34쌍) + 검수 완료 UI `output/Chinese(Traditional)/` + 대만 규범 용어집(`台湾建筑物耐震规范.json`, `tw2014_wind_glossary_*.json`). **설치된 Gen NX `Chinese(Traditional)` 리소스는 부정확 — 기준으로 쓰지 말 것.**
   - 확정 반영(2026-10): Brace 支撑/支撐, Element 单元/單元, Member 构件/構件, BEAMFORCE 梁单元内力/梁單元內力, Displacement 位移(TW 도 位移, 變位는 Drift), Rigid Link 刚性连接/剛性連結, Stiffness 勁度(TW), Accidental torsion 偶然扭转/意外扭矩, TW 풍 G=陣風反應因子·V10=基本設計風速. TW 규범 원문 용어 유지: 用途係數·工址·地況.
 - **간체 `zh-CN`(2026-10)**: 사전은 zh-TW 블록을 OpenCC `tw2sp` + 구조 용어집(荷载·截面·构件·位移·框架·跨度·层高·振型…) + 대륙식 후처리(列→行, 登录→注册, 分页→选项卡 등)로 생성 후 검수. **현지 엔지니어 검수 전 초안.**
-- **언어 ≠ 설계기준**: zh-CN 은 UI 언어일 뿐, 설계 로직은 여전히 대만(TWN-USD112). GB 기준은 별도 '설계기준 프로필' 작업(차기).
+- **언어 ≠ 설계기준**: UI 언어와 설계기준(TW/CN/KR 프로필)은 독립 축 — 기준 미선택 시에만 언어를 따라 자동 선택(위 '설계기준 프로필').
 - 로컬 NLP: `parse.ts` `normalizeZh()` 가 간체 전용 글자→번체 + 대륙 어휘(创建→建立, 添加→新增, 运行→执行…) 정규화 후 기존 번체 정규식 사용 → **정규식엔 번체만 추가**하면 간체도 인식.
 - 폰트: `app.css` `--cjk` 변수 — `:lang(zh-Hans)` SC 우선, `:lang(zh-Hant)` TC 우선, 그 외 KR 우선. 새 CJK 언어는 여기와 index.html Google Fonts 링크에 추가.
 - `npm run i18n:check`(build·typecheck 에 포함): 함수 인자 수·타입 불일치, 폴백 누락, keys.gen 불일치 = 오류 / 일부 언어 키 누락 = 경고(`--strict` 시 오류).
@@ -134,7 +137,7 @@ GUIDE 패널: `GUIDE` 배열(`src/agent/guide.ts`) → `Guide.tsx`. 그룹(2026-
 - `spec.core = {on, thick, ix, iy, nx, ny, layout, pos, skip}` → `RC.coreLayout`(범위 보정·동별 위치)·`RC.coreWalls`(동 번호 붙은 core 벽) — `autoCore` 는 Wizard 호환용으로만 남김. ix/iy 빈값 = 가운데(구 autoCore 와 동일).
 - 2동 이상: layout `same`(같은 위치)·`mirror`(짝수 번째 동 X 대칭)·`each`(동별 `pos`), `skip` = 코어 없는 동. **이전엔 2동이어도 A동에만 코어**(autoCore 가 동 번호 없음 — 결함 수정).
 - 편집 카드 `CoreSection`: 미니 평면 격자(칸 클릭 = 좌하단 이동)·◀▲▼▶·가운데·크기 1×1~2×2·적용 동·배치. LLM `build_frame/update_spec.core`, `get_status` 가 현재 배치(절대 인덱스) 제공. `buildSpec` 은 코어 벽을 항상 현재 형상으로 재생성.
-- 라이브(KR 2동 10층): PLATE 80 = 동마다 40, 좌우 대칭(바깥 끝) 비틀림 Y 1.33 → 1.05.
+- 라이브(KR 2동 10층, v3.9 PLATE 시절): 벽 패널 80 = 동마다 40, 좌우 대칭(바깥 끝) 비틀림 Y 1.33 → 1.05.
 
 ## 벽 요소·내력벽(벽식) (2026-10-13, Gen NX 라이브)
 - **벽 = Gen `WALL` 요소**(STYPE 2 plate, Wall ID = 동·벽 정의·평면별). PLATE 벽은 Gen 층 결과표(층간변위·비틀림·강성·전도모멘트)의 '수직 부재'로 인식되지 않아 기둥 없는 모델에서 전부 0 → WALL 로 전환(전도모멘트도 Frame/Wall 분리).
@@ -143,6 +146,12 @@ GUIDE 패널: `GUIDE` 배열(`src/agent/guide.ts`) → `Guide.tsx`. 그룹(2026-
 - **KR 아파트 = 벽식**(prepareNew, 기둥 크기 직접 지정 시 골조 유지): 6×4.2m · 2×5.4m · 층고 2.9m · 슬래브 210 · 벽 200 · 보 B200x500(인방) · 필로티 없음, 시스템 1-b(지상 60m 초과 1-a). 편집 카드 '내력벽 (벽식)' 토글(KR).
 - **KR 부재 단위중량 `memberGamma` 23.54**(Gen KS19(RC) DB 2,400 kgf/m³) — 슬래브 하중은 24. 이전 KR 앱 자중이 Gen 보다 부재분 ~1.9% 컸음.
 - 라이브(KR 아파트 15층): 기둥 0·WALL 270·WSSF 270, DL 반력 = 앱 자중 47,967 kN, LL = 25.2×10.8×2.0×14 정확, EX = 앱 V, 층 표 지표 전부 값, T₁ 0.768 s, 비틀림 Y 1.21(긴 판상형 ±5% 우발편심 — 실제 신호). CN 코어 사무 10층: WALL 40, 倾覆力矩比 20.4%/21.6%.
+
+## 후속 과제 (2026-10-14 기준, v3.10.1)
+- **KR 편집 카드에서 시스템을 내력벽으로 바꿔도 기둥 확대가 되돌려지지 않음** — `prepareNew` 는 카드 생성 시 1회(그때 시스템 기본값 기준). 벽식 아파트 템플릿은 처음부터 bearing 이라 해당 없음.
+- 검토 지표 비틀림 경고 → 코어 배치(편집 카드) 안내·링크 아이디어(미구현).
+- KR 미반영: 5.3.2 ① 층간변위각비 130% 예외(V-1), P-Δ 증폭 a_d 적용, 비틀림증폭 A_x, 우발편심 ± 2케이스. 벽식 개구부(문·창)는 단순화(복도벽 한 베이 걸러).
+- 벽식 템플릿은 KR 만 — CN·TW 아파트는 골조 그대로. 지하층 벽식·필로티 미구현.
 
 ## 다중 단면·재료 모델링 (팔레트 + 구역 배정, 2026-06-29)
 

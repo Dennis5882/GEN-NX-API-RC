@@ -92,7 +92,7 @@ export interface BuildingTypeTemplate extends Partial<BuildingSpec> {
   icon: string
 }
 
-export interface SeismicZone { city: string; dist: string; SDS: number; SD1: number; T0?: number }
+export interface SeismicZone { city: string; dist: string; SDS: number; SD1: number; T0?: number; SMS?: number; SM1?: number; note?: string }
 
 export interface RCEngineApi {
   MATERIALS: Record<string, MaterialProps>

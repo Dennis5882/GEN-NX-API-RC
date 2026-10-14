@@ -189,8 +189,8 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
      ⚠ 예전(바닐라부터)엔 floorGroups(동_층)마다 합계 전체를 실어 2동이면 CNLD 합 = 2V 였음 (2026-10-12 수정) */
   const byStory: Record<number, number[]> = {}
   for (const k in (f.floorGroups || {})) { const iz = +k.split('_')[1]; (byStory[iz] = byStory[iz] || []).push(...f.floorGroups[k]) }
-  const perNode: Record<string, { LCNAME: string; FX: number; FY: number; MZ?: number }[]> = {}
-  const push = (nid: number, it: { LCNAME: string; FX: number; FY: number; MZ?: number }) => { (perNode[nid] = perNode[nid] || []).push(it) }
+  const perNode: Record<string, { LCNAME: string; FX: number; FY: number; MZ?: number; FZ?: number }[]> = {}
+  const push = (nid: number, it: { LCNAME: string; FX: number; FY: number; MZ?: number; FZ?: number }) => { (perNode[nid] = perNode[nid] || []).push(it) }
   if (useS) {
     const r = profileOf(p).seismic.storyForces(p, sp)
     S.model.seismic = { T: r.T, Cs: r.Cs, V: r.V, Wtot: r.Wtot }
@@ -226,6 +226,19 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
         ns.forEach(nid => { push(nid, { LCNAME: 'EX', FX: per, FY: 0, MZ: mx }); push(nid, { LCNAME: 'EY', FX: 0, FY: per, MZ: my }) })
       } else ns.forEach(nid => { push(nid, { LCNAME: 'EX', FX: per, FY: 0 }); push(nid, { LCNAME: 'EY', FX: 0, FY: per }) })
     }
+    /* 수직지진 EV (기준이 지정 시) — 층 연직력을 층 절점에 균등 분배, 하향 양수 케이스(조합이 ±) */
+    const ev = profileOf(p).verticalForces?.(p, sp)
+    if (ev) {
+      await putLoadCase(no, 'EV', 'USER'); S.model.loadCases.push({ name: 'EV', type: 'USER' }); no++
+      let tot = 0
+      for (const k in byStory) {
+        const F = (ev.F[+k] || 0) * 1000
+        if (!F || !byStory[k].length) continue
+        tot += F
+        byStory[k].forEach(nid => push(nid, { LCNAME: 'EV', FX: 0, FY: 0, FZ: -F / byStory[k].length }))
+      }
+      log(`▸ ${t('tw_vertical_log', ev.Kz.toFixed(3), ev.kc.toFixed(3), Math.round(tot / 1000))}`, 'ok')
+    }
     log('▸ ' + t('seismic_static') +
       ` <b>V=${Math.round(r.V)} kN</b> · T=${r.T.toFixed(2)}s · ${profileOf(p).seismic.coefLabel}=${r.Cs.toFixed(3)} (EX·EY)` + (ecc ? ` · ${t('acc_ecc')} ${ecc * 100}%` : ''), 'ok')
   }
@@ -248,7 +261,7 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
   const a: Record<string, any> = {}
   for (const nid in perNode) {
     a[nid] = { ITEMS: perNode[nid].map((it, i) => (
-      { ID: i + 1, LCNAME: it.LCNAME, GROUP_NAME: '', FX: it.FX || 0, FY: it.FY || 0, FZ: 0, MX: 0, MY: 0, MZ: it.MZ || 0 })) }
+      { ID: i + 1, LCNAME: it.LCNAME, GROUP_NAME: '', FX: it.FX || 0, FY: it.FY || 0, FZ: it.FZ || 0, MX: 0, MY: 0, MZ: it.MZ || 0 })) }
   }
   if (Object.keys(a).length) await mapi('PUT', 'cnld', { Assign: a })
 }
