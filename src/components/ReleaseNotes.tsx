@@ -60,9 +60,9 @@ export function parseChangelog(md: string): Release[] {
 /** 새 방식 릴리즈 — 현재 UI 언어의 노트(없으면 ko) 목록 */
 function currentReleases(lang: string): Release[] {
   const book = notes as Record<string, Record<string, string[]>>
-  return (releases as { version: string; date: string; id: string }[]).map(r => {
+  return (releases as { version: string; date: string; time?: string; id: string }[]).map(r => {
     const lines = book[r.id]?.[lang] || book[r.id]?.ko || []
-    return { ver: r.version, date: r.date, title: '', html: '<ul>' + lines.map(l => `<li>${inline(l)}</li>`).join('') + '</ul>' }
+    return { ver: r.version, date: `${r.date} ${r.time || ''} KST`.trim(), title: '', html: '<ul>' + lines.map(l => `<li>${inline(l)}</li>`).join('') + '</ul>' }
   })
 }
 

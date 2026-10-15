@@ -54,6 +54,10 @@ function gax(title: string, P: Pal) {
   }
 }
 
+/** 정투영에서 시선 방향 축 — visible:false 만으론 브라우저·Plotly 버전에 따라 제목·눈금이 남아 전부 끈다 */
+const HIDDEN_AX = { visible: false, title: { text: '' }, showticklabels: false, showgrid: false, showline: false, zeroline: false, ticks: '', showbackground: false, showspikes: false }
+const gaxIf = (hide: boolean, title: string, P: Pal) => (hide ? { ...gax(title, P), ...HIDDEN_AX } : gax(title, P))
+
 function buildTraces(f: any, vis: Record<VisKey, boolean>, P: Pal, cam: Cam) {
   const ROLE_C3 = P.role
   const byId: Record<number, { x: number; y: number; z: number }> = {}
@@ -252,9 +256,9 @@ export function View3D() {
         ...layout(P),
         /* 정투영에선 시선 방향 축이 한 점으로 눌려 제목·눈금이 다른 축 글자와 겹침 → 그 축은 숨김 (평면 Z, 정면 Y, 측면 X) */
         scene: { ...sceneOf(f, cam, zoom),
-          xaxis: { ...gax('X (m)', P), ...(cam === 'side' ? { visible: false } : {}) },
-          yaxis: { ...gax('Y (m)', P), ...(cam === 'front' ? { visible: false } : {}) },
-          zaxis: { ...gax('Z (m)', P), ...(cam === 'top' ? { visible: false } : {}) }, camera: camOf(cam, zoom), bgcolor: 'rgba(0,0,0,0)' },
+          xaxis: gaxIf(cam === 'side', 'X (m)', P),
+          yaxis: gaxIf(cam === 'front', 'Y (m)', P),
+          zaxis: gaxIf(cam === 'top', 'Z (m)', P), camera: camOf(cam, zoom), bgcolor: 'rgba(0,0,0,0)' },
       } as any, CONFIG as any)
     })
     return () => { alive = false }

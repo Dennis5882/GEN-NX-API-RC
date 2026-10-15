@@ -231,7 +231,7 @@ T₁은 `EIGENVALUEMODE` 테이블에서 회수 (`PARTICIPATIONVECTORMODE` 아�
 MIDAS GEN NX 2026 (v2.1), Build **06/12/2026**.  
 도구 버전: **`package.json` version 이 단일 출처** — 헤더는 vite `define`(`__APP_VERSION__`·`__BUILD_DATE__` KST)로 자동 표시, 문자열 하드코딩 금지. 바닐라 시절 태그 v2.x·v1.2.1 과 겹치지 않게 React 판은 3.x부터. 0616·0617·0624 검증은 Gen NX 06/12 빌드 기준.
 - **버전업·릴리즈 노트 규칙 (2026-10-15, Rebar-repair 방식 이식)**: 사용자에게 보이는 변경을 푸시할 때마다 버전을 올리고 노트를 **같은 커밋**에 쓴다. 손으로 버전을 고치지 말 것.
-  1. `npm run release -- minor|patch [--items N]` (기능 = minor, 결함·문구 = patch, major 는 사용자 지시 시만) → package.json(+lock) 버전, `src/data/releases.json` 맨 앞 `{version,date(KST),id,items}`, `src/data/releaseNotes.json` 에 ko·en·zh-TW·zh-CN 빈 노트 N개 생성.
+  1. `npm run release -- minor|patch [--items N]` (기능 = minor, 결함·문구 = patch, major 는 사용자 지시 시만) → package.json(+lock) 버전, `src/data/releases.json` 맨 앞 `{version,date,time(KST),id,items}`, `src/data/releaseNotes.json` 에 ko·en·zh-TW·zh-CN 빈 노트 N개 생성.
   2. 노트를 4개 언어로 한 줄씩 작성(사용자 눈높이, ko 먼저). 다 채우기 전엔 `release-check`(`npm run build`·`typecheck`에 포함, Vercel 포함)가 실패 — 버전과 노트가 따로 갈 수 없음.
   3. 푸시·main ff·태그 `vX.Y.Z`·운영 확인. 내부 변경(테스트·리팩터·CLAUDE.md)은 버전업 불필요.
   - 하단 버전 클릭 = 릴리즈 노트 창(`ReleaseNotes.tsx`): 새 방식 항목은 현재 UI 언어, v3.10.1 이전은 `CHANGELOG.md`(한국어 보존용, 더 이상 추가하지 않음).

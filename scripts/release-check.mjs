@@ -1,6 +1,6 @@
 // 버전과 릴리즈 노트가 함께 움직이지 않으면 빌드 실패:
 //  - package.json "version" == src/data/releases.json 맨 앞 항목
-//  - 버전 유일·엄격 내림차순 semver, 날짜 YYYY-MM-DD·비증가
+//  - 버전 유일·엄격 내림차순 semver, 날짜 YYYY-MM-DD·시각 HH:mm(KST)·일시 비증가
 //  - 각 항목의 노트 releaseNotes.json[id][lang] 이 4개 언어 모두 items 개수만큼 비어 있지 않음, 남는 id 없음
 // 새 버전은 `npm run release -- patch|minor|major` 로만 연다 (손으로 버전을 고치지 말 것).
 import { readFileSync } from 'node:fs'
@@ -24,13 +24,14 @@ const ids = new Set()
 releases.forEach((r, i) => {
   if (!/^\d+\.\d+\.\d+$/.test(r.version)) errors.push(`잘못된 버전 "${r.version}"`)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(r.date)) errors.push(`${r.version}: 잘못된 날짜 "${r.date}"`)
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(r.time || '')) errors.push(`${r.version}: 시각 time(HH:mm, KST) 필요 — "${r.time}"`)
   if (!(Number.isInteger(r.items) && r.items > 0)) errors.push(`${r.version}: items 는 1 이상`)
   if (ids.has(r.id)) errors.push(`id 중복 ${r.id}`)
   ids.add(r.id)
   const next = releases[i + 1]
   if (next) {
     if (cmp(r.version, next.version) <= 0) errors.push(`${r.version} 은 ${next.version} 보다 새로워야 함`)
-    if (r.date < next.date) errors.push(`${r.version} 날짜 ${r.date} 가 ${next.version} 의 ${next.date} 보다 이름`)
+    if (`${r.date} ${r.time}` < `${next.date} ${next.time}`) errors.push(`${r.version} 일시 ${r.date} ${r.time} 가 ${next.version} 의 ${next.date} ${next.time} 보다 이름`)
   }
   for (const lang of LANGS) {
     const arr = notes[r.id]?.[lang]

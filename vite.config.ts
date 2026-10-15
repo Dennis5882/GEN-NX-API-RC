@@ -74,7 +74,7 @@ function langPages(): Plugin {
 }
 
 /* 헤더 버전 표시 — package.json version + 빌드 날짜(KST). 수동 문자열 금지 */
-const BUILD_DATE = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date())
+const BUILD_DATE = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' }).format(new Date())
 
 export default defineConfig({
   plugins: [react(), copyLegacyShared(), langPages()],

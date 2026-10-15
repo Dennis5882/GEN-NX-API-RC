@@ -1,4 +1,32 @@
 {
+  "v3_11_4": {
+    "ko": [
+      "평면·정면·측면 뷰에서 시선 방향 축의 제목과 눈금을 완전히 숨겨, 끝부분 글씨가 겹치던 문제를 확실히 해결했습니다."
+    ],
+    "en": [
+      "Plan, front and side views now fully hide the axis you look along (title, ticks, grid), which removes the overlapping labels at the ends."
+    ],
+    "zh-TW": [
+      "平面、正面、側面視圖完全隱藏視線方向的座標軸（標題、刻度、格線），解決末端文字重疊的問題。"
+    ],
+    "zh-CN": [
+      "平面、正面、侧面视图完全隐藏视线方向的坐标轴（标题、刻度、网格线），解决末端文字重叠的问题。"
+    ]
+  },
+  "v3_11_3": {
+    "ko": [
+      "릴리즈 노트와 하단 업데이트 표시에 날짜뿐 아니라 시각(KST)도 함께 표시합니다."
+    ],
+    "en": [
+      "Release notes and the footer update stamp now show the time (KST) as well as the date."
+    ],
+    "zh-TW": [
+      "版本說明與頁尾更新時間除日期外，也一併顯示時間（KST）。"
+    ],
+    "zh-CN": [
+      "版本说明与页脚更新时间除日期外，也一并显示时间（KST）。"
+    ]
+  },
   "v3_11_2": {
     "ko": [
       "평면·입면 뷰에서 보이지 않는 축(평면의 Z, 정면의 Y, 측면의 X)의 제목·눈금을 숨겨 축선 버블과 글자가 겹치던 문제를 고쳤습니다."
