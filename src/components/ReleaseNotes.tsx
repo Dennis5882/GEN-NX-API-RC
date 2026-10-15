@@ -1,8 +1,13 @@
-/* 릴리즈 노트 — 하단 바 버전 클릭 시. 원문 = CHANGELOG.md(단일 출처, 한국어). 열 때만 별도 청크로 로드.
-   마크다운은 이 파일이 쓰는 부분만 변환: ## 버전 머리, ### 소제목, - 목록(2칸 들여쓰기 = 하위), **굵게**, `코드`. */
+/* 릴리즈 노트 — 하단 바 버전 클릭 시.
+   v3.11.0 이후 = src/data/releases.json(버전·날짜·노트 수) + releaseNotes.json(4개 언어 한 줄 노트) — `npm run release` 로만 추가,
+   release-check 가 버전·노트 완비를 빌드에서 강제. 현재 UI 언어로 표시(없으면 ko).
+   그 이전 이력 = CHANGELOG.md(한국어 원문) — 열 때만 별도 청크로 로드. 마크다운은 이 파일이 쓰는 부분만 변환:
+   ## 버전 머리, ### 소제목, - 목록(2칸 들여쓰기 = 하위), **굵게**, `코드`. */
 import { useEffect, useState } from 'react'
 import { t } from '../i18n'
-import { useStore } from '../state/store'
+import releases from '../data/releases.json'
+import notes from '../data/releaseNotes.json'
+import { S, useStore } from '../state/store'
 import { APP_VERSION } from '../version'
 
 interface Release { ver: string; date: string; title: string; html: string }
@@ -52,12 +57,22 @@ export function parseChangelog(md: string): Release[] {
   return out
 }
 
+/** 새 방식 릴리즈 — 현재 UI 언어의 노트(없으면 ko) 목록 */
+function currentReleases(lang: string): Release[] {
+  const book = notes as Record<string, Record<string, string[]>>
+  return (releases as { version: string; date: string; id: string }[]).map(r => {
+    const lines = book[r.id]?.[lang] || book[r.id]?.ko || []
+    return { ver: r.version, date: r.date, title: '', html: '<ul>' + lines.map(l => `<li>${inline(l)}</li>`).join('') + '</ul>' }
+  })
+}
+
 export function ReleaseNotes({ onClose }: { onClose(): void }) {
   useStore()   // 언어 변경 시 다시 그림
-  const [list, setList] = useState<Release[] | null>(null)
+  const [legacy, setList] = useState<Release[] | null>(null)
   const [err, setErr] = useState('')
   useEffect(() => {
-    import('../../CHANGELOG.md?raw').then(m => setList(parseChangelog(m.default))).catch(e => setErr(String(e?.message || e)))
+    const have = new Set((releases as { version: string }[]).map(r => r.version))
+    import('../../CHANGELOG.md?raw').then(m => setList(parseChangelog(m.default).filter(r => !have.has(r.ver)))).catch(e => setErr(String(e?.message || e)))
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -73,8 +88,8 @@ export function ReleaseNotes({ onClose }: { onClose(): void }) {
         </div>
         <div className="rn-body">
           {err && <p className="rn-err">{err}</p>}
-          {!list && !err && <p className="rn-sub">…</p>}
-          {list?.map((r, i) => (
+          {!legacy && !err && <p className="rn-sub">…</p>}
+          {[...currentReleases(S.lang), ...(legacy || [])].map((r, i) => (
             <details key={r.ver} className="rn-item" open={i === 0}>
               <summary>
                 <span className="rn-ver">v{r.ver}</span>

@@ -1,13 +1,15 @@
 {
   "name": "gen-nx-rc-agent",
   "private": true,
-  "version": "3.11.0",
+  "version": "3.11.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "i18n:check": "node scripts/i18n-check.mjs",
-    "build": "node scripts/i18n-check.mjs && tsc -b && vite build",
-    "typecheck": "node scripts/i18n-check.mjs && tsc -b",
+    "build": "node scripts/i18n-check.mjs && node scripts/release-check.mjs && tsc -b && vite build",
+    "typecheck": "node scripts/i18n-check.mjs && node scripts/release-check.mjs && tsc -b",
+    "release": "node scripts/release.mjs",
+    "release:check": "node scripts/release-check.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

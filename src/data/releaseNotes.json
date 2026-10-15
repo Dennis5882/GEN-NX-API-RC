@@ -1,0 +1,50 @@
+{
+  "v3_11_1": {
+    "ko": [
+      "릴리즈 노트를 현재 언어(한국어·영어·번체·간체)로 표시합니다. 버전을 올리면 4개 언어 노트를 함께 써야 빌드가 통과합니다.",
+      "하단 버전 표시와 릴리즈 노트 창이 새 방식(releases.json)을 따라 최신 버전부터 보여줍니다."
+    ],
+    "en": [
+      "Release notes are shown in the current UI language (Korean, English, Traditional and Simplified Chinese). A version bump now requires notes in all four languages before the build passes.",
+      "The footer version and release-notes window follow the new release list and show the newest version first."
+    ],
+    "zh-TW": [
+      "版本說明依目前介面語言顯示（韓文、英文、繁體、簡體中文）；升版時須同時寫好四種語言的說明，建置才會通過。",
+      "頁尾版本與版本說明視窗改依新的版本清單，由最新版本開始顯示。"
+    ],
+    "zh-CN": [
+      "版本说明按当前界面语言显示（韩文、英文、繁体、简体中文）；升版时须同时写好四种语言的说明，构建才能通过。",
+      "页脚版本与版本说明窗口改按新的版本列表，从最新版本开始显示。"
+    ]
+  },
+  "v3_11_0": {
+    "ko": [
+      "대만 기준: 콘크리트 탄성계수를 112년판 식(Ec = 12,000√fc′)으로 적용합니다. 이전보다 주기가 약 10% 길어져 기존 모델과 결과가 달라집니다.",
+      "대만 기준: 臺北盆地 지진 프리셋을 一·二·三區(T0 1.60 / 1.30 / 1.05)로 나누고 SMS·SM1을 넣어 최대고려지진 하한 검토가 동작합니다.",
+      "대만 기준: 수직지진(耐震規範 2.18)을 추가했습니다 — EV 하중케이스와 수평 100%+수직 30%, 수평 30%+수직 100% 하중조합. 지진 입력에서 적용 여부를 고를 수 있습니다.",
+      "대만 기준: 검토 지표를 추가했습니다 — 층간변위각 0.005, 비틀림 1.2, 연층, 질량비, P-Δ, 해석법, 유효질량, RS 총횡력 조정.",
+      "Gen NX 라이브로 지진력·풍하중·조합·RS 보정을 원문 식과 대조해 모두 일치함을 확인했습니다."
+    ],
+    "en": [
+      "Taiwan code: concrete elastic modulus now follows the 112 edition formula (Ec = 12,000√fc′). Periods are about 10% longer, so existing models give different results.",
+      "Taiwan code: the Taipei Basin seismic presets are split into zones 1/2/3 (T0 1.60 / 1.30 / 1.05) and include SMS·SM1, so the maximum-considered-earthquake floor check is active.",
+      "Taiwan code: vertical seismic (seismic code 2.18) added — an EV load case with 100% horizontal + 30% vertical and 30% horizontal + 100% vertical combinations. It can be switched in the seismic input.",
+      "Taiwan code: review indicators added — story drift 0.005, torsion 1.2, soft story, weight ratio, P-Δ, analysis method, effective mass and RS base-shear adjustment.",
+      "Verified live on Gen NX: seismic force, wind load, combinations and RS adjustment all match the code formulas."
+    ],
+    "zh-TW": [
+      "臺灣規範：混凝土彈性模數改採 112 年版公式（Ec = 12,000√fc′），週期約增加 10%，既有模型結果會不同。",
+      "臺灣規範：臺北盆地地震預設值分為臺北一、二、三區（T0 1.60 / 1.30 / 1.05），並帶入 SMS、SM1，最大考量地震下限檢核生效。",
+      "臺灣規範：新增垂直地震力（耐震規範 2.18）— EV 載重案例及水平 100%＋垂直 30%、水平 30%＋垂直 100% 載重組合，可在地震輸入中選擇是否採用。",
+      "臺灣規範：新增檢核指標 — 層間變位角 0.005、扭轉 1.2、軟層、質量比、P-Δ、分析方法、有效質量、反應譜總橫力調整。",
+      "已在 Gen NX 實機驗證，地震力、風力、載重組合與反應譜調整皆與規範公式一致。"
+    ],
+    "zh-CN": [
+      "台湾规范：混凝土弹性模量改用 112 年版公式（Ec = 12,000√fc′），周期约增加 10%，已有模型结果会不同。",
+      "台湾规范：台北盆地地震预设值分为台北一、二、三区（T0 1.60 / 1.30 / 1.05），并带入 SMS、SM1，最大考虑地震下限检查生效。",
+      "台湾规范：新增竖向地震力（耐震规范 2.18）— EV 荷载工况及水平 100%＋竖向 30%、水平 30%＋竖向 100% 荷载组合，可在地震输入中选择是否采用。",
+      "台湾规范：新增审查指标 — 层间位移角 0.005、扭转 1.2、软层、质量比、P-Δ、分析方法、有效质量、反应谱总横力调整。",
+      "已在 Gen NX 实机验证，地震力、风荷载、荷载组合与反应谱调整均与规范公式一致。"
+    ]
+  }
+}
