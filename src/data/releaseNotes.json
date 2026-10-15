@@ -1,4 +1,18 @@
 {
+  "v3_11_2": {
+    "ko": [
+      "평면·입면 뷰에서 보이지 않는 축(평면의 Z, 정면의 Y, 측면의 X)의 제목·눈금을 숨겨 축선 버블과 글자가 겹치던 문제를 고쳤습니다."
+    ],
+    "en": [
+      "Plan and elevation views now hide the axis you look along (Z in plan, Y in front, X in side), so its title and ticks no longer overlap the grid bubbles."
+    ],
+    "zh-TW": [
+      "平面與立面視圖隱藏視線方向的座標軸（平面的 Z、正面的 Y、側面的 X），標題與刻度不再與軸線圓圈重疊。"
+    ],
+    "zh-CN": [
+      "平面与立面视图隐藏视线方向的坐标轴（平面的 Z、正面的 Y、侧面的 X），标题与刻度不再与轴线圆圈重叠。"
+    ]
+  },
   "v3_11_1": {
     "ko": [
       "릴리즈 노트를 현재 언어(한국어·영어·번체·간체)로 표시합니다. 버전을 올리면 4개 언어 노트를 함께 써야 빌드가 통과합니다.",

@@ -250,7 +250,11 @@ export function View3D() {
       idxRef.current = idx; gridRef.current = grid
       void Plotly.newPlot(el, traces, {
         ...layout(P),
-        scene: { ...sceneOf(f, cam, zoom), xaxis: gax('X (m)', P), yaxis: gax('Y (m)', P), zaxis: gax('Z (m)', P), camera: camOf(cam, zoom), bgcolor: 'rgba(0,0,0,0)' },
+        /* 정투영에선 시선 방향 축이 한 점으로 눌려 제목·눈금이 다른 축 글자와 겹침 → 그 축은 숨김 (평면 Z, 정면 Y, 측면 X) */
+        scene: { ...sceneOf(f, cam, zoom),
+          xaxis: { ...gax('X (m)', P), ...(cam === 'side' ? { visible: false } : {}) },
+          yaxis: { ...gax('Y (m)', P), ...(cam === 'front' ? { visible: false } : {}) },
+          zaxis: { ...gax('Z (m)', P), ...(cam === 'top' ? { visible: false } : {}) }, camera: camOf(cam, zoom), bgcolor: 'rgba(0,0,0,0)' },
       } as any, CONFIG as any)
     })
     return () => { alive = false }
