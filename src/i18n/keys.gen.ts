@@ -11,6 +11,7 @@ export type I18nKey =
   | 'analysis_ran_but_the_eigen'
   | 'analysis_refused'
   | 'analysis_was_refused_setup'
+  | 'app_title'
   | 'apply_equivalent_static_se'
   | 'apply_wind_simplified_stat'
   | 'auto_create_story_data_db_'

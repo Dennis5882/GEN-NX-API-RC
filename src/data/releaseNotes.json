@@ -1,4 +1,18 @@
 {
+  "v3_11_5": {
+    "ko": [
+      "상단 제목을 \"RC구조물 Agent\", 부제를 \"MIDAS Gen NX · 자동화 도구\"로 바꿨습니다(언어별 표기 적용)."
+    ],
+    "en": [
+      "The header title is now \"RC Structure Agent\" with the subtitle \"MIDAS Gen NX · Automation tool\" (localized per language)."
+    ],
+    "zh-TW": [
+      "頁首標題改為「RC結構 Agent」，副標題改為「MIDAS Gen NX · 自動化工具」。"
+    ],
+    "zh-CN": [
+      "页首标题改为“RC结构 Agent”，副标题改为“MIDAS Gen NX · 自动化工具”。"
+    ]
+  },
   "v3_11_4": {
     "ko": [
       "평면·정면·측면 뷰에서 시선 방향 축의 제목과 눈금을 완전히 숨겨, 끝부분 글씨가 겹치던 문제를 확실히 해결했습니다."

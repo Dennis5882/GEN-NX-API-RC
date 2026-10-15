@@ -11,7 +11,7 @@ export function Header({ onOpenMapi, onOpenLlm }: { onOpenMapi(): void; onOpenLl
     <header>
       <div className="mark">GEN</div>
       <h1>
-        Gen NX Agent
+        {t('app_title')}
         <small>{t('subtitle')}</small>
       </h1>
       <div className="spacer" />
