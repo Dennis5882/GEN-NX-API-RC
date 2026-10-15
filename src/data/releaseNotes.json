@@ -1,4 +1,18 @@
 {
+  "v3_11_6": {
+    "ko": [
+      "브라우저 탭 제목과 공유 링크 미리보기를 \"RC구조물 Agent — MIDAS Gen NX 자동화 도구\"로 바꾸고, 설명에 한국 설계기준을 추가했습니다."
+    ],
+    "en": [
+      "The browser tab title and share-link preview now read \"RC Structure Agent — MIDAS Gen NX Automation Tool\", and the description lists the Korean design code."
+    ],
+    "zh-TW": [
+      "瀏覽器分頁標題與分享連結預覽改為「RC結構 Agent — MIDAS Gen NX 自動化工具」，說明並加入韓國規範。"
+    ],
+    "zh-CN": [
+      "浏览器标签标题与分享链接预览改为“RC结构 Agent — MIDAS Gen NX 自动化工具”，说明并加入韩国规范。"
+    ]
+  },
   "v3_11_5": {
     "ko": [
       "상단 제목을 \"RC구조물 Agent\", 부제를 \"MIDAS Gen NX · 자동화 도구\"로 바꿨습니다(언어별 표기 적용)."
