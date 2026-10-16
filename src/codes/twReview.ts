@@ -158,8 +158,8 @@ export function twReviewEvaluate(p: BuildingSpec, sp: Record<string, any>, data:
       }
       const clause = '耐震規範 2.13'
       items.push(worst
-        ? { id: 'pdelta', label: t('rv_kr_pdelta'), dir: d, value: worst.v.toFixed(3), limit: '< 0.10', status: worst.v < 0.1 ? 'ok' : 'warn',
-            where: storyName(p, worst.s), clause, note: worst.v < 0.1 ? t('rv_kr_pdelta_ok') : t('rv_tw_pdelta_ng') }
+        ? { id: 'pdelta', label: t('rv_kr_pdelta'), dir: d, value: worst.v.toFixed(3), limit: '< 0.10', status: worst.v < 0.1 ? 'ok' : ctx.model?.pdelta ? 'info' : 'warn',
+            where: storyName(p, worst.s), clause, note: worst.v < 0.1 ? t('rv_kr_pdelta_ok') : ctx.model?.pdelta ? t('rv_tw_pdelta_on') : t('rv_tw_pdelta_ng') }
         : { id: 'pdelta', label: t('rv_kr_pdelta'), dir: d, value: '-', limit: '< 0.10', status: 'info', clause, note: t('rv_no_data') })
     }
   }

@@ -1,7 +1,7 @@
 {
   "name": "gen-nx-rc-agent",
   "private": true,
-  "version": "3.11.6",
+  "version": "3.12.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "typecheck": "node scripts/i18n-check.mjs && node scripts/release-check.mjs && tsc -b",
     "release": "node scripts/release.mjs",
     "release:check": "node scripts/release-check.mjs",
+    "test": "node tests/tw.test.mjs && node tests/kr.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

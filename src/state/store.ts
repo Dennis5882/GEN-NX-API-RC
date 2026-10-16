@@ -50,6 +50,9 @@ export interface ModelState {
   loadCases: { name: string; type: string }[]
   /** 조합에 쓸 응답스펙트럼 케이스 (주 해석 = RS 일 때, actDynamic 이 등록) */
   rsCases?: { name: string; type: string }[]
+  /** 정적 지진 재하 상태 — 비틀림 증폭(A_x) 재적용용. tor = 우발편심 비틀림 몫(층 amp 가 곱해짐) */
+  lat?: { items: Record<string, { LCNAME: string; FX: number; FY: number; MZ?: number; FZ?: number; tor?: { FX: number; FY: number; MZ: number }; iz?: number; dir?: 'X' | 'Y' }[]>; ampDone?: boolean; ax?: { X: number[]; Y: number[]; max?: number } }
+  pdelta?: boolean                        // P-Δ 해석 제어(db/PDEL) 적용 여부 — 검토 지표 안내
   spec: BuildingSpec | null
   elemRecs: ElemRec[]
   edits: string[]

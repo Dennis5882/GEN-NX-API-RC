@@ -161,6 +161,65 @@ export function verticalTW(p: BuildingSpec, sp: Record<string, any>) {
   return { F, Kz, kc }
 }
 
+/* ── 새 스펙 보정 — 기둥 크기: 압축 φPn,max. P-Δ θ 는 기둥을 키워도 보 강성에 막혀 포화(θ ≈ 보 지배) → 크기 기준이 아니라 P-Δ 해석 자동 적용(pDelta 훅)으로 대응 ── */
+const FY_TW = 420, RHO_TW = 0.01, COL_UTIL_TW = 0.9, KM_TW = 1.35   // KM = Muto D 값 대비 Gen 층강성 비(라이브 사무 10층 C600 θ 0.106 에서 보정, C950 은 0.069 ↔ 추정 0.089 로 보수적)
+const fcMPa = (m: string) => 0.0980665 * +String(m).replace(/\D/g, '')
+export const phiPnMaxTW = (fc: number, Ag: number) => 0.80 * 0.65 * (0.85 * fc * Ag * (1 - RHO_TW) + FY_TW * RHO_TW * Ag) / 1000   // kN
+
+/** 2.13 P-Δ 계수 추정 θ = P/(K·h) — K = KM·Σ a·12E·Kc/h² (Muto D 값, a = k/(2+k), k = ΣKb/(2Kc)), 가장 불리한 층.
+    벽·코어가 있으면 null(벽 강성 지배) */
+export function thetaTW(p: BuildingSpec, side?: number): number | null {
+  if (hasWalls(p)) return null
+  const q: BuildingSpec = side ? { ...p, colH: side, colB: side, colName: `C${side}x${side}` } : p
+  const E = MATERIALS112[q.matName]?.E || q.E
+  const Ic = q.colH * q.colB ** 3 / 12, Ib = q.beamB * q.beamH ** 3 / 12
+  const sx = RC.asSpans(q.spanX, q.bayX), sy = RC.asSpans(q.spanY, q.bayY)
+  const Lavg = (sx.reduce((a: number, b: number) => a + b, 0) / sx.length + sy.reduce((a: number, b: number) => a + b, 0) / sy.length) / 2
+  const nbm = q.bayX * (q.bayY + 1) + q.bayY * (q.bayX + 1)
+  const ncol = (q.bayX + 1) * (q.bayY + 1)
+  const elev = RC.storyElevations(q), nb = basementCount(q)
+  const D = modelDeadWeights(q, TW), area = RC.planAreaM2(q) * (q.buildings || 1)
+  const g = RC.deriveFloorGroups(q)
+  let worst = 0
+  for (let s = nb + 1; s <= q.stories; s++) {
+    let P = 0
+    for (let j = s; j <= q.stories; j++) {
+      const fu = FLOOR_USE[(g[j] && g[j].use) || 'Residential'] || FLOOR_USE.Residential
+      P += (D[j] || 0) + (fu.live === 'LR' ? 0 : area * fu.liveVal)
+    }
+    const hm = (elev[s] || 0) - (elev[s - 1] || 0), Kc = Ic / hm
+    const k = (2 * nbm * (Ib / Lavg) / ncol) / (2 * Kc), a = k / (2 + k)
+    const Kst = KM_TW * (q.buildings || 1) * ncol * a * 12 * E * Kc / hm ** 2   // N/mm = kN/m
+    worst = Math.max(worst, P / (Kst * hm / 1000))
+  }
+  return worst
+}
+
+/** 기둥 크기 — 내부 기둥 부담면적 Pu = Σ max(1.4D, 1.2D+1.6L) ≤ 0.9·φPn,max 를 만족하는 정사각(50mm 단위) */
+export function sizeColumnTW(p: BuildingSpec): { side: number; pu: number; cap: number } | null {
+  const fc = fcMPa(p.matName); if (!(fc > 0)) return null
+  const mx = (s: number | number[], n: number) => Math.max(...RC.asSpans(s, n)) / 1000
+  const trib = mx(p.spanX, p.bayX) * mx(p.spanY, p.bayY)
+  const g = RC.deriveFloorGroups(p)
+  const Pu = (side: number) => {
+    const q = { ...p, colH: side, colB: side, colName: `C${side}x${side}` }
+    const D = modelDeadWeights(q, TW), area = RC.planAreaM2(q) * (q.buildings || 1), nb = basementCount(q)
+    let w = 0
+    for (let s = nb + 1; s <= q.stories; s++) {
+      const fu = FLOOR_USE[(g[s] && g[s].use) || 'Residential'] || FLOOR_USE.Residential
+      const d = (D[s] || 0) / area
+      w += Math.max(1.4 * d, 1.2 * d + 1.6 * fu.liveVal)
+    }
+    return w * trib
+  }
+  const side0 = Math.max(p.colH, p.colB)
+  const pu0 = Pu(side0)
+  if (pu0 <= COL_UTIL_TW * phiPnMaxTW(fc, p.colH * p.colB)) return null
+  let side = side0
+  while (side < 1500 && Pu(side) > COL_UTIL_TW * phiPnMaxTW(fc, side * side)) side += 50
+  return { side, pu: pu0, cap: phiPnMaxTW(fc, p.colH * p.colB) }
+}
+
 /** 2.11 수직분포 — Ft = 0.07TV (≤0.25V, T≤0.7s 이면 0) 정상부 + (V−Ft)·W_x h_x / ΣW h. h = 기면(지상) 기준 */
 export function seismicTW(p: BuildingSpec, sp: Record<string, any>, opt: { T?: number } = {}) {
   const W = storyWeightsTW(p, sp)
@@ -323,6 +382,8 @@ export const TW: CodeProfile = {
       num('T', () => t('tw_t'), () => '', 's'),
       { key: 'method', kind: 'select', label: () => t('cn_method'), def: () => 'auto',
         options: () => (['auto', 'ESL', 'RS'] as const).map(v => ({ value: v, label: t(`tw_method_${v}`) })) },
+      { key: 'pdelta', kind: 'select', label: () => t('tw_pdelta'), def: () => 'auto',
+        options: () => (['auto', 'Y', 'N'] as const).map(v => ({ value: v, label: t(`tw_pdelta_${v}`) })) },
       { key: 'vertical', kind: 'select', label: () => t('tw_vertical'), def: () => 'Y',
         options: () => (['Y', 'N'] as const).map(v => ({ value: v, label: t(`tw_vertical_${v}`) })) },
       { key: 'regular', kind: 'select', label: () => t('tw_regular'), def: () => 'Y',
@@ -378,6 +439,8 @@ export const TW: CodeProfile = {
     },
     /* 2.14 意外扭矩 — 정적 EX/EY 에 MZ = F·0.05·L⊥, RS 는 Gen 네이티브 우발편심 */
     staticAccEcc: 0.05,
+    eccBoth: true,
+    torsionAmp: { threshold: 1.2, max: 3.0 },
     splcExtra: { bACCECC: true, bACCECC_AUTO: true, ACCECC_PERCENT: 5, bACCECC_CONSIDER_GL: false, bACCECC_MINIMUM_TORSION: false, aACCECC_ECCEN_LIST: [] },
   },
 
@@ -397,6 +460,28 @@ export const TW: CodeProfile = {
 
   /* 검토 지표 — Gen 층 결과 테이블 → 耐震規範 한계 (src/codes/twReview.ts) */
   verticalForces: (p, sp) => verticalTW(p, sp),
+
+  /* 새 스펙 보정 — 기둥 = 압축(φPn,max) + P-Δ θ 기준 확대. 사용자가 기둥·팔레트를 직접 주면 보존 */
+  prepareNew(p, explicit) {
+    const q: BuildingSpec = { ...p }, notes: string[] = []
+    if (!explicit.includes('col') && !q.palette) {
+      const r = sizeColumnTW(q)
+      if (r && r.side > Math.max(q.colH, q.colB)) {
+        notes.push(t('tw_prep_col', q.colName, `C${r.side}x${r.side}`, Math.round(r.pu), Math.round(COL_UTIL_TW * r.cap)))
+        q.colH = r.side; q.colB = r.side; q.colName = `C${r.side}x${r.side}`
+      }
+    }
+    return { spec: q, notes }
+  },
+
+  /* 2.13 P-Δ — 지진 입력 pdelta: auto(θ 추정 ≥ 0.1 일 때만) / Y / N. Gen /db/PDEL: 1.2D + 1.0L 로 기하강성 */
+  pDelta(p, sp, loadCases) {
+    const mode = sp.pdelta || 'auto'
+    if (mode === 'N') return null
+    if (mode === 'auto' && !((thetaTW(p) ?? 0) >= 0.1)) return null
+    const cases = loadCases.filter(l => l.type === 'D' || l.type === 'L').map(l => ({ LCNAME: l.name, FACTOR: l.type === 'D' ? 1.2 : 1.0 }))
+    return cases.length ? { ITER: 5, TOL: 0.001, PDEL_CASES: cases } : null
+  },
   review: {
     tables: ctx => twReviewTables(ctx),
     evaluate: (p, sp, data, ctx) => twReviewEvaluate(p, sp, data, { ...ctx, V: ctx.model?.dynamic?.V ?? ctx.model?.seismic?.V ?? null }),

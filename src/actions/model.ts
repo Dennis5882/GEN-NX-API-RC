@@ -189,15 +189,19 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
      ⚠ 예전(바닐라부터)엔 floorGroups(동_층)마다 합계 전체를 실어 2동이면 CNLD 합 = 2V 였음 (2026-10-12 수정) */
   const byStory: Record<number, number[]> = {}
   for (const k in (f.floorGroups || {})) { const iz = +k.split('_')[1]; (byStory[iz] = byStory[iz] || []).push(...f.floorGroups[k]) }
-  const perNode: Record<string, { LCNAME: string; FX: number; FY: number; MZ?: number; FZ?: number }[]> = {}
-  const push = (nid: number, it: { LCNAME: string; FX: number; FY: number; MZ?: number; FZ?: number }) => { (perNode[nid] = perNode[nid] || []).push(it) }
+  type LatItem = { LCNAME: string; FX: number; FY: number; MZ?: number; FZ?: number; tor?: { FX: number; FY: number; MZ: number }; iz?: number; dir?: 'X' | 'Y' }
+  const perNode: Record<string, LatItem[]> = {}
+  const push = (nid: number, it: LatItem) => { (perNode[nid] = perNode[nid] || []).push(it) }
   if (useS) {
     const r = profileOf(p).seismic.storyForces(p, sp)
     S.model.seismic = { T: r.T, Cs: r.Cs, V: r.V, Wtot: r.Wtot }
-    await putLoadCase(no, 'EX', 'E'); S.model.loadCases.push({ name: 'EX', type: 'E' }); no++
-    await putLoadCase(no, 'EY', 'E'); S.model.loadCases.push({ name: 'EY', type: 'E' }); no++
-    /* 우발편심(기준 지정 시): EX 는 Y 치수, EY 는 X 치수 × e 만큼 편심 → 층 비틀림 MZ 를 절점 균등분배(강성 다이어프램이 합산). N·mm */
     const ecc = profileOf(p).seismic.staticAccEcc || 0
+    /* 우발편심 ± 두 케이스(기준 지정 시): EX(+e)·EY(+e) + EXm(−e)·EYm(−e). 케이스 = [이름, 방향, 부호] */
+    const cases: [string, 'X' | 'Y', number][] = [['EX', 'X', 1], ['EY', 'Y', 1]]
+    if (ecc && profileOf(p).seismic.eccBoth) cases.push(['EXm', 'X', -1], ['EYm', 'Y', -1])
+    for (const [nm] of cases) { await putLoadCase(no, nm, 'E'); S.model.loadCases.push({ name: nm, type: 'E' }); no++ }
+    /* 우발편심: EX 는 Y 치수, EY 는 X 치수 × e 만큼 편심 → 층 비틀림 MZ 를 절점 균등분배(강성 다이어프램이 합산). N·mm.
+       비틀림 몫은 tor 로 따로 보관 — 해석 뒤 층별 A_x(2.14)를 곱해 다시 재하(reapplyTorsionAmp) */
     const Lx = RC.asSpans(p.spanX, p.bayX).reduce((a: number, b: number) => a + b, 0)
     const Ly = RC.asSpans(p.spanY, p.bayY).reduce((a: number, b: number) => a + b, 0)
     /* 2동 이상: 다이어프램이 동별 막요소라 절점 MZ 는 전달이 불확실 → 동마다 우발편심 비틀림을 강체 회전 분포의 절점 힘 짝(합력 0)으로 */
@@ -209,22 +213,24 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
       const F = (r.forces[iz - 1] ? r.forces[iz - 1].F : 0) * 1000
       if (!F || !ns.length) continue
       const per = F / ns.length
-      if (ecc && multiB) {
-        for (let b = 0; b < p.buildings; b++) {
-          const g: number[] = f.floorGroups[`${b}_${iz}`] || []; if (!g.length) continue
-          const pts = g.map(id => nodeAt.get(id)), xc = pts.reduce((a, n) => a + n.x, 0) / pts.length, yc = pts.reduce((a, n) => a + n.y, 0) / pts.length
-          const J = pts.reduce((a, n) => a + (n.x - xc) ** 2 + (n.y - yc) ** 2, 0) || 1
-          const Fb = per * g.length, mzx = Fb * ecc * Ly, mzy = Fb * ecc * Lx       // EX → Y 치수, EY → X 치수
-          g.forEach((nid, i) => {
-            const n = pts[i], rx = n.x - xc, ry = n.y - yc
-            push(nid, { LCNAME: 'EX', FX: per - mzx * ry / J, FY: mzx * rx / J })
-            push(nid, { LCNAME: 'EY', FX: -mzy * ry / J, FY: per + mzy * rx / J })
-          })
-        }
-      } else if (ecc) {
-        const mx = F * ecc * Ly / ns.length, my = F * ecc * Lx / ns.length
-        ns.forEach(nid => { push(nid, { LCNAME: 'EX', FX: per, FY: 0, MZ: mx }); push(nid, { LCNAME: 'EY', FX: 0, FY: per, MZ: my }) })
-      } else ns.forEach(nid => { push(nid, { LCNAME: 'EX', FX: per, FY: 0 }); push(nid, { LCNAME: 'EY', FX: 0, FY: per }) })
+      for (const [nm, dir, sg] of cases) {
+        const base = (id: number) => push(id, { LCNAME: nm, FX: dir === 'X' ? per : 0, FY: dir === 'Y' ? per : 0, iz, dir })
+        if (ecc && multiB) {
+          for (let b = 0; b < p.buildings; b++) {
+            const g: number[] = f.floorGroups[`${b}_${iz}`] || []; if (!g.length) continue
+            const pts = g.map(id => nodeAt.get(id)), xc = pts.reduce((a, n) => a + n.x, 0) / pts.length, yc = pts.reduce((a, n) => a + n.y, 0) / pts.length
+            const J = pts.reduce((a, n) => a + (n.x - xc) ** 2 + (n.y - yc) ** 2, 0) || 1
+            const Fb = per * g.length, mz = sg * Fb * ecc * (dir === 'X' ? Ly : Lx)
+            g.forEach((nid, i) => {
+              const n = pts[i], rx = n.x - xc, ry = n.y - yc
+              push(nid, { LCNAME: nm, FX: dir === 'X' ? per : 0, FY: dir === 'Y' ? per : 0, iz, dir, tor: { FX: -mz * ry / J, FY: mz * rx / J, MZ: 0 } })
+            })
+          }
+        } else if (ecc) {
+          const mz = sg * F * ecc * (dir === 'X' ? Ly : Lx) / ns.length
+          ns.forEach(nid => push(nid, { LCNAME: nm, FX: dir === 'X' ? per : 0, FY: dir === 'Y' ? per : 0, iz, dir, tor: { FX: 0, FY: 0, MZ: mz } }))
+        } else ns.forEach(base)
+      }
     }
     /* 수직지진 EV (기준이 지정 시) — 층 연직력을 층 절점에 균등 분배, 하향 양수 케이스(조합이 ±) */
     const ev = profileOf(p).verticalForces?.(p, sp)
@@ -240,7 +246,7 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
       log(`▸ ${t('tw_vertical_log', ev.Kz.toFixed(3), ev.kc.toFixed(3), Math.round(tot / 1000))}`, 'ok')
     }
     log('▸ ' + t('seismic_static') +
-      ` <b>V=${Math.round(r.V)} kN</b> · T=${r.T.toFixed(2)}s · ${profileOf(p).seismic.coefLabel}=${r.Cs.toFixed(3)} (EX·EY)` + (ecc ? ` · ${t('acc_ecc')} ${ecc * 100}%` : ''), 'ok')
+      ` <b>V=${Math.round(r.V)} kN</b> · T=${r.T.toFixed(2)}s · ${profileOf(p).seismic.coefLabel}=${r.Cs.toFixed(3)} (${cases.map(c => c[0]).join('·')})` + (ecc ? ` · ${t('acc_ecc')} ${ecc * 100}%` : ''), 'ok')
   }
   if (useW) {
     const r = profileOf(p).wind.storyForces(p, wp)
@@ -258,12 +264,30 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
     log('▸ ' + t('wind') + ` <b>Vx=${Math.round(r.Vx)} · Vy=${Math.round(r.Vy)} kN</b> (WX·WY)`, 'ok')
   }
   S.model.nextLC = no
+  S.model.lat = { items: perNode as any }
+  await putLateralItems()
+}
+
+/** 절점 하중 일괄 PUT — 정적 지진의 비틀림 몫(tor)에 층·방향별 A_x 를 곱함(기본 1) */
+async function putLateralItems(ax?: { X: number[]; Y: number[] }): Promise<void> {
+  const items = S.model.lat?.items || {}
   const a: Record<string, any> = {}
-  for (const nid in perNode) {
-    a[nid] = { ITEMS: perNode[nid].map((it, i) => (
-      { ID: i + 1, LCNAME: it.LCNAME, GROUP_NAME: '', FX: it.FX || 0, FY: it.FY || 0, FZ: it.FZ || 0, MX: 0, MY: 0, MZ: it.MZ || 0 })) }
+  for (const nid in items) {
+    a[nid] = { ITEMS: items[nid].map((it, i) => {
+      const k = it.tor && it.dir && it.iz != null ? (ax?.[it.dir][it.iz] || 1) : 1
+      return { ID: i + 1, LCNAME: it.LCNAME, GROUP_NAME: '', FX: it.FX + (it.tor ? k * it.tor.FX : 0) || 0, FY: it.FY + (it.tor ? k * it.tor.FY : 0) || 0,
+        FZ: it.FZ || 0, MX: 0, MY: 0, MZ: (it.MZ || 0) + (it.tor ? k * it.tor.MZ : 0) }
+    }) }
   }
   if (Object.keys(a).length) await mapi('PUT', 'cnld', { Assign: a })
+}
+
+/** 비틀림 증폭 A_x 재적용 (2.14) — 정적 EX/EY 의 우발편심 비틀림에 층별 계수를 곱해 다시 PUT. 한 번만 */
+export async function reapplyTorsionAmp(ax: { X: number[]; Y: number[]; max?: number }): Promise<void> {
+  if (!S.model.lat) return
+  await putLateralItems(ax)
+  S.model.lat.ampDone = true
+  S.model.lat.ax = ax
 }
 
 /** 동별 막요소 바닥 — PLSTRS(평면응력, 회전자유도 비활성) 경간마다 1개, 사용자 재료 밀도 0(슬래브 자중·질량은 이미 바닥 DL 에 있음).
@@ -435,6 +459,12 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
     sections: secMap, secReg: R, materials: R.mats.slice(),
     baseNodes: f.baseNodes, elev: f.elev, loadCases: [{ name: 'DL', type: 'D' }], edits: [], seismic: null, wind: null })
   await applyFloorLoads(p, f)
+  /* P-Δ 해석 제어 (기준 훅) — 중력 케이스(DL·LL)로 기하강성. 실패해도 모델링은 계속 */
+  const pd = profileOf(p).pDelta?.(p, (p.seismic as Record<string, any>) || {}, S.model.loadCases)
+  if (pd) {
+    try { await mapi('PUT', 'pdel', { Assign: { 1: pd } }); S.model.pdelta = true; log('▸ ' + t('tw_pdelta_log', pd.PDEL_CASES.map(c => `${c.LCNAME}×${c.FACTOR}`).join(' + ')), 'ok') }
+    catch (e: any) { S.model.pdelta = false; log('⚠ P-Δ: ' + (e.message || e), 'warn') }
+  } else S.model.pdelta = false
   await applyLateral(p, f)
   await putCombos()
   renderModelState(); draw3D()

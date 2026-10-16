@@ -534,8 +534,9 @@ export const KR: CodeProfile = {
       q.buildings = 1; q.connectFloor = 0
       notes.push(t('kr_prep_single'))
     }
-    /* 내력벽시스템(벽식)은 벽이 중력을 부담 → 기둥 확대 제외 */
-    if (!explicit.includes('col') && !q.palette && !SYSTEMS[systemKR(q, (q.seismic as Record<string, any>) || {})].bearing) {
+    /* 내력벽시스템(벽식)은 벽이 중력을 부담 → 기둥 확대 제외. 원래 기둥은 colAuto 에 남겨 카드에서 시스템을 바꿀 때 되돌림·재확대(reconcileEdit) */
+    if (!explicit.includes('col') && !q.palette) q.colAuto = { H: q.colH, B: q.colB }
+    if (!explicit.includes('col') && !q.palette && !SYSTEMS[systemKR(q, (q.seismic as Record<string, any>) || {})].bearing && !q.bearing?.on) {
       const r = sizeColumnKR(q)
       if (r && r.side > Math.max(q.colH, q.colB)) {
         notes.push(t('kr_prep_col', q.colName, `C${r.side}x${r.side}`, Math.round(r.pu), Math.round(COL_UTIL_KR * r.cap)))
@@ -543,6 +544,23 @@ export const KR: CodeProfile = {
       }
     }
     return { spec: q, notes }
+  },
+
+  /* 카드에서 구조 시스템·내력벽 토글을 바꾸면 자동 확대 기둥을 되돌리거나(→ 벽식) 새로 확대(→ 골조). 사용자가 기둥을 직접 고쳤으면 그대로 */
+  reconcileEdit(prev, next, base) {
+    const orig = base.colAuto as { H: number; B: number } | undefined
+    if (!orig) return null
+    const bear = (x: BuildingSpec) => !!SYSTEMS[systemKR(x, (x.seismic as Record<string, any>) || {})].bearing || !!x.bearing?.on
+    if (bear(prev) === bear(next)) return null
+    const same = (x: BuildingSpec, h: number, b: number) => x.colH === h && x.colB === b
+    if (bear(next)) {
+      const r = sizeColumnKR({ ...prev, colH: orig.H, colB: orig.B, colName: 'x' })   // 골조 상태(prev) 기준으로 자동 확대 크기 재산정
+      const auto = r && r.side > Math.max(orig.H, orig.B) ? r.side : null
+      return auto && same(next, auto, auto) ? { H: orig.H, B: orig.B } : null
+    }
+    if (!same(next, orig.H, orig.B)) return null
+    const r = sizeColumnKR({ ...next, colH: orig.H, colB: orig.B, colName: 'x' })
+    return r && r.side > Math.max(orig.H, orig.B) ? { H: r.side, B: r.side } : null
   },
 
   /* 균열단면 강성 — db/ESSF(기둥·보)·db/WSSF(벽) */

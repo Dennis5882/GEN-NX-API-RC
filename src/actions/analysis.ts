@@ -3,10 +3,10 @@ import { profileOf } from '../codes'
 import { RC } from '../engine'
 import { t, tl } from '../i18n'
 import { mapi } from '../mapi/client'
-import { dirPeriods, tableObjs } from '../mapi/tables'
+import { dirPeriods, num, tableObjs } from '../mapi/tables'
 import { S, type Table } from '../state/store'
 import { log, renderModelState, renderResults } from '../state/ui'
-import { putCombos, putStoryCalc, setUnit } from './model'
+import { putCombos, putStoryCalc, reapplyTorsionAmp, setUnit } from './model'
 import { actReview } from './review'
 
 /* 해석 전 자동 저장 경로 — C:/temp 고정 (사용자 지정 2026-10-12).
@@ -30,6 +30,26 @@ async function runAnalysis(): Promise<void> {
   log(tl('analDone'), 'ok')
 }
 
+/** 비틀림 증폭 A_x (耐震規範 2.14) — 정적 EX/EY(+우발편심) 의 층별 δmax/δavg 에서 A_x = (δmax/(1.2δavg))² (≤ max, 1.2 이하 = 1).
+    Story Calc(ope/STOR) 가 해석 전에 등록돼 있어야 표가 나옴. 증폭할 층이 없거나 이미 적용했으면 null */
+async function torsionAmpFactors(p: any, prof: ReturnType<typeof profileOf>): Promise<{ X: number[]; Y: number[]; max: number } | null> {
+  const cfg = prof.seismic.torsionAmp
+  if (!cfg || !p.seismic?.on || !S.model.lat || S.model.lat.ampDone || p.storyData === false) return null
+  const ax = { X: [] as number[], Y: [] as number[], max: 1 }
+  for (const d of ['X', 'Y'] as const) {
+    const j = await mapi('POST', '/post/table', { Argument: { TABLE_NAME: 'TQ', TABLE_TYPE: `TORSIONAL_IRREGULARITY_${d}`,
+      UNIT: { FORCE: 'KN', DIST: 'M' }, STYLES: { FORMAT: 'Fixed', PLACE: 5 }, LOAD_CASE_NAMES: [`E${d}(ST)`] } })
+    for (const r of tableObjs(j, 'TQ')) {
+      const avg = num(r['Average Value of Extreme Points/Story Drift']), mx = num(r['Maximum Value/Story Drift'])
+      if (!(avg > 1e-9)) continue
+      const iz = r.Story === 'RF' ? p.stories : parseInt(r.Story) - 1       // Story Data: 지반 1F@0, 그 위 (iz+1)F, 최상 RF
+      const A = mx / avg > cfg.threshold ? Math.min(cfg.max, (mx / avg / cfg.threshold) ** 2) : 1
+      if (iz >= 1 && A > 1.005) { ax[d][iz] = A; ax.max = Math.max(ax.max, A) }
+    }
+  }
+  return ax.max > 1.005 ? ax : null
+}
+
 /* Track D: post/table에 UNIT을 명시 → 모델 전역 단위와 무관하게 항상 N·mm로 회수
    (설계 엔진은 N·mm 기준). STYLES/LOAD_CASE_NAMES 유지. extra로 UNIT 등 override 가능. */
 async function fetchTable(type: string, lcNames: string[], extra: Record<string, any> = {}): Promise<Table | null> {
@@ -43,7 +63,14 @@ async function fetchTable(type: string, lcNames: string[], extra: Record<string,
 
 export async function actAnalyze(): Promise<typeof S.results> {
   if (!S.model.nodes.length) throw new Error(t('e_noanalyze'))
+  const prof0 = profileOf(S.model.spec)
+  /* A_x 표(층 결과 테이블)는 Story Calc 선등록이 필요 — 해석 전에 호출(해석 후 호출은 결과 무효화) */
+  if (prof0.seismic.torsionAmp && S.model.spec?.storyData !== false) try { await putStoryCalc() } catch { /* noop */ }
   await runAnalysis()
+  try {
+    const ax = await torsionAmpFactors(S.model.spec, prof0)
+    if (ax) { await reapplyTorsionAmp(ax); log('▸ ' + t('tw_ax_log', ax.max.toFixed(2)), 'ok'); await runAnalysis() }
+  } catch (e: any) { log('▸ A_x: ' + e.message, 'warn') }
   const lc = S.model.loadCases.map(l => l.name + '(ST)')
   S.results.react = await fetchTable('REACTIONG', lc)
   S.results.disp = await fetchTable('DISPLACEMENTG', lc)
@@ -75,9 +102,12 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   /* 응답스펙트럼이 주 해석인 기준(중국 H>40m 등)은 요청과 무관하게 RS 수행 */
   const primary = !!sp.on && !!prof.seismic.rsPrimary?.(p, sp)
   const doRS = !!opt.rs || primary
-  const extra = prof.seismic.splcExtra ?? {}
+  let extra: Record<string, any> = prof.seismic.splcExtra ?? {}
   /* SPLC DIR 은 "XY"/"Z" 만 유효 — 단일축 "X"/"Y" 는 Wrong Field(MAPI_FINDINGS, 2026-10-12 라이브 재확인).
      수평 방향은 ANGLE 로 구분: RSX 0°, RSY 90°. (바닐라는 "X"/"Y" 를 보내 RS 가 실패했음). sx·sy = 방향별 SCALE */
+  /* 정적 해석에서 이미 A_x 를 구했으면 RS 우발편심 %(Gen 네이티브)에도 최대 A_x 반영 */
+  const axPrev = S.model.lat?.ax?.max
+  if (axPrev && extra.ACCECC_PERCENT) extra = { ...extra, ACCECC_PERCENT: +(extra.ACCECC_PERCENT * axPrev).toFixed(3) }
   const scale0 = prof.seismic.rsScale0?.(p, sp) ?? { X: 1, Y: 1 }
   const putSplc = (fn: string, sx: number, sy: number) => mapi('PUT', 'splc', { Assign: {
     1: { ...RC.splcPayload('RSX', 'XY', fn, sx), ANGLE: 0, ...extra },
@@ -124,6 +154,18 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   const notAllowed = NOT_ALLOWED.test(analMsg)
   if (notAllowed) log('▸ ' + t('analysis_refused') + analMsg + t('eigen_uses_lanczos_subspac'), 'err')
   else log(tl('analDone'), 'ok')
+  /* 4b) 비틀림 증폭 A_x (2.14) — 정적 우발편심에 층별 계수, RS(Gen 네이티브 우발편심)는 최대 A_x 를 % 에 반영(보수적) → 재해석 */
+  if (!notAllowed) try {
+    const ax = await torsionAmpFactors(p, prof)
+    if (ax) {
+      await reapplyTorsionAmp(ax)
+      if (ds && extra.ACCECC_PERCENT) { extra = { ...extra, ACCECC_PERCENT: +(extra.ACCECC_PERCENT * ax.max).toFixed(3) }; await putSplc(ds.name, scale0.X, scale0.Y) }
+      await setUnit('KN', 'M')
+      const r2 = await mapi('POST', '/doc/anal', {})
+      if (NOT_ALLOWED.test(String((r2 && r2.message) || ''))) throw new Error(t('analysis_refused') + r2.message)
+      log('▸ ' + t('tw_ax_log', ax.max.toFixed(2)), 'ok')
+    }
+  } catch (e: any) { log('▸ A_x: ' + e.message, 'warn') }
   /* 5) 주기 회수 — EIGENVALUEMODE 의 SUB_TABLES["EIGENVALUE ANALYSIS"](Period(sec)).
        PARTICIPATIONVECTORMODE 는 모드형상만(SUB_TABLES 없음) — 라이브 확인 2026-06-14. */
   let modal: { modes: any[]; T1: number | null } = { modes: [], T1: null }

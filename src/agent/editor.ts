@@ -212,3 +212,14 @@ export function renumber(rows: FgRow[]): FgRow[] {
   }
   return out
 }
+
+/** 카드 변경 뒤 기준별 기둥 재조정(reconcileEdit) — 변경 전·후를 스펙으로 바꿔 비교, 바꿀 크기가 있으면 첫 기둥(팔레트 대표)을 갱신 */
+export function reconcileEditor(prev: EditorState, next: EditorState, base: BuildingSpec): EditorState {
+  const hook = profileOf(base).reconcileEdit
+  if (!hook || !next.cols.length) return next
+  const r = hook(editorToSpec(prev, base), editorToSpec(next, base), base)
+  if (!r) return next
+  const cols = next.cols.slice()
+  cols[0] = { ...cols[0], H: String(r.H), B: String(r.B) }
+  return { ...next, cols }
+}

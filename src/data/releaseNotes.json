@@ -1,4 +1,34 @@
 {
+  "v3_12_0": {
+    "ko": [
+      "대만 기준: 새 모델의 기둥 크기를 압축 기준(φPn,max)으로 자동 확대합니다. 사무 10층 600 → 950.",
+      "대만 기준: P-Δ 해석(耐震規範 2.13)을 추가했습니다. 지진 입력에서 자동(θ ≥ 0.1일 때)·항상·미적용을 고를 수 있습니다.",
+      "대만 기준: 정적 지진에 우발편심 ±5% 두 케이스(EX/EXm, EY/EYm)와 비틀림 증폭 A_x(2.14)를 적용합니다. 비틀림이 큰 모델은 자동으로 재해석합니다.",
+      "한국 기준: 편집 카드에서 시스템을 내력벽 ↔ 골조로 바꾸면 자동 확대된 기둥 크기가 함께 되돌려지거나 다시 확대됩니다.",
+      "대만·한국 프로필 식 검증 테스트(npm test)를 저장소에 포함했습니다."
+    ],
+    "en": [
+      "Taiwan code: columns of new models are enlarged automatically from the compression limit (φPn,max) — 10-story office 600 → 950.",
+      "Taiwan code: P-Δ analysis (seismic code 2.13) added; choose Auto (when θ ≥ 0.1), Always or Off in the seismic input.",
+      "Taiwan code: static seismic now uses two ±5% accidental-eccentricity cases (EX/EXm, EY/EYm) and the torsional amplification A_x (2.14); torsion-sensitive models are re-analyzed automatically.",
+      "Korean code: switching the system between bearing wall and frame on the edit card now also restores or re-applies the auto-enlarged column size.",
+      "Formula tests for the Taiwan and Korean profiles (npm test) are now in the repository."
+    ],
+    "zh-TW": [
+      "臺灣規範：新模型的柱尺寸依受壓（φPn,max）自動放大，辦公 10 層 600 → 950。",
+      "臺灣規範：新增 P-Δ 分析（耐震規範 2.13），可在地震輸入選擇自動（θ ≥ 0.1 時）、一律採用或不採用。",
+      "臺灣規範：靜力地震新增 ±5% 意外偏心兩個案例（EX/EXm、EY/EYm）及扭轉放大係數 A_x（2.14），扭轉明顯的模型會自動重新分析。",
+      "韓國規範：在編輯卡切換承重牆／構架系統時，自動放大的柱尺寸會一併還原或重新放大。",
+      "臺灣與韓國規範公式驗證測試（npm test）已納入專案。"
+    ],
+    "zh-CN": [
+      "台湾规范：新模型的柱尺寸按受压（φPn,max）自动放大，办公 10 层 600 → 950。",
+      "台湾规范：新增 P-Δ 分析（耐震规范 2.13），可在地震输入选择自动（θ ≥ 0.1 时）、一律采用或不采用。",
+      "台湾规范：静力地震新增 ±5% 意外偏心两个工况（EX/EXm、EY/EYm）及扭转放大系数 A_x（2.14），扭转明显的模型会自动重新分析。",
+      "韩国规范：在编辑卡切换承重墙／框架体系时，自动放大的柱尺寸会一并还原或重新放大。",
+      "台湾与韩国规范公式验证测试（npm test）已纳入项目。"
+    ]
+  },
   "v3_11_6": {
     "ko": [
       "브라우저 탭 제목과 공유 링크 미리보기를 \"RC구조물 Agent — MIDAS Gen NX 자동화 도구\"로 바꾸고, 설명에 한국 설계기준을 추가했습니다."

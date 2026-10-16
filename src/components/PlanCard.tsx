@@ -1,7 +1,7 @@
 /* 건물 확인 카드 — 설명카드(건물유형) ↔ 편집카드(자유골조/수정). [실행]/[수정]/[취소].
    편집 시 디바운스 미리보기(3D). 실행되면(buildEpoch 증가) 모든 카드 버튼 제거 + 입력 잠금. */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { editorToSpec, initEditor, type EditorState } from '../agent/editor'
+import { editorToSpec, initEditor, reconcileEditor, type EditorState } from '../agent/editor'
 import { confirmBuild } from '../agent/local'
 import { planSummaryHTML } from '../agent/plan'
 import { t } from '../i18n'
@@ -35,7 +35,7 @@ export function PlanCard({ msg }: { msg: PlanMsg }) {
     return () => clearTimeout(h)
   }, [st, spec, msg.buildId])
 
-  const update = (fn: (x: EditorState) => EditorState) => { dirty.current = true; setSt(prev => (prev ? fn(prev) : prev)) }
+  const update = (fn: (x: EditorState) => EditorState) => { dirty.current = true; setSt(prev => (prev ? reconcileEditor(prev, fn(prev), msg.spec) : prev)) }
 
   function onEdit() {
     setEditing(true)

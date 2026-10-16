@@ -121,6 +121,10 @@ export interface CodeProfile {
     staticAccEcc?: number
     /** SPLC(응답스펙트럼 하중케이스)에 덧붙일 항목 — 예: 중국 우발편심 5% (Gen NX bACCECC) */
     splcExtra?: Record<string, any>
+    /** 정적 우발편심을 + / − 두 케이스(EX·EXm …)로 재하 — 대만 2.14 '向左及向右偏移' */
+    eccBoth?: boolean
+    /** 비틀림 증폭계수 A_x = (δmax/(1.2δavg))² ≤ max — 대만 2.14. 해석 뒤 층별로 구해 정적 우발편심에 곱하고 재해석 */
+    torsionAmp?: { threshold: number; max: number }
   }
   wind: LateralGroup & {
     storyForces(p: BuildingSpec, wp: Record<string, any>): WindResult
@@ -141,8 +145,13 @@ export interface CodeProfile {
   /** 새 스펙(템플릿·자유 골조) 기준별 기본값 보정 — explicit = 사용자가 명령·도구 인자로 직접 준 항목(덮어쓰지 않음).
       notes = 계획 카드에 보여줄 변경 안내. 예: 중국 자유 골조 1동, 轴压比 기준 기둥 크기 */
   prepareNew?(p: BuildingSpec, explicit: string[]): { spec: BuildingSpec; notes: string[] }
+  /** 편집 카드 변경 뒤 기둥 크기 재조정 — 예: 한국 시스템을 내력벽 ↔ 골조로 바꾸면 prepareNew 의 자동 확대를 되돌리거나 새로 적용.
+      prev·next = 변경 전·후 카드를 스펙으로 변환한 것, base = 카드 생성 시 스펙(prepareNew 가 colAuto 로 원래 기둥을 남김). 바꿀 크기(mm) 또는 null */
+  reconcileEdit?(prev: BuildingSpec, next: BuildingSpec, base: BuildingSpec): { H: number; B: number } | null
   /** 부재 강성 배율(Gen NX db/ESSF 요소별·db/WSSF 벽 요소별). 숫자 = Iyy 배율(보 연직 휨, 예: 중국 中梁刚度放大·连梁刚度折减),
       객체 = 축별(예: 한국 균열단면 기둥 0.70·보 0.35). walls = WALL 요소 id → /db/WSSF {shear, bending}(bending = 면내 휨, 라이브 2026-10-13). sectH = 단면 id → 춤(mm) */
+  /** P-Δ 해석 제어(Gen /db/PDEL) — null 이면 미적용. 예: 대만 2.13 (θ ≥ 0.1) */
+  pDelta?(p: BuildingSpec, sp: Record<string, any>, loadCases: LoadCaseRef[]): { ITER: number; TOL: number; PDEL_CASES: { LCNAME: string; FACTOR: number }[] } | null
   memberStiffness?(p: BuildingSpec, recs: ElemRec[], nodes: Node3[], sectH: Record<number, number>): MemberStiffness | null
 }
 
