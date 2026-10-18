@@ -97,6 +97,8 @@ for (const g of ['C210', 'C280', 'C350', 'C420']) {
   eq('3층은 600 유지', T.sizeColumnTW({ ...base, stories: 3 }), null)
   const rect = T.sizeColumnTW({ ...base, colH: 800, colB: 500, colName: 'x' })
   eq('직사각형 확대 — 가로세로비 유지(H≥B)', !!rect && rect.H > 800 && rect.B > 500 && Math.abs(rect.H / rect.B - 1.6) < 0.1, true)
+  { const r2 = T.sizeColumnTW({ ...base, colH: 800, colB: 520, colName: 'x' })
+    eq('직사각형 800x520 — 어느 한 변이라도 커지면 확대로 인식(원래보다 작지 않음)', !!r2 && r2.H >= 800 && r2.B >= 520 && (r2.H > 800 || r2.B > 520), true) }
   eq('직사각형 확대 후 충분 → null', T.sizeColumnTW({ ...base, colH: rect.H, colB: rect.B, colName: 'x' }), null)
   const th = T.thetaTW(base)
   eq('θ 추정(C600) 0.08~0.16', th > 0.08 && th < 0.16, true)
@@ -108,7 +110,9 @@ for (const g of ['C210', 'C280', 'C350', 'C420']) {
   eq('pdelta Y 1.2D+1.0L', JSON.stringify(y.PDEL_CASES), JSON.stringify([{ LCNAME: 'DL', FACTOR: 1.2 }, { LCNAME: 'LL', FACTOR: 1 }]))
   eq('auto: θ≥0.1 → 적용', !!T.TW.pDelta(base, sp, lc), (T.thetaTW(base) ?? 0) >= 0.1)
   eq('auto: 큰 기둥 → 미적용', T.TW.pDelta({ ...base, colH: 1000, colB: 1000 }, sp, lc), null)
-  eq('auto: 팔레트(θ 추정 신뢰 불가) → 보수적으로 적용', !!T.TW.pDelta({ ...base, colH: 1000, colB: 1000, palette: { cols: [{}] } }, sp, lc), true) }
+  eq('auto: 빈·단일 팔레트는 팔레트 아님 → θ 기준', T.TW.pDelta({ ...base, colH: 1000, colB: 1000, palette: { cols: [{}] } }, sp, lc), null)
+  eq('auto: 빈 팔레트 객체도 θ 기준', T.TW.pDelta({ ...base, colH: 1000, colB: 1000, palette: {} }, sp, lc), null)
+  eq('auto: 팔레트 2개 이상(θ 추정 신뢰 불가) → 보수적으로 적용', !!T.TW.pDelta({ ...base, colH: 1000, colB: 1000, palette: { cols: [{}, {}] } }, sp, lc), true) }
 // 11) 검토 지표 — 합성 표
 { const tb = (HEAD, DATA) => ({ HEAD, DATA })
   const DC = 'Maximum Drift of All Vertical Elements/Story Drift'

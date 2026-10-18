@@ -18,9 +18,9 @@ export async function clearModel(): Promise<void> {
   log(tl('cleared'), 'ok')
 }
 
-export async function setUnit(force = 'N', dist = 'MM'): Promise<void> {
+export async function setUnit(force = 'N', dist = 'MM', quiet = false): Promise<void> {
   await mapi('PUT', 'unit', { Assign: { 1: { FORCE: force, DIST: dist, HEAT: 'KJ', TEMPER: 'C' } } })
-  log(tl('unit', force, dist), 'ok')
+  if (!quiet) log(tl('unit', force, dist), 'ok')
 }
 
 export async function putSection(id: number, name: string, H: number, B: number): Promise<void> {
@@ -271,7 +271,7 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
 /** 절점 하중 일괄 PUT — 정적 지진의 비틀림 몫(tor)에 층·방향별 A_x 를 곱함(기본 1) */
 async function putLateralItems(ax?: { X: number[]; Y: number[] }): Promise<void> {
   /* 재하 값은 N·mm — 호출 시점의 모델 단위(동적해석은 kN·m)와 무관하게 먼저 맞춘다 */
-  await setUnit('N', 'MM')
+  await setUnit('N', 'MM', true)
   const items = S.model.lat?.items || {}
   const a: Record<string, any> = {}
   for (const nid in items) {
@@ -293,13 +293,15 @@ export async function reapplyTorsionAmp(ax: { X: number[]; Y: number[]; max?: nu
 }
 export function commitTorsionAmp(): void { if (S.model.lat) S.model.lat.ampDone = true }
 
-/** A_x 를 걷어내고 증폭 전 하중으로 복원 — 재해석 실패 시, 그리고 해석을 새로 시작할 때(편집으로 낡은 A_x 방지) */
-export async function revertTorsionAmp(): Promise<void> {
+/** A_x 를 걷어내고 증폭 전 하중으로 복원 — 재해석 실패 시, 그리고 해석을 새로 시작할 때(편집으로 낡은 A_x 방지).
+    실제로 걷어냈으면 true. PUT 이 실패하면 상태를 그대로 두고 던짐(호출측은 해석을 중단해야 낡은 증폭 하중으로 돌지 않음) */
+export async function revertTorsionAmp(): Promise<boolean> {
   const lat = S.model.lat
-  if (!lat || (!lat.ampDone && !lat.ax)) return
+  if (!lat || (!lat.ampDone && !lat.ax)) return false
   await putLateralItems()
   lat.ampDone = false
   lat.ax = undefined
+  return true
 }
 
 /** 동별 막요소 바닥 — PLSTRS(평면응력, 회전자유도 비활성) 경간마다 1개, 사용자 재료 밀도 0(슬래브 자중·질량은 이미 바닥 DL 에 있음).

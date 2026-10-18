@@ -168,6 +168,9 @@ export const phiPnMaxTW = (fc: number, Ag: number) => 0.80 * 0.65 * (0.85 * fc *
 
 /** 2.13 P-Δ 계수 추정 θ = P/(K·h) — K = KM·Σ a·12E·Kc/h² (Muto D 값, a = k/(2+k), k = ΣKb/(2Kc)), 가장 불리한 층.
     벽·코어가 있으면 null(벽 강성 지배) */
+/** 단면·재료 팔레트가 2개 이상(구역별 배정) — 단일 항목·빈 팔레트는 팔레트 없음과 같음 */
+const multiSection = (p: BuildingSpec) => { const pl: any = p.palette; return !!pl && ((pl.cols?.length || 0) > 1 || (pl.beams?.length || 0) > 1 || (pl.mats?.length || 0) > 1) }
+
 export function thetaTW(p: BuildingSpec, side?: number): number | null {
   if (hasWalls(p)) return null
   const q: BuildingSpec = side ? { ...p, colH: side, colB: side, colName: `C${side}x${side}` } : p
@@ -218,7 +221,8 @@ export function sizeColumnTW(p: BuildingSpec): { side: number; H: number; B: num
   const ratio = p.colH / p.colB
   const dims = (L: number) => ratio >= 1 ? { H: L, B: Math.ceil(L / ratio / 50) * 50 } : { H: Math.ceil(L * ratio / 50) * 50, B: L }
   let L = Math.max(p.colH, p.colB), d = dims(L)
-  while (L < 1500 && Pu(d.H, d.B) > COL_UTIL_TW * phiPnMaxTW(fc, d.H * d.B)) { L += 50; d = dims(L) }
+  d = { H: Math.max(d.H, p.colH), B: Math.max(d.B, p.colB) }
+  while (L < 1500 && Pu(d.H, d.B) > COL_UTIL_TW * phiPnMaxTW(fc, d.H * d.B)) { L += 50; const n = dims(L); d = { H: Math.max(n.H, p.colH), B: Math.max(n.B, p.colB) } }
   return { side: L, H: d.H, B: d.B, pu: pu0, cap: phiPnMaxTW(fc, p.colH * p.colB) }
 }
 
@@ -468,7 +472,7 @@ export const TW: CodeProfile = {
     const q: BuildingSpec = { ...p }, notes: string[] = []
     if (!explicit.includes('col') && !q.palette) {
       const r = sizeColumnTW(q)
-      if (r && r.side > Math.max(q.colH, q.colB)) {
+      if (r && (r.H > q.colH || r.B > q.colB)) {
         notes.push(t('tw_prep_col', q.colName, `C${r.H}x${r.B}`, Math.round(r.pu), Math.round(COL_UTIL_TW * r.cap)))
         q.colH = r.H; q.colB = r.B; q.colName = `C${r.H}x${r.B}`
       }
@@ -481,7 +485,7 @@ export const TW: CodeProfile = {
     const mode = sp.pdelta || 'auto'
     if (mode === 'N') return null
     /* auto: θ 추정이 0.1 미만이면 생략. 팔레트(구역별 단면)는 추정이 대표 단면 기준이라 신뢰 못 함 → 벽·코어 없으면 보수적으로 적용 */
-    if (mode === 'auto' && !(p.palette && !hasWalls(p)) && !((thetaTW(p) ?? 0) >= 0.1)) return null
+    if (mode === 'auto' && !(multiSection(p) && !hasWalls(p)) && !((thetaTW(p) ?? 0) >= 0.1)) return null
     const cases = loadCases.filter(l => l.type === 'D' || l.type === 'L').map(l => ({ LCNAME: l.name, FACTOR: l.type === 'D' ? 1.2 : 1.0 }))
     return cases.length ? { ITER: 5, TOL: 0.001, PDEL_CASES: cases } : null
   },

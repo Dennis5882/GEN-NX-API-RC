@@ -37,8 +37,10 @@ async function torsionAmpFactors(p: any, prof: ReturnType<typeof profileOf>): Pr
   if (!cfg || !p.seismic?.on || !S.model.lat || S.model.lat.ampDone || p.storyData === false) return null
   const ax = { X: [] as number[], Y: [] as number[], max: 1 }
   const dirs = ['X', 'Y'] as const
-  const tabs = await Promise.all(dirs.map(d => mapi('POST', '/post/table', { Argument: { TABLE_NAME: 'TQ', TABLE_TYPE: `TORSIONAL_IRREGULARITY_${d}`,
-    UNIT: { FORCE: 'KN', DIST: 'M' }, STYLES: { FORMAT: 'Fixed', PLACE: 5 }, LOAD_CASE_NAMES: [`E${d}(ST)`] } })))
+  /* Gen NX 는 요청을 하나씩 처리하고 표 상태가 전역 — 병렬 호출 금지(순차) */
+  const tabs: any[] = []
+  for (const d of dirs) tabs.push(await mapi('POST', '/post/table', { Argument: { TABLE_NAME: 'TQ', TABLE_TYPE: `TORSIONAL_IRREGULARITY_${d}`,
+    UNIT: { FORCE: 'KN', DIST: 'M' }, STYLES: { FORMAT: 'Fixed', PLACE: 5 }, LOAD_CASE_NAMES: [`E${d}(ST)`] } }))
   let unmapped = 0
   dirs.forEach((d, i) => {
     for (const r of tableObjs(tabs[i], 'TQ')) {
@@ -54,6 +56,20 @@ async function torsionAmpFactors(p: any, prof: ReturnType<typeof profileOf>): Pr
   })
   if (unmapped) log('▸ A_x: ' + t('tw_ax_unmapped', unmapped), 'warn')
   return ax.max > 1.005 ? ax : null
+}
+
+/** A_x 를 재하 → 재해석. 실패하면 증폭 하중(+apply 가 바꾼 것)을 원복하고 원래 해석으로 복구한 뒤 던짐. 성공해야 ampDone */
+async function withTorsionAmp(ax: { X: number[]; Y: number[]; max: number }, hooks: { apply?: () => Promise<void>; rollback?: () => Promise<void>; reanalyze: () => Promise<void> }): Promise<void> {
+  await reapplyTorsionAmp(ax)
+  try {
+    await hooks.apply?.()
+    await hooks.reanalyze()
+  } catch (e) {
+    await revertTorsionAmp(); await hooks.rollback?.(); await hooks.reanalyze()
+    throw e
+  }
+  commitTorsionAmp()
+  log('▸ ' + t('tw_ax_log', ax.max.toFixed(2)), 'ok')
 }
 
 /* Track D: post/table에 UNIT을 명시 → 모델 전역 단위와 무관하게 항상 N·mm로 회수
@@ -73,19 +89,11 @@ export async function actAnalyze(): Promise<typeof S.results> {
   /* A_x 표(층 결과 테이블)는 Story Calc 선등록이 필요 — 해석 전에 호출(해석 후 호출은 결과 무효화) */
   if (prof0.seismic.torsionAmp && S.model.spec?.storyData !== false) try { await putStoryCalc() } catch { /* noop */ }
   /* 이전 해석의 A_x 는 편집(단면·하중 변경)으로 낡을 수 있음 → 증폭 전 하중으로 되돌리고 이번 해석에서 다시 산정 */
-  try { await revertTorsionAmp() } catch (e: any) { log('▸ A_x: ' + e.message, 'warn') }
+  await revertTorsionAmp()               // 실패하면 던짐 — 낡은 증폭 하중으로 해석하지 않음
   await runAnalysis()
   try {
     const ax = await torsionAmpFactors(S.model.spec, prof0)
-    if (ax) {
-      await reapplyTorsionAmp(ax)
-      try { await runAnalysis() } catch (e) {
-        /* 재해석 실패 → 증폭 하중을 걷고 원래 해석으로 복구해 결과와 하중이 어긋나지 않게 */
-        await revertTorsionAmp(); await runAnalysis(); throw e
-      }
-      commitTorsionAmp()
-      log('▸ ' + t('tw_ax_log', ax.max.toFixed(2)), 'ok')
-    }
+    if (ax) await withTorsionAmp(ax, { reanalyze: runAnalysis })
   } catch (e: any) { log('▸ A_x: ' + e.message, 'warn') }
   const lc = S.model.loadCases.map(l => l.name + '(ST)')
   S.results.react = await fetchTable('REACTIONG', lc)
@@ -122,12 +130,19 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   /* SPLC DIR 은 "XY"/"Z" 만 유효 — 단일축 "X"/"Y" 는 Wrong Field(MAPI_FINDINGS, 2026-10-12 라이브 재확인).
      수평 방향은 ANGLE 로 구분: RSX 0°, RSY 90°. (바닐라는 "X"/"Y" 를 보내 RS 가 실패했음). sx·sy = 방향별 SCALE */
   /* 이전 A_x 는 낡았을 수 있음 → 증폭 전 하중으로 되돌리고 이번 해석 뒤(4b)에 다시 산정. RS 우발편심 %(Gen 네이티브)에는 그 최대 A_x 를 반영 */
-  try { await revertTorsionAmp() } catch (e: any) { log('▸ A_x: ' + e.message, 'warn') }
+  const wasAmp = await revertTorsionAmp()   // 실패하면 던짐
   const scale0 = prof.seismic.rsScale0?.(p, sp) ?? { X: 1, Y: 1 }
   const putSplc = (fn: string, sx: number, sy: number) => mapi('PUT', 'splc', { Assign: {
     1: { ...RC.splcPayload('RSX', 'XY', fn, sx), ANGLE: 0, ...extra },
     2: { ...RC.splcPayload('RSY', 'XY', fn, sy), ANGLE: 90, ...extra },
   } })
+  /* 이전 RS 실행의 증폭된 우발편심 %가 SPLC 에 남아 있으면(이번엔 RS 미지정 → SPLC 를 다시 쓰지 않음) 기본값으로 복원 */
+  if (wasAmp && !doRS && extra.ACCECC_PERCENT) try {
+    const cur = (await mapi('GET', 'splc'))?.SPLC || {}
+    const fix: Record<string, any> = {}
+    for (const k in cur) fix[k] = { ...cur[k], ACCECC_PERCENT: extra.ACCECC_PERCENT }
+    if (Object.keys(fix).length) await mapi('PUT', 'splc', { Assign: fix })
+  } catch { /* noop */ }
   await setUnit('KN', 'M')
   /* 1) 질량원: 자중→질량(db/styp) + 바닥/절점/보하중→질량(db/LTOM: DL×1.0 + 활하중×liveF) */
   await mapi('PUT', 'styp', { Assign: { 1: { bSELFWEIGHT: true } } })
@@ -174,25 +189,17 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
     const ax = await torsionAmpFactors(p, prof)
     if (ax) {
       const extra0 = extra
-      const reanal = async () => {
-        await setUnit('KN', 'M')
-        const r2 = await mapi('POST', '/doc/anal', {})
-        if (NOT_ALLOWED.test(String((r2 && r2.message) || ''))) throw new Error(t('analysis_refused') + r2.message)
-      }
-      await reapplyTorsionAmp(ax)                    // N·mm 로 재하(단위는 내부에서 맞춤)
-      try {
-        if (ds && extra.ACCECC_PERCENT) { extra = { ...extra, ACCECC_PERCENT: +(extra.ACCECC_PERCENT * ax.max).toFixed(3) }; await setUnit('KN', 'M'); await putSplc(ds.name, scale0.X, scale0.Y) }
-        await reanal()
-      } catch (e) {
-        /* 재해석 실패 → 증폭 하중·우발편심 %를 원복하고 원래 해석으로 복구 */
-        extra = extra0
-        await revertTorsionAmp()
-        if (ds) { await setUnit('KN', 'M'); await putSplc(ds.name, scale0.X, scale0.Y) }
-        await reanal()
-        throw e
-      }
-      commitTorsionAmp()
-      log('▸ ' + t('tw_ax_log', ax.max.toFixed(2)), 'ok')
+      await withTorsionAmp(ax, {
+        apply: async () => {
+          if (ds && extra.ACCECC_PERCENT) { extra = { ...extra, ACCECC_PERCENT: +(extra.ACCECC_PERCENT * ax.max).toFixed(3) }; await setUnit('KN', 'M'); await putSplc(ds.name, scale0.X, scale0.Y) }
+        },
+        rollback: async () => { extra = extra0; if (ds) { await setUnit('KN', 'M'); await putSplc(ds.name, scale0.X, scale0.Y) } },
+        reanalyze: async () => {
+          await setUnit('KN', 'M')
+          const r2 = await mapi('POST', '/doc/anal', {})
+          if (NOT_ALLOWED.test(String((r2 && r2.message) || ''))) throw new Error(t('analysis_refused') + r2.message)
+        },
+      })
     }
   } catch (e: any) { log('▸ A_x: ' + e.message, 'warn') }
   /* 5) 주기 회수 — EIGENVALUEMODE 의 SUB_TABLES["EIGENVALUE ANALYSIS"](Period(sec)).
