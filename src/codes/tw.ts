@@ -196,13 +196,13 @@ export function thetaTW(p: BuildingSpec, side?: number): number | null {
 }
 
 /** 기둥 크기 — 내부 기둥 부담면적 Pu = Σ max(1.4D, 1.2D+1.6L) ≤ 0.9·φPn,max 를 만족하는 정사각(50mm 단위) */
-export function sizeColumnTW(p: BuildingSpec): { side: number; pu: number; cap: number } | null {
+export function sizeColumnTW(p: BuildingSpec): { side: number; H: number; B: number; pu: number; cap: number } | null {
   const fc = fcMPa(p.matName); if (!(fc > 0)) return null
   const mx = (s: number | number[], n: number) => Math.max(...RC.asSpans(s, n)) / 1000
   const trib = mx(p.spanX, p.bayX) * mx(p.spanY, p.bayY)
   const g = RC.deriveFloorGroups(p)
-  const Pu = (side: number) => {
-    const q = { ...p, colH: side, colB: side, colName: `C${side}x${side}` }
+  const Pu = (H: number, B: number) => {
+    const q = { ...p, colH: H, colB: B, colName: `C${H}x${B}` }
     const D = modelDeadWeights(q, TW), area = RC.planAreaM2(q) * (q.buildings || 1), nb = basementCount(q)
     let w = 0
     for (let s = nb + 1; s <= q.stories; s++) {
@@ -212,12 +212,14 @@ export function sizeColumnTW(p: BuildingSpec): { side: number; pu: number; cap: 
     }
     return w * trib
   }
-  const side0 = Math.max(p.colH, p.colB)
-  const pu0 = Pu(side0)
+  const pu0 = Pu(p.colH, p.colB)
   if (pu0 <= COL_UTIL_TW * phiPnMaxTW(fc, p.colH * p.colB)) return null
-  let side = side0
-  while (side < 1500 && Pu(side) > COL_UTIL_TW * phiPnMaxTW(fc, side * side)) side += 50
-  return { side, pu: pu0, cap: phiPnMaxTW(fc, p.colH * p.colB) }
+  /* 사용자가 준 가로세로비를 유지: 긴 변을 50mm 씩 키우고 짧은 변은 비례(50mm 단위 올림) */
+  const ratio = p.colH / p.colB
+  const dims = (L: number) => ratio >= 1 ? { H: L, B: Math.ceil(L / ratio / 50) * 50 } : { H: Math.ceil(L * ratio / 50) * 50, B: L }
+  let L = Math.max(p.colH, p.colB), d = dims(L)
+  while (L < 1500 && Pu(d.H, d.B) > COL_UTIL_TW * phiPnMaxTW(fc, d.H * d.B)) { L += 50; d = dims(L) }
+  return { side: L, H: d.H, B: d.B, pu: pu0, cap: phiPnMaxTW(fc, p.colH * p.colB) }
 }
 
 /** 2.11 수직분포 — Ft = 0.07TV (≤0.25V, T≤0.7s 이면 0) 정상부 + (V−Ft)·W_x h_x / ΣW h. h = 기면(지상) 기준 */
@@ -467,8 +469,8 @@ export const TW: CodeProfile = {
     if (!explicit.includes('col') && !q.palette) {
       const r = sizeColumnTW(q)
       if (r && r.side > Math.max(q.colH, q.colB)) {
-        notes.push(t('tw_prep_col', q.colName, `C${r.side}x${r.side}`, Math.round(r.pu), Math.round(COL_UTIL_TW * r.cap)))
-        q.colH = r.side; q.colB = r.side; q.colName = `C${r.side}x${r.side}`
+        notes.push(t('tw_prep_col', q.colName, `C${r.H}x${r.B}`, Math.round(r.pu), Math.round(COL_UTIL_TW * r.cap)))
+        q.colH = r.H; q.colB = r.B; q.colName = `C${r.H}x${r.B}`
       }
     }
     return { spec: q, notes }
@@ -478,7 +480,8 @@ export const TW: CodeProfile = {
   pDelta(p, sp, loadCases) {
     const mode = sp.pdelta || 'auto'
     if (mode === 'N') return null
-    if (mode === 'auto' && !((thetaTW(p) ?? 0) >= 0.1)) return null
+    /* auto: θ 추정이 0.1 미만이면 생략. 팔레트(구역별 단면)는 추정이 대표 단면 기준이라 신뢰 못 함 → 벽·코어 없으면 보수적으로 적용 */
+    if (mode === 'auto' && !(p.palette && !hasWalls(p)) && !((thetaTW(p) ?? 0) >= 0.1)) return null
     const cases = loadCases.filter(l => l.type === 'D' || l.type === 'L').map(l => ({ LCNAME: l.name, FACTOR: l.type === 'D' ? 1.2 : 1.0 }))
     return cases.length ? { ITER: 5, TOL: 0.001, PDEL_CASES: cases } : null
   },

@@ -22,6 +22,8 @@ import { fuTW, modTW, saTW, siteTW, storyGravityTW, storyWeightsTW } from './tw'
 const DRIFT_COL = 'Maximum Drift of All Vertical Elements/Story Drift'
 const SD = { ADDITIONAL: { SET_CALCULATION_METHOD: { STORY_DRIFT_METHOD: 'Drift at the Center of Mass', STORY_STIFFNESS_METHOD: 'Story Shear / Story Drift' } } }
 const DRIFT_LIM = 0.005
+/* 2.13 은 θ 상한이 없고 P-Δ 를 반영하라고만 함 — P-Δ 해석을 적용했어도 θ(반영 강성 기준)가 이 값 이상이면 증폭 1/(1−θ)≥1.33 이라 수렴·강성 재확인을 권고(검토 기준, 규범 수치 아님) */
+const PDELTA_HIGH = 0.25
 
 export function twReviewTables(ctx: { rs: boolean }): ReviewTable[] {
   const [lx, ly] = ctx.rs ? ['RSX(RS)', 'RSY(RS)'] : ['EX(ST)', 'EY(ST)']
@@ -158,8 +160,8 @@ export function twReviewEvaluate(p: BuildingSpec, sp: Record<string, any>, data:
       }
       const clause = '耐震規範 2.13'
       items.push(worst
-        ? { id: 'pdelta', label: t('rv_kr_pdelta'), dir: d, value: worst.v.toFixed(3), limit: '< 0.10', status: worst.v < 0.1 ? 'ok' : ctx.model?.pdelta ? 'info' : 'warn',
-            where: storyName(p, worst.s), clause, note: worst.v < 0.1 ? t('rv_kr_pdelta_ok') : ctx.model?.pdelta ? t('rv_tw_pdelta_on') : t('rv_tw_pdelta_ng') }
+        ? { id: 'pdelta', label: t('rv_kr_pdelta'), dir: d, value: worst.v.toFixed(3), limit: '< 0.10', status: worst.v < 0.1 ? 'ok' : ctx.model?.pdelta ? (worst.v >= PDELTA_HIGH ? 'warn' : 'info') : 'warn',
+            where: storyName(p, worst.s), clause, note: worst.v < 0.1 ? t('rv_kr_pdelta_ok') : ctx.model?.pdelta ? (worst.v >= PDELTA_HIGH ? t('rv_tw_pdelta_high') : t('rv_tw_pdelta_on')) : t('rv_tw_pdelta_ng') }
         : { id: 'pdelta', label: t('rv_kr_pdelta'), dir: d, value: '-', limit: '< 0.10', status: 'info', clause, note: t('rv_no_data') })
     }
   }

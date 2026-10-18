@@ -1,4 +1,26 @@
 {
+  "v3_12_1": {
+    "ko": [
+      "대만: 비틀림 증폭(A_x) 재해석이 실패하면 증폭 하중을 되돌려 하중과 결과가 어긋나지 않게 하고, 해석할 때마다 새로 산정해 편집 뒤에도 낡은 값이 남지 않게 했습니다.",
+      "대만: 응답스펙트럼 해석 뒤 비틀림 증폭 재하 단위 오류를 고쳤고, P-Δ 해석을 켰어도 θ가 0.25 이상이면 경고하며, 구역별 단면(팔레트) 모델은 P-Δ를 항상 적용합니다.",
+      "대만: 기둥 자동 확대 때 직사각형 기둥의 가로세로비를 유지합니다."
+    ],
+    "en": [
+      "Taiwan: if the torsional-amplification (A_x) re-analysis fails, the amplified loads are rolled back so loads and results stay consistent; A_x is recomputed on every analysis so edits never leave stale values.",
+      "Taiwan: fixed a unit error when re-applying torsional amplification after a response-spectrum run; P-Δ now warns when θ ≥ 0.25 even if enabled, and models with per-zone sections (palette) always apply P-Δ.",
+      "Taiwan: automatic column enlargement now keeps the aspect ratio of rectangular columns."
+    ],
+    "zh-TW": [
+      "台灣：扭轉放大（A_x）重新分析失敗時，會還原放大荷載，避免荷載與結果不一致；每次分析皆重新計算，編輯後不會殘留舊值。",
+      "台灣：修正反應譜分析後重新施加扭轉放大的單位錯誤；即使已啟用 P-Δ，θ ≥ 0.25 仍會提出警示；分區斷面（調色盤）模型一律採用 P-Δ。",
+      "台灣：柱自動放大時保持矩形柱的長寬比。"
+    ],
+    "zh-CN": [
+      "台湾：扭转放大（A_x）重新分析失败时，会还原放大荷载，避免荷载与结果不一致；每次分析都重新计算，编辑后不会残留旧值。",
+      "台湾：修正反应谱分析后重新施加扭转放大的单位错误；即使已启用 P-Δ，θ ≥ 0.25 仍会提出警示；分区截面（调色板）模型一律采用 P-Δ。",
+      "台湾：柱自动放大时保持矩形柱的长宽比。"
+    ]
+  },
   "v3_12_0": {
     "ko": [
       "대만 기준: 새 모델의 기둥 크기를 압축 기준(φPn,max)으로 자동 확대합니다. 사무 10층 600 → 950.",

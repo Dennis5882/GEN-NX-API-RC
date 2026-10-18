@@ -6,7 +6,7 @@ import { mapi } from '../mapi/client'
 import { dirPeriods, num, tableObjs } from '../mapi/tables'
 import { S, type Table } from '../state/store'
 import { log, renderModelState, renderResults } from '../state/ui'
-import { putCombos, putStoryCalc, reapplyTorsionAmp, setUnit } from './model'
+import { commitTorsionAmp, putCombos, putStoryCalc, reapplyTorsionAmp, revertTorsionAmp, setUnit } from './model'
 import { actReview } from './review'
 
 /* 해석 전 자동 저장 경로 — C:/temp 고정 (사용자 지정 2026-10-12).
@@ -36,17 +36,23 @@ async function torsionAmpFactors(p: any, prof: ReturnType<typeof profileOf>): Pr
   const cfg = prof.seismic.torsionAmp
   if (!cfg || !p.seismic?.on || !S.model.lat || S.model.lat.ampDone || p.storyData === false) return null
   const ax = { X: [] as number[], Y: [] as number[], max: 1 }
-  for (const d of ['X', 'Y'] as const) {
-    const j = await mapi('POST', '/post/table', { Argument: { TABLE_NAME: 'TQ', TABLE_TYPE: `TORSIONAL_IRREGULARITY_${d}`,
-      UNIT: { FORCE: 'KN', DIST: 'M' }, STYLES: { FORMAT: 'Fixed', PLACE: 5 }, LOAD_CASE_NAMES: [`E${d}(ST)`] } })
-    for (const r of tableObjs(j, 'TQ')) {
+  const dirs = ['X', 'Y'] as const
+  const tabs = await Promise.all(dirs.map(d => mapi('POST', '/post/table', { Argument: { TABLE_NAME: 'TQ', TABLE_TYPE: `TORSIONAL_IRREGULARITY_${d}`,
+    UNIT: { FORCE: 'KN', DIST: 'M' }, STYLES: { FORMAT: 'Fixed', PLACE: 5 }, LOAD_CASE_NAMES: [`E${d}(ST)`] } })))
+  let unmapped = 0
+  dirs.forEach((d, i) => {
+    for (const r of tableObjs(tabs[i], 'TQ')) {
       const avg = num(r['Average Value of Extreme Points/Story Drift']), mx = num(r['Maximum Value/Story Drift'])
       if (!(avg > 1e-9)) continue
-      const iz = r.Story === 'RF' ? p.stories : parseInt(r.Story) - 1       // Story Data: 지반 1F@0, 그 위 (iz+1)F, 최상 RF
+      /* Story Data 층 이름 규약(buildStoryData): 지반 1F@0, 그 위 (iz+1)F, 최상 RF — 그 밖의 이름(B1 등)은 매핑 불가 */
+      const m = /^(\d+)F$/i.exec(String(r.Story).trim())
+      const iz = r.Story === 'RF' ? p.stories : m ? +m[1] - 1 : NaN
+      if (!Number.isFinite(iz)) { unmapped++; continue }
       const A = mx / avg > cfg.threshold ? Math.min(cfg.max, (mx / avg / cfg.threshold) ** 2) : 1
       if (iz >= 1 && A > 1.005) { ax[d][iz] = A; ax.max = Math.max(ax.max, A) }
     }
-  }
+  })
+  if (unmapped) log('▸ A_x: ' + t('tw_ax_unmapped', unmapped), 'warn')
   return ax.max > 1.005 ? ax : null
 }
 
@@ -66,10 +72,20 @@ export async function actAnalyze(): Promise<typeof S.results> {
   const prof0 = profileOf(S.model.spec)
   /* A_x 표(층 결과 테이블)는 Story Calc 선등록이 필요 — 해석 전에 호출(해석 후 호출은 결과 무효화) */
   if (prof0.seismic.torsionAmp && S.model.spec?.storyData !== false) try { await putStoryCalc() } catch { /* noop */ }
+  /* 이전 해석의 A_x 는 편집(단면·하중 변경)으로 낡을 수 있음 → 증폭 전 하중으로 되돌리고 이번 해석에서 다시 산정 */
+  try { await revertTorsionAmp() } catch (e: any) { log('▸ A_x: ' + e.message, 'warn') }
   await runAnalysis()
   try {
     const ax = await torsionAmpFactors(S.model.spec, prof0)
-    if (ax) { await reapplyTorsionAmp(ax); log('▸ ' + t('tw_ax_log', ax.max.toFixed(2)), 'ok'); await runAnalysis() }
+    if (ax) {
+      await reapplyTorsionAmp(ax)
+      try { await runAnalysis() } catch (e) {
+        /* 재해석 실패 → 증폭 하중을 걷고 원래 해석으로 복구해 결과와 하중이 어긋나지 않게 */
+        await revertTorsionAmp(); await runAnalysis(); throw e
+      }
+      commitTorsionAmp()
+      log('▸ ' + t('tw_ax_log', ax.max.toFixed(2)), 'ok')
+    }
   } catch (e: any) { log('▸ A_x: ' + e.message, 'warn') }
   const lc = S.model.loadCases.map(l => l.name + '(ST)')
   S.results.react = await fetchTable('REACTIONG', lc)
@@ -105,9 +121,8 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   let extra: Record<string, any> = prof.seismic.splcExtra ?? {}
   /* SPLC DIR 은 "XY"/"Z" 만 유효 — 단일축 "X"/"Y" 는 Wrong Field(MAPI_FINDINGS, 2026-10-12 라이브 재확인).
      수평 방향은 ANGLE 로 구분: RSX 0°, RSY 90°. (바닐라는 "X"/"Y" 를 보내 RS 가 실패했음). sx·sy = 방향별 SCALE */
-  /* 정적 해석에서 이미 A_x 를 구했으면 RS 우발편심 %(Gen 네이티브)에도 최대 A_x 반영 */
-  const axPrev = S.model.lat?.ax?.max
-  if (axPrev && extra.ACCECC_PERCENT) extra = { ...extra, ACCECC_PERCENT: +(extra.ACCECC_PERCENT * axPrev).toFixed(3) }
+  /* 이전 A_x 는 낡았을 수 있음 → 증폭 전 하중으로 되돌리고 이번 해석 뒤(4b)에 다시 산정. RS 우발편심 %(Gen 네이티브)에는 그 최대 A_x 를 반영 */
+  try { await revertTorsionAmp() } catch (e: any) { log('▸ A_x: ' + e.message, 'warn') }
   const scale0 = prof.seismic.rsScale0?.(p, sp) ?? { X: 1, Y: 1 }
   const putSplc = (fn: string, sx: number, sy: number) => mapi('PUT', 'splc', { Assign: {
     1: { ...RC.splcPayload('RSX', 'XY', fn, sx), ANGLE: 0, ...extra },
@@ -158,11 +173,25 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   if (!notAllowed) try {
     const ax = await torsionAmpFactors(p, prof)
     if (ax) {
-      await reapplyTorsionAmp(ax)
-      if (ds && extra.ACCECC_PERCENT) { extra = { ...extra, ACCECC_PERCENT: +(extra.ACCECC_PERCENT * ax.max).toFixed(3) }; await putSplc(ds.name, scale0.X, scale0.Y) }
-      await setUnit('KN', 'M')
-      const r2 = await mapi('POST', '/doc/anal', {})
-      if (NOT_ALLOWED.test(String((r2 && r2.message) || ''))) throw new Error(t('analysis_refused') + r2.message)
+      const extra0 = extra
+      const reanal = async () => {
+        await setUnit('KN', 'M')
+        const r2 = await mapi('POST', '/doc/anal', {})
+        if (NOT_ALLOWED.test(String((r2 && r2.message) || ''))) throw new Error(t('analysis_refused') + r2.message)
+      }
+      await reapplyTorsionAmp(ax)                    // N·mm 로 재하(단위는 내부에서 맞춤)
+      try {
+        if (ds && extra.ACCECC_PERCENT) { extra = { ...extra, ACCECC_PERCENT: +(extra.ACCECC_PERCENT * ax.max).toFixed(3) }; await setUnit('KN', 'M'); await putSplc(ds.name, scale0.X, scale0.Y) }
+        await reanal()
+      } catch (e) {
+        /* 재해석 실패 → 증폭 하중·우발편심 %를 원복하고 원래 해석으로 복구 */
+        extra = extra0
+        await revertTorsionAmp()
+        if (ds) { await setUnit('KN', 'M'); await putSplc(ds.name, scale0.X, scale0.Y) }
+        await reanal()
+        throw e
+      }
+      commitTorsionAmp()
       log('▸ ' + t('tw_ax_log', ax.max.toFixed(2)), 'ok')
     }
   } catch (e: any) { log('▸ A_x: ' + e.message, 'warn') }
