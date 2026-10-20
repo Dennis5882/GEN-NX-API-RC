@@ -11,6 +11,13 @@ import { log } from '../state/ui'
 /* 해석(doc/anal)·동적해석은 수 분 걸릴 수 있다 — SDK 기본 30s 대신 넉넉히.
    (타임아웃은 대기만 중단할 뿐 Gen NX 쪽 작업을 취소하지 않는다) */
 const TIMEOUT_MS = 15 * 60 * 1000
+/* 그 밖의 호출은 짧게 — Gen NX 에 모달 대화상자가 뜨면 /db/* 호출이 전부 막혀, 호출마다 15분을 기다리게 된다(midas-nx 2.10.2 README).
+   긴 호출 = 해석·저장·문서·Story Calc·결과 표 등(/doc /ope /post) */
+const SHORT_TIMEOUT_MS = 2 * 60 * 1000
+const LONG_CALL = /^\/(doc|ope|post)\//i
+/* 표 전체를 비우는 DELETE /db/<NAME> 은 midas-nx 2.10.2 부터 confirm 없이는 거부 — 우리가 의도한 표만 허용
+   (lcom-gen: 조합 수가 줄 때 번호가 남지 않게 비움 / SSEIS: QA 흔적 제거). 그 밖의 표 삭제는 SDK 가 계속 막는다 */
+const CLEARABLE = new Set(['lcom-gen', 'sseis'])
 
 let cached: { key: string; base: string; client: MidasClient } | null = null
 
@@ -40,7 +47,9 @@ export async function mapi<T = any>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', p
   const ep = path.startsWith('/') ? path : `/db/${path}`
   log(`<span style="color:var(--blue)">${method}</span> ${ep}`, 'api')
   try {
-    return (await getClient().request(method, ep, body as JsonObject | undefined)) as T
+    const clear = method === 'DELETE' && CLEARABLE.has(ep.replace(/^\/db\//i, '').toLowerCase())
+    return (await getClient().request(method, ep, body as JsonObject | undefined,
+      { timeout: LONG_CALL.test(ep) ? TIMEOUT_MS : SHORT_TIMEOUT_MS, ...(clear ? { confirm: true } : {}) })) as T
   } catch (e) {
     const m = apiErrorMessage(e)
     log(tl('fail', m), 'err')

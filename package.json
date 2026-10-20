@@ -14,7 +14,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "midas-nx": "^2.10.1",
+    "midas-nx": "^2.10.2",
     "plotly.js-dist-min": "^2.35.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
