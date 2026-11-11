@@ -1,0 +1,172 @@
+/* ═══ 테마 토큰 — 색은 전부 여기서. <html data-theme="cyber|navy|light">(Header 선택, localStorage nx_theme).
+   :root = cyber(원래 시안 테마, data-theme 없는 React 초기 상태도 이 값).
+   --cyan 은 이름과 달리 '강조색'(테마마다 다름). --p-* = 3D 뷰(Plotly) 색 — View3D 가 getComputedStyle 로 읽음. */
+:root {
+  color-scheme: dark;
+  --bg: #000000;
+  --panel: #0a0a0c;
+  --panel2: #050506;
+  --border: #23262e;
+  --txt: #c9d4e8;
+  --muted: #6b7a99;
+  --dim: #445069;
+  --cyan: #38e1d6;
+  --blue: #4cc2ff;
+  --amber: #ffb454;
+  --red: #ff6b6b;
+  --green: #5ee6a8;
+  --violet: #9b8cff;
+  --txt-hi: #ffffff;
+  --txt-2: #aab6cc;
+  --txt-gcmd: #dde5f2;
+  --txt-note: #b9c5d8;
+  --on-acc: #06121a;
+  --acc2: #2bb5ab;
+  --hdr-bg: linear-gradient(
+    180deg,
+    rgba(17, 23, 38, 0.95),
+    rgba(13, 19, 32, 0.85)
+  );
+  --guide-top: #07090d;
+  --tip-bg: #05080f;
+  --grid: rgba(56, 225, 214, 0.025);
+  --line: rgba(255, 255, 255, 0.04);
+  --line2: rgba(255, 255, 255, 0.07);
+  --hover: rgba(255, 255, 255, 0.03);
+  --tile: rgba(255, 255, 255, 0.035);
+  --tile-bd: rgba(255, 255, 255, 0.05);
+  --user-bg: linear-gradient(135deg, #16324a, #143a52);
+  --user-bd: #1f4a66;
+  --user-txt: #dff3ff;
+  --scrim: rgba(4, 7, 14, 0.6);
+  --shadow: rgba(0, 0, 0, 0.4);
+  --p-typ: #4cc2ff;
+  --p-pod: #ffb454;
+  --p-roof: #5ee6a8;
+  --p-trans: #ff6b6b;
+  --p-base: #9b8cff;
+  --p-node: #445069;
+  --p-sup: #ff6b6b;
+  --p-sup-bd: #ff9999;
+  --p-floor: rgba(68, 80, 105, 0.35);
+  --p-axis: #445069;
+  --p-grid: #1a2538;
+  --p-scene: rgba(10, 14, 26, 0.4);
+  --p-legend: rgba(0, 0, 0, 0.85);
+  --p-legend-bd: rgba(31, 42, 61, 0.5);
+  --p-txt: #c9d4e8;
+}
+/* 흑·곤 다크 — 기본 */
+:root[data-theme="navy"] {
+  color-scheme: dark;
+  --bg: #08090b;
+  --panel: #0f1115;
+  --panel2: #0b0c0f;
+  --border: #262a32;
+  --txt: #d5d9e1;
+  --muted: #8b919d;
+  --dim: #5d636f;
+  --cyan: #6b86f0;
+  --blue: #8aa0f5;
+  --amber: #e0a456;
+  --red: #e06b6b;
+  --green: #62c08f;
+  --violet: #a094f0;
+  --txt-hi: #ffffff;
+  --txt-2: #b5bbc6;
+  --txt-gcmd: #e4e7ed;
+  --txt-note: #b9bfca;
+  --on-acc: #ffffff;
+  --acc2: #3f5bcc;
+  --hdr-bg: linear-gradient(180deg, #101217, #0c0d11);
+  --guide-top: #0d0e12;
+  --tip-bg: #0e1016;
+  --grid: transparent;
+  --line: rgba(255, 255, 255, 0.05);
+  --line2: rgba(255, 255, 255, 0.08);
+  --hover: rgba(255, 255, 255, 0.04);
+  --tile: rgba(255, 255, 255, 0.04);
+  --tile-bd: rgba(255, 255, 255, 0.06);
+  --user-bg: linear-gradient(135deg, #1c2c66, #213578);
+  --user-bd: #2e4596;
+  --user-txt: #eef1ff;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --shadow: rgba(0, 0, 0, 0.5);
+  --p-typ: #e6e9f0;
+  --p-pod: #e0a456;
+  --p-roof: #7f9cff;
+  --p-trans: #e06b6b;
+  --p-base: #a094f0;
+  --p-node: #5d636f;
+  --p-sup: #e06b6b;
+  --p-sup-bd: #f0a0a0;
+  --p-floor: rgba(139, 145, 157, 0.3);
+  --p-axis: #6b717d;
+  --p-grid: #1f232b;
+  --p-scene: rgba(20, 22, 28, 0.5);
+  --p-legend: rgba(11, 12, 15, 0.9);
+  --p-legend-bd: #262a32;
+  --p-txt: #d5d9e1;
+}
+/* 백·곤 라이트 */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --panel: #f5f6f8;
+  --panel2: #fafbfc;
+  --border: #dcdfe5;
+  --txt: #1f2430;
+  --muted: #5d6472;
+  --dim: #8a909b;
+  --cyan: #1f3a8a;
+  --blue: #2f55c9;
+  --amber: #b56d00;
+  --red: #c43030;
+  --green: #1d8653;
+  --violet: #5a45c6;
+  --txt-hi: #0b0d12;
+  --txt-2: #3a404c;
+  --txt-gcmd: #1f2430;
+  --txt-note: #3a404c;
+  --on-acc: #ffffff;
+  --acc2: #15296b;
+  --hdr-bg: linear-gradient(180deg, #ffffff, #f6f7f9);
+  --guide-top: #f1f3f6;
+  --tip-bg: #f0f3f9;
+  --grid: transparent;
+  --line: rgba(0, 0, 0, 0.06);
+  --line2: rgba(0, 0, 0, 0.09);
+  --hover: rgba(0, 0, 0, 0.035);
+  --tile: rgba(0, 0, 0, 0.035);
+  --tile-bd: rgba(0, 0, 0, 0.07);
+  --user-bg: linear-gradient(135deg, #1f3a8a, #26449c);
+  --user-bd: #1f3a8a;
+  --user-txt: #ffffff;
+  --scrim: rgba(20, 24, 32, 0.3);
+  --shadow: rgba(0, 0, 0, 0.14);
+  --p-typ: #1f3a8a;
+  --p-pod: #c27a16;
+  --p-roof: #1d8653;
+  --p-trans: #c43030;
+  --p-base: #5a45c6;
+  --p-node: #9097a3;
+  --p-sup: #c43030;
+  --p-sup-bd: #e08080;
+  --p-floor: rgba(31, 58, 138, 0.22);
+  --p-axis: #5d6472;
+  --p-grid: #e1e4ea;
+  --p-scene: rgba(244, 246, 249, 0.7);
+  --p-legend: rgba(255, 255, 255, 0.92);
+  --p-legend-bd: #dcdfe5;
+  --p-txt: #1f2430;
+}
+
+:root {
+  --cjk: "Noto Sans KR", "Noto Sans TC", "Noto Sans SC";
+}
+:root:lang(zh-Hant) {
+  --cjk: "Noto Sans TC", "Noto Sans KR", "Noto Sans SC";
+}
+:root:lang(zh-Hans) {
+  --cjk: "Noto Sans SC", "Noto Sans KR", "Noto Sans TC";
+}

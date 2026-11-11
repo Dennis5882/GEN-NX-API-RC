@@ -23,7 +23,10 @@
       "package.json",
       "vitest.config.ts",
       "tests/setup.mjs",
-      "tests/_assertions.mjs"
+      "tests/_assertions.mjs",
+      "components.json",
+      "src/lib/utils.ts",
+      "src/styles/*.css"
     ],
     "indentStyle": "space",
     "indentWidth": 2,
@@ -37,11 +40,19 @@
     }
   },
   "assist": {
-    "includes": ["vitest.config.ts", "tests/setup.mjs", "tests/_assertions.mjs"]
+    "includes": [
+      "vitest.config.ts",
+      "tests/setup.mjs",
+      "tests/_assertions.mjs",
+      "src/lib/utils.ts"
+    ]
   },
+  "css": { "parser": { "tailwindDirectives": true } },
+  "tailwind": { "stylesheet": "./src/styles/globals.css" },
   "linter": {
     "rules": {
       "preset": "recommended",
+      "nursery": { "useTailwindSortedClasses": "warn" },
       "suspicious": { "noExplicitAny": "warn" },
       "style": { "noNonNullAssertion": "warn" }
     }

@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { runInNewContext } from 'node:vm'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import pkg from './package.json' with { type: 'json' }
 import { LANG_DEFS } from './src/i18n/types'
 
@@ -77,7 +78,8 @@ function langPages(): Plugin {
 const BUILD_DATE = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' }).format(new Date())
 
 export default defineConfig({
-  plugins: [react(), copyLegacyShared(), langPages()],
+  plugins: [react(), tailwindcss(), copyLegacyShared(), langPages()],
+  resolve: { alias: { '@': resolve(import.meta.dirname, 'src') } },
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __BUILD_DATE__: JSON.stringify(BUILD_DATE),

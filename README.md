@@ -26,7 +26,10 @@ npm run lint
 - Biome은 권장 규칙으로 시작한다. 기존 코드의 접근성·React·레거시 문법 관련 진단은 `biome.json`의 임시 override로 경고 처리하며, `any`와 비 null 단언도 경고로 유지한다. 경고는 이후 각 마이그레이션 단계에서 정리한다.
 - 포맷·import 정렬은 새 도구 설정과 테스트 보조 파일부터 검사한다(`formatter.includes`·`assist.includes`). 기존 테스트의 계산식 diff를 보존하고 전체 포맷 변경을 분리하기 위해 기존 파일은 아직 포맷 대상에 포함하지 않는다. 이후 포맷 단계에서 이 목록을 확장한다.
 - `archive/`, `dist/`, `shared/`, 자동 생성 `src/i18n/keys.gen.ts`, `package-lock.json`은 Biome 검사에서 제외한다. Python 테스트는 기존 방식으로 유지한다.
-- Tailwind 도입 전에는 클래스 정렬 규칙을 켜지 않는다. 설치된 Biome 2.6의 `useTailwindSortedClasses`는 Tailwind v4용 실험 규칙이므로 Part A에서 실제 스타일시트와 함께 적용 범위를 확인한다. 별도 `prettier-plugin-tailwindcss`는 도입하지 않는다. 근거: [Biome 2.6 공식 안내](https://next.biomejs.dev/blog/biome-v2-6/).
+- Tailwind v4의 스타일 진입점은 `src/styles/globals.css`, 테마·CJK 폰트 원본은 `src/styles/tokens.css`이다. 기존 `shared/app.css` 클래스와 기본 스타일은 함께 로드하고, 화면 보존을 위해 Preflight와 전역 shadcn reset은 도입하지 않는다. `data-theme`의 navy/cyber는 dark, light는 light로 동작한다.
+- `components.json`은 shadcn의 new-york·CSS 변수 모드로 설정했다. `@/`는 TypeScript·Vite·Vitest 모두 `src/`로 해석하며, `cn()`은 `src/lib/utils.ts`에서 제공한다. 실제 컴포넌트 교체는 A1에서 진행한다.
+- 기존 `--muted`는 텍스트 색이므로 A0에서는 호환성을 유지한다. `text-muted-foreground`는 해당 색, `bg-muted`는 `--panel2` 표면 색에 연결했다. A2에서 레거시 토큰을 정리할 때 이 매핑도 함께 통합한다.
+- Biome 2.6의 실험 규칙 `useTailwindSortedClasses`를 경고로 켜고 실제 스타일시트를 연결했다. 클래스 정렬은 unsafe fix로 분류되므로 `lint:fix`가 자동 정렬하지 않는다. 별도 `prettier-plugin-tailwindcss`는 도입하지 않는다. 근거: [Biome 공식 규칙 설명](https://next.biomejs.dev/linter/rules/use-tailwind-sorted-classes/javascript/).
 
 ---
 

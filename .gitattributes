@@ -1,0 +1,6 @@
+# Keep code checkouts consistent with Biome's LF formatter on Windows.
+*.ts text eol=lf
+*.tsx text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.css text eol=lf
