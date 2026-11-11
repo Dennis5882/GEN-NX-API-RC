@@ -10,6 +10,26 @@
 
 ---
 
+## 개발 검증 (React 앱)
+
+Node.js 24 이상에서 `npm ci` 후 실행한다.
+
+```sh
+npm run typecheck
+npm run build
+npm run test
+npm run lint
+```
+
+- `npm run test:watch`: Vitest 감시 실행. node 환경에서 TW 105개·KR 92개 단언을 실행하며, 규범 독립 계산식과 기존 허용오차를 보존한다. 계획 문서의 TW 99개는 도입 시점 실제 코드의 105개와 차이가 있다.
+- `npm run lint:fix`: Biome의 안전한 수정만 적용한다. 린트는 로컬 실행 전용이며 빌드·CI·Vercel에 연결하지 않는다.
+- Biome은 권장 규칙으로 시작한다. 기존 코드의 접근성·React·레거시 문법 관련 진단은 `biome.json`의 임시 override로 경고 처리하며, `any`와 비 null 단언도 경고로 유지한다. 경고는 이후 각 마이그레이션 단계에서 정리한다.
+- 포맷·import 정렬은 새 도구 설정과 테스트 보조 파일부터 검사한다(`formatter.includes`·`assist.includes`). 기존 테스트의 계산식 diff를 보존하고 전체 포맷 변경을 분리하기 위해 기존 파일은 아직 포맷 대상에 포함하지 않는다. 이후 포맷 단계에서 이 목록을 확장한다.
+- `archive/`, `dist/`, `shared/`, 자동 생성 `src/i18n/keys.gen.ts`, `package-lock.json`은 Biome 검사에서 제외한다. Python 테스트는 기존 방식으로 유지한다.
+- Tailwind 도입 전에는 클래스 정렬 규칙을 켜지 않는다. 설치된 Biome 2.6의 `useTailwindSortedClasses`는 Tailwind v4용 실험 규칙이므로 Part A에서 실제 스타일시트와 함께 적용 범위를 확인한다. 별도 `prettier-plugin-tailwindcss`는 도입하지 않는다. 근거: [Biome 2.6 공식 안내](https://next.biomejs.dev/blog/biome-v2-6/).
+
+---
+
 ## 두 가지 트랙
 
 | | 무엇 | 진입점 |

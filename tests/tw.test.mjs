@@ -1,11 +1,14 @@
 /* TW 프로필 검증 — 耐震規範(113)·耐風規範(2014)·混凝土規範(112) 식을 테스트 안에서 원문대로 독립 재구현해 앱 값과 대조 (`npm test`) */
-import { boot, checker } from './_harness.mjs'
-const { server, S, load, RC } = await boot()
+import { describe } from 'vitest'
+import { RC } from '../src/engine/index.ts'
+import { S } from '../src/state/store.ts'
+import * as T from '../src/codes/tw.ts'
+import { modelDeadWeights, heightAboveGround } from '../src/codes/selfweight.ts'
+import { twReviewEvaluate, driftCoefTW } from '../src/codes/twReview.ts'
+import { ok, eq } from './_assertions.mjs'
+
+describe('TW — 규범 독립 계산식', () => {
 S.lang = 'ko'
-const T = await load('/src/codes/tw.ts')
-const { modelDeadWeights, heightAboveGround } = await load('/src/codes/selfweight.ts')
-const { twReviewEvaluate, driftCoefTW } = await load('/src/codes/twReview.ts')
-const { ok, eq, done } = checker()
 
 /* ── 독립 재구현 (KB seismic 2.2·2.9·2.10, 표2-5(a)/2-7(a), 2.18) ── */
 const sa = (t, s, t0) => (t <= 0.2 * t0 ? s * (0.4 + 3 * t / t0) : t <= t0 ? s : t <= 2.5 * t0 ? s * t0 / t : 0.4 * s)
@@ -128,6 +131,4 @@ for (const g of ['C210', 'C280', 'C350', 'C420']) {
   eq('비틀림 X 1.3 → warn', g('torsion', 'X').status, 'warn'); eq('비틀림 Y 1.1 → ok', g('torsion', 'Y').status, 'ok')
   ok('V* 계수 = Fu/4.2·(Sa/Fu)m', driftCoefTW(2, sp), (() => { const t0 = 0.35 / 0.6, ra = 1 + 3.8 / 1.5, f = fu(2, ra, t0), a = 0.6 * t0 / 2 /* 2.16.1: SaD 하한 0.4SDS 없음 */; return f / 4.2 * mm(a / f) })()) }
 
-const fails = done('TW')
-await server.close()
-process.exit(fails ? 1 : 0)
+})

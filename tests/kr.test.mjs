@@ -1,10 +1,14 @@
 /* KR 프로필 검증 — KDS 식을 테스트 안에서 원문대로 독립 재구현해 앱 값과 대조 (`npm test`) */
-import { boot, checker } from './_harness.mjs'
-const { server, S, load, RC } = await boot()
+import { describe } from 'vitest'
+import { RC } from '../src/engine/index.ts'
+import { S, codeForLang } from '../src/state/store.ts'
+import * as K from '../src/codes/kr.ts'
+import { heightAboveGround, modelDeadWeights } from '../src/codes/selfweight.ts'
+import { krReviewEvaluate } from '../src/codes/krReview.ts'
+import { ok, eq } from './_assertions.mjs'
+
+describe('KR — 규범 독립 계산식', () => {
 S.lang = 'ko'
-const K = await load('/src/codes/kr.ts')
-const { heightAboveGround, modelDeadWeights } = await load('/src/codes/selfweight.ts')
-const { ok, eq, done } = checker()
 
 const lin = (x, x0, x1, y0, y1) => y0 + (y1 - y0) * (x - x0) / (x1 - x0)
 const tab = (row, S) => S <= 0.1 ? row[0] : S >= 0.3 ? row[2] : S <= 0.2 ? lin(S, 0.1, 0.2, row[0], row[1]) : lin(S, 0.2, 0.3, row[1], row[2])
@@ -89,10 +93,8 @@ eq('adapt CN C30 → C24', K.KR.adaptSpec({ ...p, code: 'CN', matName: 'C30' }).
 eq('adapt CN C40 → C30', K.KR.adaptSpec({ ...p, code: 'CN', matName: 'C40' }).matName, 'C30')
 eq('adapt CN C60 → C50', K.KR.adaptSpec({ ...p, code: 'CN', matName: 'C60' }).matName, 'C50')
 eq('adapt KR C30 keep', K.KR.adaptSpec({ ...p, code: 'KR', matName: 'C30' }).matName, 'C30')
-const { codeForLang } = await load('/src/state/store.ts')
 eq('ko → KR', codeForLang('ko'), 'KR'); eq('zh-CN → CN', codeForLang('zh-CN'), 'CN'); eq('en → TW', codeForLang('en'), 'TW')
 /* 검토: Cm 은 scaled 일 때만 나눔 */
-const { krReviewEvaluate } = await load('/src/codes/krReview.ts')
 const T_ = (HEAD, DATA) => ({ HEAD, DATA })
 const dd = { DX: { DX: T_(['Story', 'Story Height', 'Maximum Drift of All Vertical Elements/Story Drift'], [['2F', '4', '0.004']]) }, DY: { DY: T_(['Story', 'Story Height', 'Maximum Drift of All Vertical Elements/Story Drift'], [['2F', '4', '0.004']]) } }
 const dr = ctx => krReviewEvaluate(p, sp, dd, ctx).find(i => i.id === 'drift' && i.dir === 'X').value
@@ -112,6 +114,7 @@ eq('no Korean in en review', /[가-힣]/.test(labEn), false)
   // G_D 독립: n_D = 1/Ta
   const nD = 1 / Ta, zeta = 0.02, beta = 0.5
   const IH = 0.1 * Math.pow(H / 450, -0.27), gam = (3 + 0.66) / 2.22 * IH, LH = 100 * Math.sqrt(H / 30)
+  // biome-ignore lint/correctness/noComponentHookFactories: G는 규범의 돌풍계수 계산 함수이며 React 컴포넌트가 아니다.
   const G = (B) => { const kk = H >= B ? 0.33 : -0.33
     const BD = 1 - 1 / Math.pow(1 + 5.1 * Math.pow(LH / Math.sqrt(H * B), 1.3) * Math.pow(B / H, kk), 1 / 3)
     if (nD > 1) return 1 + 4 * gam * Math.sqrt(BD)
@@ -125,7 +128,6 @@ eq('no Korean in en review', /[가-힣]/.test(labEn), false)
   // 1층 (z=4.5 ≤ zb): kz = (zb/H)^0.44, trib = 4.5/2+4/2
   const kz1 = Math.pow(15 / H, 0.44)
   ok('F1 X', w.forcesX[0].F, G(Ly) * qH * (0.8 * kz1 + (DB > 1 ? 0.05 : 0) + (DB <= 1 ? 0.5 : 0.35)) * Ly * 4.25)
-  console.log(`wind: H=${H} VH=${VH.toFixed(2)} qH=${qH.toFixed(3)} nD=${nD.toFixed(3)} GX=${w.GX.toFixed(3)} GY=${w.GY.toFixed(3)} Vx=${w.Vx.toFixed(0)} Vy=${w.Vy.toFixed(0)} kN`)
   // 강체 경로 (n_D > 1)
   const wr = K.windKR({ ...p, stories: 3 }, { V0: 30, exposure: 'B', nD: 2 })
   ok('G rigid', wr.GX, 1 + 4 * ((3.66 / 2.22) * 0.1 * Math.pow(15 / 450, -0.27)) * Math.sqrt(1 - 1 / Math.cbrt(1 + 5.1 * Math.pow(100 / Math.sqrt(Math.max(heightAboveGround({ ...p, stories: 3 }), 0.1) * Ly), 1.3) * Math.pow(Ly / heightAboveGround({ ...p, stories: 3 }), Ly <= heightAboveGround({ ...p, stories: 3 }) ? 0.33 : -0.33))))
@@ -147,6 +149,4 @@ eq('no Korean in en review', /[가-힣]/.test(labEn), false)
   eq('시스템 불변 → null', K.KR.reconcileEdit(big, big, base), null)
   eq('bearing 토글도 동일', K.KR.reconcileEdit(big, { ...big, bearing: { on: true, thick: 200 } }, base)?.H, 500) }
 
-const fails = done('KR')
-await server.close()
-process.exit(fails ? 1 : 0)
+})

@@ -1,0 +1,80 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "includes": [
+      "src/**",
+      "scripts/**",
+      "tests/**",
+      "*.json",
+      "*.ts",
+      "*.html",
+      "!!archive",
+      "!!dist",
+      "!!shared",
+      "!!src/i18n/keys.gen.ts",
+      "!!package-lock.json"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "includes": [
+      "biome.json",
+      "package.json",
+      "vitest.config.ts",
+      "tests/setup.mjs",
+      "tests/_assertions.mjs"
+    ],
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf"
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "asNeeded",
+      "arrowParentheses": "asNeeded"
+    }
+  },
+  "assist": {
+    "includes": ["vitest.config.ts", "tests/setup.mjs", "tests/_assertions.mjs"]
+  },
+  "linter": {
+    "rules": {
+      "preset": "recommended",
+      "suspicious": { "noExplicitAny": "warn" },
+      "style": { "noNonNullAssertion": "warn" }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/**", "scripts/**", "*.html"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "noAutofocus": "warn",
+            "noLabelWithoutControl": "warn",
+            "noStaticElementInteractions": "warn",
+            "useButtonType": "warn",
+            "useHeadingContent": "warn",
+            "useKeyWithClickEvents": "warn",
+            "useSemanticElements": "warn"
+          },
+          "correctness": {
+            "noComponentHookFactories": "warn",
+            "noInnerDeclarations": "warn",
+            "useExhaustiveDependencies": "warn",
+            "useHookAtTopLevel": "warn"
+          },
+          "security": { "noDangerouslySetInnerHtml": "warn" },
+          "suspicious": {
+            "noArrayIndexKey": "warn",
+            "noAssignInExpressions": "warn",
+            "noImplicitAnyLet": "warn",
+            "useIterableCallbackReturn": "warn"
+          }
+        }
+      }
+    }
+  ]
+}
