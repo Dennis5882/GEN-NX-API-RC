@@ -1,6 +1,7 @@
 import { Button } from './ui/button'
 import { NativeSelect } from './ui/native-select'
 import { Input } from './ui/input'
+import { EditorSection, Segmented, SwitchRow } from './editor/EditorParts'
 import { uiClass } from '@/styles/component-classes'
 import { cn } from '@/lib/utils'
 /* 편집 가능 규격 카드 — 상단 그리드 · 단면/재료 팔레트 · 표준층 표 · 내진 · 풍 · 코어.
@@ -27,11 +28,21 @@ const TOP_TEXT: Partial<Record<TopKey, boolean>> = { spanX: true, spanY: true }
 
 function Unit({ u }: { u?: string }) { return u ? <span className={uiClass("pe-u")}>{u}</span> : null }
 
+/** 선택지가 4개 이하이고 짧으면 분절 버튼, 아니면 드롭다운 */
+function Choice({ value, options, onChange, label }: { value: string; options: { value: string; label: string }[]; onChange(v: string): void; label?: string }) {
+  const short = options.length >= 2 && options.length <= 4 && options.every(o => o.label.length <= 8)
+  return short
+    ? <Segmented value={value} options={options} onChange={onChange} label={label} />
+    : <NativeSelect plain value={value} onChange={e => onChange(e.target.value)}>
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </NativeSelect>
+}
+
 const TOWER = ['A', 'B', 'C', 'D']
 const SIZES: [number, number][] = [[1, 1], [2, 1], [1, 2], [2, 2]]
 
 /** 전단벽 코어 — 켜기·두께 + 미니 평면 격자(칸 클릭·화살표 이동)·크기 + 2동 이상 적용 동·배치(같은 위치/좌우 대칭/동별) */
-function CoreSection({ base, st, setSt }: Pick<Props, 'base' | 'st' | 'setSt'>) {
+function CoreSection({ base, st, setSt, first }: Pick<Props, 'base' | 'st' | 'setSt'> & { first?: boolean }) {
   const c = st.core
   const [ed, setEd] = useState(0)
   const set = (fn: (c: CoreState) => CoreState) => setSt(s => ({ ...s, core: fn(s.core) }))
@@ -50,21 +61,17 @@ function CoreSection({ base, st, setSt }: Pick<Props, 'base' | 'st' | 'setSt'>) 
   const btn = 'px-[8px]! py-[2px]! min-w-[28px]!'
   const cell = Math.max(14, Math.min(26, Math.floor(220 / Math.max(L.nbx, L.nby))))
   return (
-    <div className={uiClass("[margin-top:12px]! [border-top:1px_dashed_var(--border)]! [padding-top:12px]!")} >
-      <label className={uiClass("[display:flex]! [align-items:center]! [gap:8px]! [cursor:pointer]! [font-size:.82rem]! [color:var(--cyan)]! [font-weight:600]!")} >
-        <Input plain type="checkbox" checked={c.on} onChange={e => set(k => ({ ...k, on: e.target.checked }))} /> 🧱 {t('central_shear_wall_core_au')}
-      </label>
+    <div className={uiClass(first ? '' : '[margin-top:14px]! [border-top:1px_dashed_var(--border)]! [padding-top:12px]!')} >
+      <SwitchRow checked={c.on} onChange={v => set(k => ({ ...k, on: v }))} label={<>🧱 {t('central_shear_wall_core_au')}</>} />
       <div className={uiClass("pe-grid [margin-top:10px]!")} >
         <div className={uiClass("pe-f")}><label>{t('wall_thick')}</label><div className={uiClass("pe-in")}>
           <Input plain type="number" step="any" value={c.thick} onChange={e => set(k => ({ ...k, thick: e.target.value }))} /><Unit u="mm" /></div></div>
         {c.on && <div className={uiClass("pe-f")}><label>{t('core_size')}</label><div className={uiClass("pe-in")}>
-          <NativeSelect plain value={`${L.nx}x${L.ny}`} onChange={e => { const [nx, ny] = e.target.value.split('x').map(Number); set(k => ({ ...k, nx, ny })) }}>
-            {SIZES.filter(([x, y]) => x <= L.nbx && y <= L.nby).map(([x, y]) => <option key={`${x}x${y}`} value={`${x}x${y}`}>{x}×{y}</option>)}
-          </NativeSelect></div></div>}
+          <Choice label={t('core_size')} value={`${L.nx}x${L.ny}`} onChange={v => { const [nx, ny] = v.split('x').map(Number); set(k => ({ ...k, nx, ny })) }}
+            options={SIZES.filter(([x, y]) => x <= L.nbx && y <= L.nby).map(([x, y]) => ({ value: `${x}x${y}`, label: `${x}×${y}` }))} /></div></div>}
         {c.on && nb > 1 && <div className={uiClass("pe-f")}><label>{t('core_layout')}</label><div className={uiClass("pe-in")}>
-          <NativeSelect plain value={c.layout} onChange={e => set(k => ({ ...k, layout: e.target.value as CoreState['layout'] }))}>
-            {(['same', 'mirror', 'each'] as const).map(v => <option key={v} value={v}>{t(`core_layout_${v}`)}</option>)}
-          </NativeSelect></div></div>}
+          <Choice label={t('core_layout')} value={c.layout} onChange={v => set(k => ({ ...k, layout: v as CoreState['layout'] }))}
+            options={(['same', 'mirror', 'each'] as const).map(v => ({ value: v, label: t(`core_layout_${v}`) }))} /></div></div>}
         {c.on && nb > 1 && <div className={uiClass("pe-f")}><label>{t('core_towers')}</label><div className={uiClass("pe-in [gap:10px]!")} >
           {L.towers.map(tw => <label className={uiClass("[display:inline-flex]! [align-items:center]! [gap:3px]! [cursor:pointer]!")} key={tw.building} >
             <Input plain type="checkbox" checked={tw.on} onChange={e => set(k => ({ ...k, skip: e.target.checked ? k.skip.filter(b => b !== tw.building) : [...k.skip, tw.building] }))} />{TOWER[tw.building]}
@@ -116,10 +123,8 @@ function LateralSection({ g, icon, st, set, first }: {
     set({ ...st, vals })
   }
   return (
-    <div className={uiClass(cn("[border-top:1px_dashed_var(--border)]! [padding-top:12px]!", first ? 'mt-[14px]!' : 'mt-[12px]!'))}>
-      <label className={uiClass("[display:flex]! [align-items:center]! [gap:8px]! [cursor:pointer]! [font-size:.82rem]! [color:var(--cyan)]! [font-weight:600]!")} >
-        <Input plain type="checkbox" checked={st.on} onChange={e => set({ ...st, on: e.target.checked })} /> {icon} {t(g.toggleKey)}
-      </label>
+    <div className={uiClass(first ? '' : '[border-top:1px_dashed_var(--border)]! [margin-top:14px]! [padding-top:12px]!')}>
+      <SwitchRow checked={st.on} onChange={v => set({ ...st, on: v })} label={<>{icon} {t(g.toggleKey)}</>} />
       <div className={uiClass("pe-grid [margin-top:10px]!")} >
         {presets && g.presets && (
           <div className={uiClass("pe-f pe-full")}><label>{t(g.presets.labelKey)}</label><div className={uiClass("pe-in")}>
@@ -131,9 +136,7 @@ function LateralSection({ g, icon, st, set, first }: {
         {g.fields.map(f => (
           <div className={uiClass("pe-f")} key={f.key}><label>{f.label()}</label><div className={uiClass("pe-in")}>
             {f.kind === 'select'
-              ? <NativeSelect plain value={st.vals[f.key] ?? ''} onChange={e => setVal(f.key, e.target.value)}>
-                  {f.options!().map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </NativeSelect>
+              ? <Choice label={f.label()} value={st.vals[f.key] ?? ''} onChange={v => setVal(f.key, v)} options={f.options!()} />
               : <Input plain type="number" step="any" value={st.vals[f.key] ?? ''} onChange={e => setVal(f.key, e.target.value)} />}
             <Unit u={f.unit} /></div></div>
         ))}
@@ -191,10 +194,19 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
 
   const prof = profileOf(base)
 
+  /* 섹션이 접혔을 때 보이는 한 줄 요약 */
+  const onOff = (g: LateralState | undefined, name: string) => (g?.on ? name : '')
+  const sumGeom = [st.top.buildings && `${st.top.buildings}`, st.top.bayX && st.top.bayY && `${st.top.bayX}×${st.top.bayY}`, st.top.spanX && `${st.top.spanX} mm`].filter(Boolean).join(' · ')
+  const sumPal = [...st.cols.slice(0, 1).map(r => palName('cols', r)), ...st.beams.slice(0, 1).map(r => palName('beams', r)), st.mats[0]].filter(Boolean).join(' · ')
+  const sumFloors = `${st.rows.length} ${t('role')} · ${t('slab_thk')} ${st.slabThk} mm`
+  const sumLat = [onOff(st.seis, t(prof.seismic.toggleKey)), onOff(st.wind, t(prof.wind.toggleKey))].filter(Boolean).join(' · ') || t('pe_off')
+  const sumWalls = [st.core.on && `${t('central_shear_wall_core_au')} ${st.core.nx}×${st.core.ny}`, st.bearing.on && t('bw_toggle')].filter(Boolean).join(' · ') || t('pe_off')
+
   return (
     <fieldset className={uiClass("[border:none]! [padding:0]! [margin:0]! [min-width:0]!")} disabled={disabled} >
       <div className={uiClass("plan-editor")}>
         <div dangerouslySetInnerHTML={{ __html: typeHeadHTML(base, '<div class="pe-head">') }} />
+        <EditorSection num={1} title={t('pe_sec_geom')} summary={sumGeom} defaultOpen>
         <div className={uiClass("pe-grid")}>
           {TOP_KEYS.map(k => (
             <div className={uiClass("pe-f")} key={k}>
@@ -206,10 +218,11 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
             </div>
           ))}
         </div>
+        </EditorSection>
 
         {/* ── 단면·재료 팔레트 ── */}
-        <div className={uiClass("palette [margin-top:14px]! [border-top:1px_dashed_var(--border)]! [padding-top:12px]!")} >
-          <div className={uiClass("[font-size:.82rem]! [color:var(--cyan)]! [font-weight:600]! [margin-bottom:8px]!")} >◫ {t('pal_title')}</div>
+        <EditorSection num={2} title={t('pe_sec_sections')} summary={sumPal}>
+        <div className={uiClass("palette")} >
           {palKinds.map(([kind, lbl, d], ki) => (
             <div className={uiClass(cn("pal-sec", ki ? "[margin-top:8px]!" : ""))} key={kind} >
               <div className={uiClass("[font-size:.76rem]! [color:var(--muted)]! [margin-bottom:4px]!")} >
@@ -240,9 +253,11 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
           </div>
           <div className={uiClass("pe-tip [margin-top:6px]!")} >{t('pal_hint')}</div>
         </div>
+        </EditorSection>
 
         {/* ── 표준층 표 (위=지붕 → 아래=지하) ── */}
-        <div className={uiClass("[margin-top:14px]!")} >
+        <EditorSection num={3} title={t('pe_sec_floors')} summary={sumFloors}>
+        <div>
           <div className={uiClass("[font-size:.7rem]! [color:var(--amber)]! [font-family:'IBM_Plex_Mono',var(--cjk)]! [letter-spacing:.5px]! [margin-bottom:6px]!")} >
             {t('floor_stack_top_roof_botto')}
           </div>
@@ -282,18 +297,14 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
             </table>
           </div>
           <div className={uiClass("pe-tip")}>{t('use_above_below_on_a_row_t')}</div>
-          <label className={uiClass("[display:flex]! [align-items:center]! [gap:7px]! [margin-top:8px]! [font-size:.82rem]! [cursor:pointer]!")} >
-            <Input plain type="checkbox" checked={st.storyData} onChange={e => setSt(s => ({ ...s, storyData: e.target.checked }))} />
-            <span>{t('auto_create_story_data_db_')}</span>
-          </label>
+          <div className={uiClass("[margin-top:10px]!")}>
+            <SwitchRow checked={st.storyData} onChange={v => setSt(s => ({ ...s, storyData: v }))} label={t('auto_create_story_data_db_')} />
+          </div>
           <div className={uiClass("pe-tip [opacity:0.75]!")} >{t('fills_the_story_data_table')}</div>
-          <div className={uiClass("pe-f [margin-top:8px]! [align-items:center]! [gap:8px]! [display:flex]!")} >
-            <label className={uiClass("[font-size:.82rem]! [white-space:nowrap]!")} >{t('diaphragm_method')}</label>
-            <NativeSelect plain className={uiClass("[flex:1]! [font-size:.82rem]!")} value={st.diaMethod}
-              onChange={e => setSt(s => ({ ...s, diaMethod: e.target.value as 'story' | 'rigd' }))}>
-              <option value="story">{t('story_floor_diaphragm_db_s')}</option>
-              <option value="rigd">{t('rigid_link_db_rigd')}</option>
-            </NativeSelect>
+          <div className={uiClass("pe-f [margin-top:10px]!")} >
+            <label>{t('diaphragm_method')}</label>
+            <Segmented label={t('diaphragm_method')} value={st.diaMethod} onChange={v => setSt(s => ({ ...s, diaMethod: v as 'story' | 'rigd' }))}
+              options={[{ value: 'story', label: t('story_floor_diaphragm_db_s') }, { value: 'rigd', label: t('rigid_link_db_rigd') }]} />
           </div>
           <div className={uiClass("pe-tip [opacity:0.75]!")} >{t('rigd_db_rigd_rigid_link_man')}</div>
           <div className={uiClass("pe-grid [margin-top:8px]!")} >
@@ -302,17 +313,19 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
           </div>
           <div className={uiClass("pe-tip [opacity:0.75]!")} >{t('slab_tip')}</div>
         </div>
+        </EditorSection>
 
         {/* ── M2-A1 지진 · M2-A2 풍하중 (설계기준 프로필) ── */}
-        {prof.unverified && <div className={uiClass("pe-tip [margin-top:12px]! [color:var(--amber)]!")} >{t(`code_${prof.id}`)} — {t('code_unverified')}</div>}
+        <EditorSection num={4} title={t('pe_sec_lateral')} summary={sumLat}>
+        {prof.unverified && <div className={uiClass("pe-tip [margin-bottom:8px]! [color:var(--amber)]!")} >{t(`code_${prof.id}`)} — {t('code_unverified')}</div>}
         <LateralSection g={prof.seismic} icon="🌐" st={st.seis} set={v => setSt(s => ({ ...s, seis: v }))} first />
         <LateralSection g={prof.wind} icon="🌬" st={st.wind} set={v => setSt(s => ({ ...s, wind: v }))} />
+        </EditorSection>
 
         {/* ── 내력벽(벽식) — 한국 기준 또는 이미 켜진 스펙 ── */}
-        {(prof.id === 'KR' || st.bearing.on) && <div className={uiClass("[margin-top:12px]! [border-top:1px_dashed_var(--border)]! [padding-top:12px]!")} >
-          <label className={uiClass("[display:flex]! [align-items:center]! [gap:8px]! [cursor:pointer]! [font-size:.82rem]! [color:var(--cyan)]! [font-weight:600]!")} >
-            <Input plain type="checkbox" checked={st.bearing.on} onChange={e => setSt(s => ({ ...s, bearing: { ...s.bearing, on: e.target.checked } }))} /> 🏢 {t('bw_toggle')}
-          </label>
+        <EditorSection num={5} title={t('pe_sec_walls')} summary={sumWalls}>
+        {(prof.id === 'KR' || st.bearing.on) && <div>
+          <SwitchRow checked={st.bearing.on} onChange={v => setSt(s => ({ ...s, bearing: { ...s.bearing, on: v } }))} label={<>🏢 {t('bw_toggle')}</>} />
           {st.bearing.on && <div className={uiClass("pe-grid [margin-top:10px]!")} >
             <div className={uiClass("pe-f")}><label>{t('wall_thick')}</label><div className={uiClass("pe-in")}>
               <Input plain type="number" step="any" value={st.bearing.thick} onChange={e => setSt(s => ({ ...s, bearing: { ...s.bearing, thick: e.target.value } }))} /><Unit u="mm" /></div></div>
@@ -321,7 +334,8 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
         </div>}
 
         {/* ── M2-A3 전단벽 코어 (위치·크기·동별) ── */}
-        <CoreSection base={base} st={st} setSt={setSt} />
+        <CoreSection base={base} st={st} setSt={setSt} first={!(prof.id === 'KR' || st.bearing.on)} />
+        </EditorSection>
 
         <div className={uiClass("pe-tip")}>{t('edit_role_range_height_use')}</div>
         <div className={uiClass("pe-tip [margin-top:4px]!")} >{t('spanHint')}</div>

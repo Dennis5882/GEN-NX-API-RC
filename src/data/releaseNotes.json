@@ -1,4 +1,26 @@
 {
+  "v3_15_0": {
+    "ko": [
+      "건물 편집 카드를 번호 섹션 5개(형상·단면·층 구성·지진/풍하중·벽/코어)로 나누고, 접으면 현재 설정을 한 줄로 보여줍니다.",
+      "지진·풍하중·내력벽·코어 켜기/끄기를 스위치로, 선택지가 적은 항목을 버튼형 선택으로 바꿨습니다.",
+      "설계기준마다 달라지는 입력 항목도 같은 방식으로 자동 표시됩니다."
+    ],
+    "en": [
+      "The building edit card is split into five numbered sections (geometry, sections, floors, seismic/wind, walls/core); collapsed sections show a one-line summary of the current settings.",
+      "Seismic, wind, bearing-wall and core on/off are now switches, and short choice lists became button-style selectors.",
+      "Code-specific inputs for each design standard use the same layout automatically."
+    ],
+    "zh-TW": [
+      "建築編輯卡分為五個編號區塊（形狀、斷面、樓層、地震/風力、牆/核心），收合時以一行顯示目前設定。",
+      "地震、風力、承重牆與核心的開關改為切換開關，選項較少的欄位改為按鈕式選擇。",
+      "各設計規範不同的輸入項目也會以相同方式自動顯示。"
+    ],
+    "zh-CN": [
+      "建筑编辑卡分为五个编号区块（形状、截面、楼层、地震/风荷载、墙/核心筒），收起时以一行显示当前设置。",
+      "地震、风荷载、承重墙与核心筒的开关改为切换开关，选项较少的字段改为按钮式选择。",
+      "各设计规范不同的输入项也会以相同方式自动显示。"
+    ]
+  },
   "v3_14_0": {
     "ko": [
       "화면을 새 구성 요소로 교체해 버튼·카드·패널의 모양과 동작을 통일했고, 모바일 화면도 다듬었습니다.",

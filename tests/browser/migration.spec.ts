@@ -170,7 +170,8 @@ for (const width of [1440, 390]) {
     const count = page.locator('.plan-editor input').first()
     await count.fill('1')
     await expect(count).toHaveValue('1')
-    await page.getByRole('checkbox', { name: /Shear-wall core/ }).check()
+    await page.getByRole('button', { name: /Walls & core/ }).click()
+    await page.getByRole('switch', { name: /Shear-wall core/ }).check()
     await expect(page.getByRole('grid')).toBeVisible()
     const nativeControls = await page
       .locator('.plan-editor')
