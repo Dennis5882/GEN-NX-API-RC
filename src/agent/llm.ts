@@ -6,6 +6,7 @@
    - Gemini 3: 응답 part(thoughtSignature 포함)를 다음 요청에 그대로 재전송 → turn.raw 보존.
    - DeepSeek: thinking 기본 ON, assistant reasoning_content 를 모든 후속 요청에 재전송(누락 시 400).
 ════════════════════════════════════════════════════════════ */
+import { resetStage } from '../state/stageRun'
 import { actAnalyze, actDynamic } from '../actions/analysis'
 import { actAddBracing, actAddLoad, actBuildFrame, actModifySection, actResizeSubset, clearModel } from '../actions/model'
 import { actReview } from '../actions/review'
@@ -295,6 +296,7 @@ async function callTool(name: string, inp: any): Promise<string> {
   if (name === 'clear_model') {
     await clearModel()
     S.model.nodes = []; S.model.cols = []; S.model.beams = []; S.model.links = []
+    resetStage()
     renderModelState(); return 'Model cleared.'
   }
   if (name === 'propose_model') {

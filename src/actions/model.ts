@@ -2,6 +2,7 @@
    모델 생성·편집 액션 — 바닐라 ACTIONS 섹션 1:1 이전.
    엔진(RC.*)은 순수 계산, 여기서 MAPI 전송 + S.model 갱신 + 로그.
 ════════════════════════════════════════════════════════════ */
+import { runPre } from '../state/stageRun'
 import { profileOf } from '../codes'
 import { slabLoad, slabThk } from '../codes/selfweight'
 import { asSpans, buildFrame, buildStoryData, cumPos, deriveFloorGroups, resolveWalls, specSections, type BuildingSpec } from '../engine'
@@ -346,7 +347,8 @@ async function putFloorMembranes(p: BuildingSpec, f: any, recs: ElemRec[], eid: 
   return eid
 }
 
-export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any> {
+export const actBuildFrame = (p: BuildingSpec, clear = true): Promise<any> => runPre(() => buildFrameImpl(p, clear))
+async function buildFrameImpl(p: BuildingSpec, clear = true): Promise<any> {
   if (!S.connected) throw new Error(t('e_notconn'))
   p.walls = resolveWalls(p)   // 코어 + 내력벽 — 층수·경간이 바뀐 스펙(change_spec 등)의 낡은 walls 재생성
   const f = buildFrame(p)
@@ -491,7 +493,8 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
   return f
 }
 
-export async function actModifySection(target: 'col' | 'beam', H: number, B: number): Promise<string> {
+export const actModifySection = (target: 'col' | 'beam', H: number, B: number): Promise<string> => runPre(() => modifySectionImpl(target, H, B))
+async function modifySectionImpl(target: 'col' | 'beam', H: number, B: number): Promise<string> {
   if (!S.model.nodes.length) throw new Error(t('e_nomodel_edit'))
   const sid = target === 'col' ? 1 : 2
   const name = (target === 'col' ? 'C' : 'B') + H + 'x' + B
@@ -505,7 +508,8 @@ export async function actModifySection(target: 'col' | 'beam', H: number, B: num
   return t('act_modsect', tg, name, cnt)
 }
 
-export async function actResizeSubset(target: 'col' | 'beam', H: number, B: number, floors: number[]): Promise<string> {
+export const actResizeSubset = (target: 'col' | 'beam', H: number, B: number, floors: number[]): Promise<string> => runPre(() => resizeSubsetImpl(target, H, B, floors))
+async function resizeSubsetImpl(target: 'col' | 'beam', H: number, B: number, floors: number[]): Promise<string> {
   if (!S.model.nodes.length) throw new Error(t('e_nomodel_edit'))
   const type = target === 'col' ? 'col' : 'beam'
   let recs = S.model.elemRecs.filter(r => r.type === type)
@@ -526,7 +530,8 @@ export async function actResizeSubset(target: 'col' | 'beam', H: number, B: numb
   return t('act_resize', fl, tg, recs.length, H, B, name)
 }
 
-export async function actAddLoad(name: string, type: string, floor: number, fz: number): Promise<string> {
+export const actAddLoad = (name: string, type: string, floor: number, fz: number): Promise<string> => runPre(() => addLoadImpl(name, type, floor, fz))
+async function addLoadImpl(name: string, type: string, floor: number, fz: number): Promise<string> {
   if (!S.model.nodes.length) throw new Error(t('e_nomodel'))
   const no = S.model.nextLC!++
   await putLoadCase(no, name, type)
@@ -541,7 +546,8 @@ export async function actAddLoad(name: string, type: string, floor: number, fz: 
   return t('act_addload', name, type, floor, ids.length, fz)
 }
 
-export async function actAddBracing(building: number, floors: number[]): Promise<string> {
+export const actAddBracing = (building: number, floors: number[]): Promise<string> => runPre(() => addBracingImpl(building, floors))
+async function addBracingImpl(building: number, floors: number[]): Promise<string> {
   if (!S.model.nodes.length) throw new Error(t('e_nomodel'))
   const p = S.model.spec!
   const sx = asSpans(p.spanX, p.bayX), sy = asSpans(p.spanY, p.bayY)

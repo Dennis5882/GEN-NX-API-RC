@@ -1,4 +1,5 @@
 /* 해석·결과 회수·동적해석 — 바닐라 1:1 이전 */
+import { runSolve, solveDone, solveFail } from '../state/stageRun'
 import { profileOf } from '../codes'
 import { eigvPayload, pickModalPeriods, splcPayload } from '../engine'
 import { t, tl } from '../i18n'
@@ -83,7 +84,8 @@ async function fetchTable(type: string, lcNames: string[], extra: Record<string,
   return (j?.SS?.HEAD && j?.SS?.DATA) ? { head: j.SS.HEAD, data: j.SS.DATA } : null
 }
 
-export async function actAnalyze(): Promise<typeof S.results> {
+export const actAnalyze = (): Promise<typeof S.results> => runSolve('static', analyzeImpl)
+async function analyzeImpl(): Promise<typeof S.results> {
   if (!S.model.nodes.length) throw new Error(t('e_noanalyze'))
   const prof0 = profileOf(S.model.spec)
   /* A_x 표(층 결과 테이블)는 Story Calc 선등록이 필요 — 해석 전에 호출(해석 후 호출은 결과 무효화) */
@@ -116,7 +118,8 @@ async function shearCoefRows(lc: string): Promise<Record<string, string>[]> {
   return tableObjs(j, 'SC')
 }
 
-export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
+export const actDynamic = (opt: { rs?: boolean } = {}): Promise<string> => runSolve('dynamic', () => dynamicImpl(opt), false)
+async function dynamicImpl(opt: { rs?: boolean } = {}): Promise<string> {
   if (!S.connected) throw new Error(t('e_notconn'))
   if (!S.model.nodes || !S.model.nodes.length) throw new Error(t('e_nomodel'))
   const p: any = S.model.spec || {}
@@ -269,6 +272,8 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
     msg += rsLines.map(l => '<br>　' + l).join('')
   }
   msg += `<br><span class="[color:var(--dim)]! [font-size:.85em]!">` + t('dynNote', liveF) + `</span>`
+  /* 단계 상태 — 해석 거부(Analysis is not allowed)는 throw 가 아니라 메시지로 오므로 여기서 판정. 심사 전에 성공 처리해야 심사가 최신으로 기록됨 */
+  if (notAllowed) solveFail(t('analysis_refused')); else solveDone('dynamic')
   /* 심사 지표(기준 지원 시) — 재해석까지 끝난 결과로 */
   if (prof.review && !notAllowed) {
     try { msg += '<br><br>' + await actReview() } catch (e: any) { log('▸ ' + t('rv_fetch_failed') + e.message, 'warn') }

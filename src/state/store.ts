@@ -8,6 +8,7 @@ import { useSyncExternalStore } from 'react'
 import { DEFAULT_LANG, LANGS, detectLang, normalizeLang, type Lang } from '../i18n/types'
 import type { BuildingSpec } from '../engine/types'
 import type { CodeId } from '../codes/types'
+import { initStage } from './stage'
 
 export type PanelId = 'logP' | 'modelP' | 'viewP' | 'resP'
 export type ResultTab = 'react' | 'disp' | 'force' | 'moment'
@@ -182,6 +183,8 @@ export const S = {
   pendingBuild: null as BuildingSpec | null,
   pendingBuildId: 0,
   buildEpoch: 0,
+  /** 단계 상태(전처리·솔버·후처리) — src/state/stage.ts */
+  stage: initStage(),
   /* UI */
   panel: 'logP' as PanelId,
   resultTab: 'react' as ResultTab,

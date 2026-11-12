@@ -2,6 +2,7 @@
    AGENT DISPATCH (LOCAL) — handleLocal(txt): parseCommand → 액션/즉시 응답. 바닐라 1:1.
    건물 확인·편집 카드는 kind:'plan' 메시지(PlanCard 컴포넌트)로 렌더.
 ════════════════════════════════════════════════════════════ */
+import { resetStage } from '../state/stageRun'
 import { actAnalyze, actDynamic } from '../actions/analysis'
 import { actReview } from '../actions/review'
 import { actAddBracing, actAddLoad, actBuildFrame, actModifySection, actResizeSubset, clearModel } from '../actions/model'
@@ -35,6 +36,7 @@ export async function handleLocal(txt: string): Promise<void> {
       try {
         await clearModel()
         S.model = { ...S.model, nodes: [], cols: [], beams: [], links: [] }
+        resetStage()
         renderModelState(); th.remove(); addMsg('bot', t('clear_chat_model'))
       } catch (e: any) { th.remove(); addMsg('bot', t('err', e.message)) }
       return

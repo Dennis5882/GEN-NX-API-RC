@@ -263,3 +263,23 @@ test('required-item status guards the execute button', async ({ page }) => {
   await expect(status).toHaveAttribute('data-required', 'ok')
   await expect(page.locator('.confirm-row .btn-c')).toBeEnabled()
 })
+
+test('stage bar shows three stages, starts not-run and switches panels', async ({ page }) => {
+  await page.goto('/en/')
+  const bar = page.getByRole('navigation', { name: 'Workflow stages' })
+  await expect(bar).toBeVisible()
+  for (const key of ['pre', 'solve', 'post']) {
+    await expect(bar.locator(`[data-stage=${key}]`)).toHaveAttribute('data-status', 'none')
+  }
+  await bar.locator('[data-stage=post]').click()
+  await expect(page.locator('#resP')).toHaveClass(/\bon\b/)
+  await bar.locator('[data-stage=pre]').click()
+  await expect(page.locator('#modelP')).toHaveClass(/\bon\b/)
+})
+
+test('stage bar fits the 390px layout without horizontal page scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/ko/')
+  await expect(page.getByRole('navigation', { name: '작업 단계' })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
+})

@@ -1,4 +1,22 @@
 {
+  "v3_16_0": {
+    "ko": [
+      "오른쪽 패널 위에 전처리 → 솔버 → 후처리 단계 표시줄을 추가했습니다. 각 단계가 미실행·최신·오래됨·실행 중·실패 중 어느 상태인지 보여 주고, 누르면 해당 탭으로 이동합니다.",
+      "모델을 다시 만들거나 고치면 해석·심사 결과가 오래됨으로, 다시 해석하면 심사 결과가 오래됨으로 표시되어 무엇을 다시 실행해야 하는지 알 수 있습니다."
+    ],
+    "en": [
+      "Added a Pre-processing → Solver → Post-processing stage bar above the right panel. Each stage shows whether it is not run, up to date, outdated, running or failed, and clicking it opens the matching tab.",
+      "Rebuilding or editing the model marks analysis and review results as outdated, and re-running the analysis marks review results as outdated, so you can see what needs to be run again."
+    ],
+    "zh-TW": [
+      "在右側面板上方新增「前處理 → 求解 → 後處理」階段列。各階段會顯示未執行、最新、已過期、執行中或失敗，點選即可切換到對應分頁。",
+      "重新建立或修改模型後，分析與審查結果會標示為已過期；重新分析後，審查結果會標示為已過期，方便判斷需要重新執行的項目。"
+    ],
+    "zh-CN": [
+      "在右侧面板上方新增“前处理 → 求解 → 后处理”阶段栏。各阶段会显示未执行、最新、已过期、执行中或失败，点击即可切换到对应选项卡。",
+      "重新建立或修改模型后，分析与审查结果会标为已过期；重新分析后，审查结果会标为已过期，便于判断需要重新执行的项目。"
+    ]
+  },
   "v3_15_1": {
     "ko": [
       "편집 카드 섹션마다 필수 항목이 모두 입력되었는지 표시하고, 비어 있으면 항목 이름을 알려주며 [실행] 버튼을 막습니다."

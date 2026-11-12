@@ -8,6 +8,7 @@ import { Footer } from './components/Footer'
 import { Header } from './components/Header'
 import { LogPanel, ModelPanel, ResultsPanel } from './components/Panels'
 import { View3D, onView3DTab } from './components/View3D'
+import { StageBar } from './components/StageBar'
 import { htmlLang, t, type I18nKey } from './i18n'
 import { useStore, type PanelId } from './state/store'
 import { addMsg, tab } from './state/ui'
@@ -74,6 +75,7 @@ export function App() {
         <div className={uiClass("splitter")} title={t('split_tip')} onPointerDown={onSplitDown} onPointerMove={onSplitMove}
           onPointerUp={onSplitUp} onPointerCancel={onSplitUp} onDoubleClick={resetSplit} />
         <Tabs plain asChild value={s.panel} onValueChange={value => { tab(value as PanelId); if (value === 'viewP') onView3DTab() }}><section className={uiClass("right")}>
+          <StageBar />
           <TabsList plain asChild><div className={uiClass("tabbar")}>
             {TABS.map(tb => (
               <TabsTrigger plain value={tb.id} aria-controls={tb.id} key={tb.id} className={uiClass(`tab${s.panel === tb.id ? ' on' : ''}`)}>

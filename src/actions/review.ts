@@ -1,10 +1,11 @@
 /* 심사 지표(审图) — 기준 프로필의 review 훅이 정한 Gen 층 결과 테이블을 회수해 한계와 비교.
    동적해석(doc/anal 재실행) 직후에 호출: actAnalyze 끝의 ope/STOR 가 해석 결과를 무효화하므로 정적 해석만으론 표가 비어 있음. */
+import { postDone, runPost } from '../state/stageRun'
 import { profileOf } from '../codes'
 import type { ReviewItem } from '../codes/types'
 import { t } from '../i18n'
 import { mapi } from '../mapi/client'
-import { S, notify } from '../state/store'
+import { S } from '../state/store'
 import { log } from '../state/ui'
 
 const ICON: Record<ReviewItem['status'], string> = { ok: '✓', warn: '⚠', ng: '✗', info: 'ℹ' }
@@ -24,7 +25,8 @@ export function reviewHtml(items: ReviewItem[], rs: boolean): string {
   return h
 }
 
-export async function actReview(): Promise<string> {
+export const actReview = (): Promise<string> => runPost(reviewImpl)
+async function reviewImpl(): Promise<string> {
   if (!S.connected) throw new Error(t('e_notconn'))
   if (!S.model.nodes || !S.model.nodes.length) throw new Error(t('e_nomodel'))
   const p: any = S.model.spec || {}
@@ -42,6 +44,6 @@ export async function actReview(): Promise<string> {
   }
   const items = prof.review.evaluate(p, p.seismic || {}, data, { rs, T1: dyn.T1 ?? null, rsChk: dyn.rsChk, model: S.model })
   S.review = { items, rs }
-  notify()
+  postDone('review')
   return reviewHtml(items, rs)
 }
