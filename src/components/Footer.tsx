@@ -20,13 +20,13 @@ export function Footer() {
   const setRn = (v: boolean) => { S.rnOpen = v; notify() }
   return (
     <footer className={uiClass("flex shrink-0 items-center gap-[10px] border-t border-border bg-card px-[14px] pt-[5px] pb-[calc(5px+env(safe-area-inset-bottom))] font-mono text-[.68rem] text-[var(--dim)]")}>
-      <span className={uiClass("overflow-hidden text-ellipsis whitespace-nowrap")}><span className={uiClass("max-[640px]:hidden")}>{t('dev')} <b className={uiClass("font-semibold text-muted-foreground")}>Dennis</b> · </span><Button variant="plain" size="plain" className={uiClass("cursor-pointer border-0 bg-transparent px-[2px] font-[inherit] text-primary underline decoration-dotted underline-offset-[3px] hover:decoration-solid")} onClick={() => setRn(true)} title={t('rn_open')}>v{APP_VERSION}</Button><span className={uiClass("max-[640px]:hidden")}>{BUILD_DATE && ` (${t('updated')} : ${BUILD_DATE})`}</span></span>
+      <span className={uiClass("overflow-hidden text-ellipsis whitespace-nowrap")}><span className={uiClass("max-[640px]:hidden")}>{t('dev')} <b className={uiClass("font-semibold text-muted-foreground")}>Dennis</b> · </span><Button variant="native" size="plain" className={uiClass("cursor-pointer border-0 bg-transparent px-[2px] [font:inherit] text-primary underline decoration-dotted underline-offset-[3px] hover:decoration-solid")} onClick={() => setRn(true)} title={t('rn_open')}>v{APP_VERSION}</Button><span className={uiClass("max-[640px]:hidden")}>{BUILD_DATE && ` (${t('updated')} : ${BUILD_DATE})`}</span></span>
       {s.rnOpen && <ReleaseNotes onClose={() => setRn(false)} />}
       <span className={uiClass("flex-1")} />
       <span className={uiClass("whitespace-nowrap max-[640px]:hidden")}>{t('theme_label')}</span>
       <div className={uiClass("flex overflow-hidden rounded-[5px] border border-border")} role="group" aria-label={t('theme_label')}>
         {THEMES.map(th => (
-          <Button key={th} variant="plain" size="plain" aria-pressed={s.theme === th} className={uiClass(cn('flex cursor-pointer items-center gap-[6px] border-0 border-l border-border bg-transparent px-[10px] py-[3px] font-[inherit] whitespace-nowrap text-muted-foreground transition-[color,background] duration-[120ms] first:border-l-0 hover:bg-accent hover:text-[var(--txt-hi)]', s.theme === th && 'bg-[color-mix(in_srgb,var(--cyan)_14%,transparent)] text-[var(--txt-hi)]'))}
+          <Button key={th} variant="native" size="plain" aria-pressed={s.theme === th} className={uiClass(cn('flex cursor-pointer items-center gap-[6px] border-0 border-l border-border bg-transparent px-[10px] py-[3px] whitespace-nowrap text-muted-foreground transition-[color,background] duration-[120ms] [font:inherit] first:border-l-0 hover:bg-accent hover:text-[var(--txt-hi)]', s.theme === th && 'bg-[color-mix(in_srgb,var(--cyan)_14%,transparent)] text-[var(--txt-hi)]'))}
             onClick={() => setTheme(th)} title={t(`theme_${th}`)}>
             <span className={uiClass(cn('size-[11px] shrink-0 rounded-[3px] border border-border', SWATCH[th]))} />
             {t(`theme_s_${th}`)}

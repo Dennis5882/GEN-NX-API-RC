@@ -83,7 +83,7 @@ function Composer() {
         <Badge plain className={uiClass(`tag ${llm ? 'llm' : 'local'}`)}>{llm ? `LLM · ${label} · ${s.provModel}` : t('mode_local')}</Badge>
         <span className={uiClass("[flex:1]!")}  />
         <span className={uiClass("[opacity:0.6]!")} >{llm ? label + t('brain') : s.llm ? t('mode_nokey') : ''}</span>
-        <Button variant="plain" size="plain" className={uiClass("clearchat")} onClick={clearChat} title={t('clearchat_tip')}>{t('clearchat')}</Button>
+        <Button variant="native" size="plain" className={uiClass("clearchat")} onClick={clearChat} title={t('clearchat_tip')}>{t('clearchat')}</Button>
       </div>
       <div className={uiClass("row")}>
         <Textarea plain
@@ -94,7 +94,7 @@ function Composer() {
           onChange={e => { setText(e.target.value); autosize() }}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void onSend() } }}
         />
-        <Button variant="plain" size="plain" className={uiClass("send")} disabled={s.busy} onClick={() => void onSend()}>➤</Button>
+        <Button variant="native" size="plain" className={uiClass("send")} disabled={s.busy} onClick={() => void onSend()}>➤</Button>
       </div>
     </div>
   )
@@ -112,7 +112,7 @@ export function Chat({ guideCollapsed, onOpenGuide }: { guideCollapsed: boolean;
 
   return (
     <div className={uiClass(`chat-inner${guideCollapsed ? ' g-closed' : ''}`)}>
-      <Button variant="plain" size="plain" className={uiClass(cn("guide-open", guideCollapsed ? 'block!' : 'hidden!'))}
+      <Button variant="native" size="plain" className={uiClass(cn("guide-open", guideCollapsed ? 'block!' : 'hidden!'))}
         onClick={onOpenGuide} title={t('guide_open')}>{t('guide_open_txt')}</Button>
       <div className={uiClass("msgs")} ref={msgsRef}>
         {s.msgs.map(m => <Message key={m.id} m={m} />)}

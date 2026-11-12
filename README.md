@@ -34,7 +34,7 @@ npm run lint
 ## UI 스타일과 검증
 
 - Tailwind v4의 진입점은 `src/styles/globals.css`, 테마·CJK 폰트 원본은 `src/styles/tokens.css`이다. `shared/app.css`는 제거했다. 기본·표 스타일은 `base.css`, HTML 메시지 상태 배지는 `content.css`, 컴포넌트의 크기·상태 선택자는 정적 Tailwind `@utility` 모음인 `components.css`에 있다. `data-theme`의 navy/cyber는 dark, light는 light로 동작하며 Preflight는 사용하지 않는다.
-- `components.json`은 shadcn의 new-york·CSS 변수 모드다. Button·Input·NativeSelect·Tabs·Card·Dialog·Sheet·Tooltip·Badge·Switch·Textarea를 적용했다. `plain` 변형은 기존 크기와 간격을 보존하기 위해 제공하며, 실제 스타일은 Tailwind 클래스가 결정한다. `@/`는 TypeScript·Vite·Vitest 모두 `src/`로 해석하며 `cn()`은 `src/lib/utils.ts`에 있다.
+- `components.json`은 shadcn의 new-york·CSS 변수 모드다. Button·Input·NativeSelect·Tabs·Card·Dialog·Sheet·Tooltip·Badge·Switch·Textarea를 적용했다. `plain` 변형은 새 버튼의 기본 스타일을 초기화하고, `native` 변형은 기존 네이티브 버튼의 정렬·테두리·폰트 기본값을 유지한다. 실제 컴포넌트 스타일은 Tailwind 클래스가 결정한다. `@/`는 TypeScript·Vite·Vitest 모두 `src/`로 해석하며 `cn()`은 `src/lib/utils.ts`에 있다.
 - 상태 마커 클래스(`on`, `running` 등)와 공개 ID는 동작 계약으로 유지한다. `src/styles/component-classes.ts`가 기존 마커에 대응하는 정적 Tailwind 유틸리티를 연결한다. HTML 문자열이 사용하는 클래스 18개와 사용처는 `src/styles/html-classes.json`에 기록했다. 표시 스타일은 Tailwind로 옮겼고, 런타임 숫자로 결정되는 분할 폭·코어 셀 크기·접힘 높이는 CSS 변수만 인라인으로 전달한다.
 - 기존 `--muted`는 텍스트 색이므로 A0에서는 호환성을 유지한다. `text-muted-foreground`는 해당 색, `bg-muted`는 `--panel2` 표면 색에 연결했다. 기존 텍스트 토큰과 shadcn 표면 토큰의 역할 차이를 이 매핑으로 유지한다.
 - Biome 2.6의 실험 규칙 `useTailwindSortedClasses`를 경고로 켜고 실제 스타일시트를 연결했다. 클래스 정렬은 unsafe fix로 분류되므로 `lint:fix`가 자동 정렬하지 않는다. 별도 `prettier-plugin-tailwindcss`는 도입하지 않는다. 근거: [Biome 공식 규칙 설명](https://next.biomejs.dev/linter/rules/use-tailwind-sorted-classes/javascript/).

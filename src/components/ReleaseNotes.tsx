@@ -81,11 +81,11 @@ export function ReleaseNotes({ onClose }: { onClose(): void }) {
   }, [onClose])
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose() }}>
-      <DialogContent onOpenAutoFocus={() => { opener.current = document.activeElement as HTMLElement }} onCloseAutoFocus={event => { event.preventDefault(); opener.current?.focus() }} showCloseButton={false} aria-describedby={undefined} overlayClassName="z-40 bg-[var(--scrim)] backdrop-blur-[3px]" className={uiClass("z-[41] flex h-[min(80vh,820px)] w-[min(760px,calc(100vw-32px))] max-w-none flex-col gap-0 overflow-hidden rounded-[8px] border border-border bg-card p-0 shadow-[0_18px_50px_var(--shadow)] sm:max-w-none")}>
+      <DialogContent onOpenAutoFocus={() => { opener.current = document.activeElement as HTMLElement }} onCloseAutoFocus={event => { event.preventDefault(); opener.current?.focus() }} showCloseButton={false} aria-describedby={undefined} overlayClassName="z-40 bg-[var(--scrim)] backdrop-blur-[3px]" className={uiClass("z-[41] flex h-[min(80vh,820px)] w-[min(760px,calc(100vw-32px))] max-w-none flex-col gap-0 font-mono text-[.68rem] text-[var(--dim)] overflow-hidden rounded-[8px] border border-border bg-card p-0 shadow-[0_18px_50px_var(--shadow)] sm:max-w-none")}>
         <div className={uiClass("rn-hd")}>
-          <DialogTitle className={uiClass("text-[1rem] font-semibold text-[var(--txt-hi)]")}>{t('rn_title')}</DialogTitle>
+          <DialogTitle className={uiClass("text-[1rem] font-bold text-[var(--txt-hi)]")}>{t('rn_title')}</DialogTitle>
           <span className={uiClass("rn-sub")}>{t('rn_note')}</span>
-          <Button variant="plain" size="plain" className={uiClass("rn-x")} onClick={onClose} aria-label={t('close')}>✕</Button>
+          <Button variant="native" size="plain" className={uiClass("rn-x")} onClick={onClose} aria-label={t('close')}>✕</Button>
         </div>
         <div className={uiClass("rn-body")}>
           {err && <p className={uiClass("rn-err")}>{err}</p>}

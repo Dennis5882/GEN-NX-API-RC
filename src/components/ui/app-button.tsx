@@ -11,7 +11,7 @@ export function AppButton({
 }) {
   return (
     <Button
-      variant="plain"
+      variant="native"
       size="plain"
       className={cn(
         'cursor-pointer rounded-[8px] border-0 px-[16px] py-[9px] font-mono text-[.8rem] font-semibold transition-[color,background,border-color,filter] duration-200 disabled:opacity-50',

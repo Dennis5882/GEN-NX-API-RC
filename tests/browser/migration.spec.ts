@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test'
 
 const languages = [
-  { code: 'ko', html: 'ko', font: 'KR' },
-  { code: 'en', html: 'en', font: 'KR' },
-  { code: 'zh-TW', html: 'zh-Hant', font: 'TC' },
-  { code: 'zh-CN', html: 'zh-Hans', font: 'SC' },
+  { code: 'ko', html: 'ko', font: 'Noto Sans KR', sample: '한글' },
+  { code: 'en', html: 'en', font: 'Noto Sans KR', sample: '한글' },
+  { code: 'zh-TW', html: 'zh-Hant', font: 'Noto Sans TC', sample: '繁體中文' },
+  { code: 'zh-CN', html: 'zh-Hans', font: 'Noto Sans SC', sample: '简体中文' },
 ]
 
 test.beforeEach(async ({ page }) => {
@@ -62,7 +62,37 @@ for (const theme of ['navy', 'cyber', 'light']) {
             background: getComputedStyle(document.body).backgroundColor,
           }
         })
-        expect(layout.font).toContain(language.font)
+        expect(
+          layout.font
+            .split(',')[0]
+            .trim()
+            .replaceAll('"', '')
+            .replaceAll("'", ''),
+        ).toBe(language.font)
+        const loaded = await page.evaluate(async ({ font, sample }) => {
+          const faces = await document.fonts.load(`400 14px "${font}"`, sample)
+          return faces.map(face => ({
+            family: face.family.replaceAll('"', '').replaceAll("'", ''),
+            status: face.status,
+          }))
+        }, language)
+        expect(loaded.length).toBeGreaterThan(0)
+        expect(
+          loaded.every(
+            face => face.family === language.font && face.status === 'loaded',
+          ),
+        ).toBe(true)
+        await expect(page.locator('.send')).toHaveCSS('text-align', 'center')
+        const glyph = await page.locator('.send').evaluate(button => {
+          const range = document.createRange()
+          range.selectNodeContents(button)
+          const text = range.getBoundingClientRect(),
+            box = button.getBoundingClientRect()
+          return Math.abs(
+            (text.left + text.right) / 2 - (box.left + box.right) / 2,
+          )
+        })
+        expect(glyph).toBeLessThan(1)
         expect(layout.background).toBe(
           theme === 'light'
             ? 'rgb(255, 255, 255)'
@@ -140,6 +170,40 @@ for (const width of [1440, 390]) {
     const count = page.locator('.plan-editor input').first()
     await count.fill('1')
     await expect(count).toHaveValue('1')
+    await page.getByRole('checkbox', { name: /Shear-wall core/ }).check()
+    await expect(page.getByRole('grid')).toBeVisible()
+    const nativeControls = await page
+      .locator('.plan-editor')
+      .evaluate(editor => {
+        const arrows = [...editor.querySelectorAll('button')].filter(button =>
+          ['▲', '◀', '▶', '▼'].includes(button.textContent || ''),
+        )
+        const reference = document.createElement('button')
+        reference.textContent = '▲'
+        reference.style.cssText = 'padding: 2px 8px; min-width: 28px'
+        editor.append(reference)
+        const properties = [
+          'backgroundColor',
+          'borderTopWidth',
+          'borderTopStyle',
+          'fontFamily',
+          'fontSize',
+          'lineHeight',
+          'textAlign',
+        ] as const
+        const read = (button: HTMLButtonElement) => {
+          const style = getComputedStyle(button)
+          return Object.fromEntries(
+            properties.map(property => [property, style[property]]),
+          )
+        }
+        const result = { reference: read(reference), arrows: arrows.map(read) }
+        reference.remove()
+        return result
+      })
+    expect(nativeControls.arrows).toHaveLength(4)
+    for (const arrow of nativeControls.arrows)
+      expect(arrow).toEqual(nativeControls.reference)
     await expect(page.locator('#viewP')).toBeVisible()
     await expect(page.locator('#viewP')).toHaveCSS('display', 'flex')
     await expect(page.locator('#plot .plot-container')).toBeVisible({
@@ -153,6 +217,21 @@ for (const width of [1440, 390]) {
     const version = page.locator('footer button').first()
     await version.click()
     await expect(page.getByRole('dialog')).toBeVisible()
+    const fonts = await page.evaluate(() => {
+      const footer = document.querySelector('footer'),
+        notes = document.querySelector('.rn-text'),
+        dialog = document.querySelector('[role="dialog"]')
+      if (!footer || !notes || !dialog)
+        throw new Error('Release notes or footer is missing')
+      return {
+        footer: getComputedStyle(footer).fontFamily,
+        notes: getComputedStyle(notes).fontFamily,
+        dialogSize: getComputedStyle(dialog).fontSize,
+        footerSize: getComputedStyle(footer).fontSize,
+      }
+    })
+    expect(fonts.notes).toBe(fonts.footer)
+    expect(fonts.dialogSize).toBe(fonts.footerSize)
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog')).toBeHidden()
     await expect(version).toBeFocused()

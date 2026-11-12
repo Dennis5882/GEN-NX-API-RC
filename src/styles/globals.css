@@ -9,7 +9,8 @@
 @import "./content.css";
 
 @layer base {
-  [data-slot="button"],
+  /* Native variants retain the browser defaults of pre-migration buttons. */
+  [data-slot="button"]:not([data-variant="native"]),
   [data-slot="tabs-trigger"] {
     border: 0;
     background: transparent;

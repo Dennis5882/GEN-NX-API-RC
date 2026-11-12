@@ -54,9 +54,9 @@ export function PlanCard({ msg }: { msg: PlanMsg }) {
         : <div dangerouslySetInnerHTML={{ __html: planSummaryHTML(msg.spec) }} />}
       {showButtons && (
         <div className={uiClass("confirm-row")}>
-          <Button variant="plain" size="plain" className={uiClass("btn btn-c")} onClick={() => void confirmBuild(spec, msg.buildId)}>{t('exec')}</Button>
-          {!editing && <Button variant="plain" size="plain" className={uiClass("btn btn-ghost")} onClick={onEdit}>{t('edit_btn')}</Button>}
-          <Button variant="plain" size="plain" className={uiClass("btn btn-ghost")} onClick={() => { setCancelled(true); if (S.preview) draw3D() }}>{t('cancel')}</Button>
+          <Button variant="native" size="plain" className={uiClass("btn btn-c")} onClick={() => void confirmBuild(spec, msg.buildId)}>{t('exec')}</Button>
+          {!editing && <Button variant="native" size="plain" className={uiClass("btn btn-ghost")} onClick={onEdit}>{t('edit_btn')}</Button>}
+          <Button variant="native" size="plain" className={uiClass("btn btn-ghost")} onClick={() => { setCancelled(true); if (S.preview) draw3D() }}>{t('cancel')}</Button>
         </div>
       )}
     </Card>

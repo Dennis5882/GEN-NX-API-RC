@@ -79,22 +79,22 @@ function CoreSection({ base, st, setSt }: Pick<Props, 'base' | 'st' | 'setSt'>) 
           <div className={uiClass("grid grid-cols-[repeat(var(--core-cols),var(--core-cell))] gap-[2px]")} style={{ '--core-cols': L.nbx, '--core-cell': `${cell}px` } as CSSProperties} role="grid">
             {Array.from({ length: L.nby }, (_, r) => L.nby - 1 - r).flatMap(iy => Array.from({ length: L.nbx }, (_, ix) => {
               const inCore = cur.on && ix >= cur.ix && ix < cur.ix + L.nx && iy >= cur.iy && iy < cur.iy + L.ny
-              return <Button variant="plain" size="plain" className={uiClass("size-[var(--core-cell)]! bg-transparent! opacity-100! data-[active=true]:bg-primary! data-[active=true]:opacity-85! [padding:0]! [border:1px_solid_var(--border)]! [border-radius:2px]! [cursor:pointer]!")} key={`${ix}_${iy}`} type="button" title={`X${ix + 1}–X${ix + 2} · Y${iy + 1}–Y${iy + 2}`}
+              return <Button variant="native" size="plain" className={uiClass("size-[var(--core-cell)]! bg-transparent! opacity-100! data-[active=true]:bg-primary! data-[active=true]:opacity-85! [padding:0]! [border:1px_solid_var(--border)]! [border-radius:2px]! [cursor:pointer]!")} key={`${ix}_${iy}`} type="button" title={`X${ix + 1}–X${ix + 2} · Y${iy + 1}–Y${iy + 2}`}
                 onClick={() => place(ix, iy)}
                 data-active={inCore} />
             }))}
           </div>
         </div>
         <div className={uiClass("[display:grid]! [grid-template-columns:repeat(3,_auto)]! [gap:3px]! [align-self:center]!")} >
-          <span /><Button variant="plain" size="plain" type="button" className={uiClass(btn)} onClick={() => place(cur.ix, cur.iy + 1)}>▲</Button><span />
-          <Button variant="plain" size="plain" type="button" className={uiClass(btn)} onClick={() => place(cur.ix - 1, cur.iy)}>◀</Button>
-          <Button variant="plain" size="plain" type="button" className={uiClass(cn(btn, 'text-[.7rem]!'))} onClick={centerAll}>{t('core_center')}</Button>
-          <Button variant="plain" size="plain" type="button" className={uiClass(btn)} onClick={() => place(cur.ix + 1, cur.iy)}>▶</Button>
-          <span /><Button variant="plain" size="plain" type="button" className={uiClass(btn)} onClick={() => place(cur.ix, cur.iy - 1)}>▼</Button><span />
+          <span /><Button variant="native" size="plain" type="button" className={uiClass(btn)} onClick={() => place(cur.ix, cur.iy + 1)}>▲</Button><span />
+          <Button variant="native" size="plain" type="button" className={uiClass(btn)} onClick={() => place(cur.ix - 1, cur.iy)}>◀</Button>
+          <Button variant="native" size="plain" type="button" className={uiClass(cn(btn, 'text-[.7rem]!'))} onClick={centerAll}>{t('core_center')}</Button>
+          <Button variant="native" size="plain" type="button" className={uiClass(btn)} onClick={() => place(cur.ix + 1, cur.iy)}>▶</Button>
+          <span /><Button variant="native" size="plain" type="button" className={uiClass(btn)} onClick={() => place(cur.ix, cur.iy - 1)}>▼</Button><span />
         </div>
         {c.layout === 'each' && nb > 1 && <div className={uiClass("[align-self:center]!")} >
           <div className={uiClass("[font-size:.74rem]! [color:var(--txt-2)]! [margin-bottom:4px]!")} >{t('core_edit')}</div>
-          <div className={uiClass("[display:flex]! [gap:4px]!")} >{L.towers.map(tw => <Button variant="plain" size="plain" key={tw.building} type="button" className={uiClass(cn(btn, edit === tw.building ? 'font-bold! border-primary!' : 'font-normal!'))} onClick={() => setEd(tw.building)}>{TOWER[tw.building]}</Button>)}</div>
+          <div className={uiClass("[display:flex]! [gap:4px]!")} >{L.towers.map(tw => <Button variant="native" size="plain" key={tw.building} type="button" className={uiClass(cn(btn, edit === tw.building ? 'font-bold! border-primary!' : 'font-normal!'))} onClick={() => setEd(tw.building)}>{TOWER[tw.building]}</Button>)}</div>
         </div>}
       </div>}
       {c.on && <div className={uiClass("pe-tip")}>{t('core_grid_tip')}{c.layout === 'mirror' && nb > 1 ? ` · ${t('core_mirror_tip')}` : ''}</div>}
@@ -213,7 +213,7 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
           {palKinds.map(([kind, lbl, d], ki) => (
             <div className={uiClass(cn("pal-sec", ki ? "[margin-top:8px]!" : ""))} key={kind} >
               <div className={uiClass("[font-size:.76rem]! [color:var(--muted)]! [margin-bottom:4px]!")} >
-                {t(lbl)} <Button variant="plain" size="plain" className={uiClass("btn btn-ghost [padding:0_7px]!")}  onClick={() => palAdd(kind, d)}>＋</Button>
+                {t(lbl)} <Button variant="native" size="plain" className={uiClass("btn btn-ghost [padding:0_7px]!")}  onClick={() => palAdd(kind, d)}>＋</Button>
               </div>
               <div className={uiClass("pal-rows")}>
                 {st[kind].map(r => (
@@ -222,7 +222,7 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
                     <span className={uiClass("[color:var(--dim)]!")} >×</span>
                     <Input plain className={uiClass("pal-b [width:54px]!")} type="number" value={r.B}  onChange={e => palSet(kind, r.key, 'B', e.target.value)} />
                     <span className={uiClass("pal-nm [font-size:.78rem]! [color:var(--cyan)]! [min-width:78px]!")} >{palName(kind, r)}</span>
-                    <Button variant="plain" size="plain" className={uiClass("btn btn-ghost [padding:1px_7px]!")}  title={t('delete')} onClick={() => palDel(kind, r.key)}>×</Button>
+                    <Button variant="native" size="plain" className={uiClass("btn btn-ghost [padding:1px_7px]!")}  title={t('delete')} onClick={() => palDel(kind, r.key)}>×</Button>
                   </div>
                 ))}
               </div>
@@ -271,9 +271,9 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
                       <td><NativeSelect plain value={sel.mat} onChange={e => setRow(r.key, { mat: e.target.value })}>
                         {pal.mats.map(m => <option key={m} value={m}>{m}</option>)}</NativeSelect></td>
                       <td className={uiClass("[white-space:nowrap]!")} >
-                        <Button variant="plain" size="plain" className={uiClass("btn btn-ghost [padding:2px_6px]!")}  title={t('insert_above_higher')} onClick={() => fgInsert(r.key, 'above')}>↑</Button>
-                        <Button variant="plain" size="plain" className={uiClass("btn btn-ghost [padding:2px_6px]!")}  title={t('insert_below_lower')} onClick={() => fgInsert(r.key, 'below')}>↓</Button>
-                        <Button variant="plain" size="plain" className={uiClass("btn btn-ghost [padding:2px_6px]!")}  title={t('delete')} onClick={() => fgDel(r.key)}>×</Button>
+                        <Button variant="native" size="plain" className={uiClass("btn btn-ghost [padding:2px_6px]!")}  title={t('insert_above_higher')} onClick={() => fgInsert(r.key, 'above')}>↑</Button>
+                        <Button variant="native" size="plain" className={uiClass("btn btn-ghost [padding:2px_6px]!")}  title={t('insert_below_lower')} onClick={() => fgInsert(r.key, 'below')}>↓</Button>
+                        <Button variant="native" size="plain" className={uiClass("btn btn-ghost [padding:2px_6px]!")}  title={t('delete')} onClick={() => fgDel(r.key)}>×</Button>
                       </td>
                     </tr>
                   )

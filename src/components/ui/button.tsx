@@ -19,6 +19,7 @@ const buttonVariants = cva(
           'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
         link: 'text-primary underline-offset-4 hover:underline',
         plain: '',
+        native: '',
       },
       size: {
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',
@@ -58,7 +59,7 @@ function Button({
       data-variant={variant}
       data-size={size}
       className={
-        variant === 'plain'
+        variant === 'plain' || variant === 'native'
           ? cn(
               'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed',
               className,

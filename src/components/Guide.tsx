@@ -29,7 +29,7 @@ function Section({ sec, running, onRun }: { sec: GuideSection; running: string |
           if ('note' in it) return <div key={i} className={uiClass("gsec-note")}>{t(it.note)}</div>
           const label = t(it.key), cmd = t(`${it.key}_cmd`)
           return (
-            <Button variant="plain" size="plain" key={i} className={uiClass(`gcmd${running === it.key ? ' running' : ''}`)} title={`↵ ${cmd}`} onClick={() => onRun(it.key, cmd)}>
+            <Button variant="native" size="plain" key={i} className={uiClass(`gcmd${running === it.key ? ' running' : ''}`)} title={`↵ ${cmd}`} onClick={() => onRun(it.key, cmd)}>
               <i className={uiClass("gicon")}>{it.icon}</i><span className={uiClass("glabel")}>{label}</span>
               <span className={uiClass("gsend")}>↵</span>
             </Button>
@@ -52,7 +52,7 @@ export function Guide({ collapsed, onToggle }: { collapsed: boolean; onToggle():
     <aside className={uiClass(`guide${collapsed ? ' collapsed' : ''}${running || s.busy ? ' busy' : ''}`)}>
       <div className={uiClass("guide-hd")}>
         <span>{t('guide_title')}</span>
-        <Button variant="plain" size="plain" className={uiClass("guide-tog")} onClick={onToggle} title={collapsed ? t('guide_open') : t('guide_close')}>
+        <Button variant="native" size="plain" className={uiClass("guide-tog")} onClick={onToggle} title={collapsed ? t('guide_open') : t('guide_close')}>
           {collapsed ? '⟩' : '⟨'}
         </Button>
       </div>

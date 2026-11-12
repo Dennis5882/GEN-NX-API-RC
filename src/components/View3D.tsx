@@ -290,11 +290,11 @@ export function View3D() {
   const onToggle = (k: VisKey) => setView({ vis: { [k]: !vis[k] } })
 
   const camBtn = (c: Cam, key: I18nKey) => (
-    <Button variant="plain" size="plain" className={uiClass(`vcam${cam === c ? ' on' : ''}`)} onClick={() => onCam(c)}>{t(key)}</Button>
+    <Button variant="native" size="plain" className={uiClass(`vcam${cam === c ? ' on' : ''}`)} onClick={() => onCam(c)}>{t(key)}</Button>
   )
   const swatch: Record<VisKey, string> = { col: 'bg-[var(--p-typ)]', beam: 'bg-[var(--cyan)]', node: 'bg-[var(--p-node)]', floor: 'bg-[var(--p-floor)]' }
   const togBtn = (k: VisKey, key: I18nKey) => (
-    <Button variant="plain" size="plain" className={uiClass(`vtog ${vis[k] ? 'on' : 'off'}`)} onClick={() => onToggle(k)}>
+    <Button variant="native" size="plain" className={uiClass(`vtog ${vis[k] ? 'on' : 'off'}`)} onClick={() => onToggle(k)}>
       <span className={uiClass(cn("swatch", swatch[k]))} /><span>{t(key)}</span>
     </Button>
   )

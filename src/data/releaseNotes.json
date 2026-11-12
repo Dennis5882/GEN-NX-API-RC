@@ -1,4 +1,22 @@
 {
+  "v3_13_1": {
+    "ko": [
+      "전송·코어 제어 버튼의 정렬, 테두리와 크기를 기존 화면과 맞췄습니다.",
+      "릴리즈 노트의 글꼴과 제목 굵기를 기존 화면과 맞췄습니다."
+    ],
+    "en": [
+      "Restored the alignment, borders, and sizing of send and core controls.",
+      "Restored the release notes font and heading weight to match the original interface."
+    ],
+    "zh-TW": [
+      "還原傳送與核心控制按鈕的對齊、邊框及尺寸。",
+      "還原版本更新說明的字型與標題粗細，使其與原介面一致。"
+    ],
+    "zh-CN": [
+      "还原发送与核心控制按钮的对齐、边框及尺寸。",
+      "还原版本更新说明的字体与标题粗细，使其与原界面一致。"
+    ]
+  },
   "v3_13_0": {
     "ko": [
       "설정과 릴리즈 노트 창에서 키보드 닫기와 포커스 복귀를 개선했습니다.",
