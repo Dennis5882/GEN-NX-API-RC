@@ -1,6 +1,6 @@
 /* 편집 카드 공용 부품 — 번호 섹션(접힘 요약) · 분절 버튼 · 스위치 행.
    기존 .plan-editor 스타일 계약(pe-grid·pe-f)은 그대로 두고, 이 부품만 Tailwind 로 스타일한다. */
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, CircleCheck, TriangleAlert } from 'lucide-react'
 import { Collapsible } from 'radix-ui'
 import { useId, useState, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
@@ -8,8 +8,8 @@ import { t } from '../../i18n'
 import { Switch } from '../ui/switch'
 
 /** 번호 원 + 제목 + (접혔을 때) 한 줄 요약 + 펼침 화살표 */
-export function EditorSection({ num, title, summary, defaultOpen, children }: {
-  num: number; title: string; summary?: ReactNode; defaultOpen?: boolean; children: ReactNode
+export function EditorSection({ num, title, summary, missing = [], defaultOpen, children }: {
+  num: number; title: string; summary?: ReactNode; missing?: string[]; defaultOpen?: boolean; children: ReactNode
 }) {
   const [open, setOpen] = useState(!!defaultOpen)
   return (
@@ -19,6 +19,7 @@ export function EditorSection({ num, title, summary, defaultOpen, children }: {
         className="flex w-full cursor-pointer items-center gap-[10px] border-0 bg-transparent px-[12px] py-[9px] text-left font-[inherit] text-[var(--txt)]">
         <span className="grid size-[22px] shrink-0 place-items-center rounded-full bg-[var(--cyan)] text-[.72rem] font-bold text-[var(--bg)]">{num}</span>
         <span className="text-[.86rem] font-semibold">{title}</span>
+        {missing.length > 0 && <TriangleAlert aria-label={t('pe_req_missing')} className="size-[14px] shrink-0 text-[var(--amber)]" />}
         {!open && summary != null && summary !== '' && (
           <span className="ml-auto min-w-0 truncate text-right text-[.72rem] text-[var(--muted)]">{summary}</span>
         )}
@@ -26,6 +27,7 @@ export function EditorSection({ num, title, summary, defaultOpen, children }: {
       </Collapsible.Trigger>
       <Collapsible.Content className="border-t border-[var(--border)] px-[12px] pt-[10px] pb-[12px]">
         {children}
+        <RequiredStatus missing={missing} />
       </Collapsible.Content>
     </Collapsible.Root>
   )
@@ -62,6 +64,18 @@ export function SwitchRow({ checked, onChange, label }: { checked: boolean; onCh
       <Switch id={id} checked={checked} onCheckedChange={onChange} />
       <label htmlFor={id} className="cursor-pointer text-[.82rem] font-semibold text-[var(--cyan)]">{label}</label>
       <span className="text-[.72rem] text-[var(--muted)]">{checked ? t('pe_on') : t('pe_off')}</span>
+    </div>
+  )
+}
+
+/** 섹션 하단 — 필수 항목이 모두 입력되었는지, 아니면 무엇이 비었는지 */
+export function RequiredStatus({ missing }: { missing: string[] }) {
+  const ok = missing.length === 0
+  return (
+    <div role="status" data-required={ok ? 'ok' : 'missing'}
+      className={cn('mt-[12px] flex items-center justify-end gap-[6px] text-[.74rem]', ok ? 'text-[var(--green,#2f9e6f)]' : 'text-[var(--amber)]')}>
+      {ok ? <CircleCheck aria-hidden className="size-[15px]" /> : <TriangleAlert aria-hidden className="size-[15px]" />}
+      <span>{ok ? t('pe_req_ok') : `${t('pe_req_missing')}: ${missing.join(', ')}`}</span>
     </div>
   )
 }

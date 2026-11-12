@@ -1,4 +1,18 @@
 {
+  "v3_15_1": {
+    "ko": [
+      "편집 카드 섹션마다 필수 항목이 모두 입력되었는지 표시하고, 비어 있으면 항목 이름을 알려주며 [실행] 버튼을 막습니다."
+    ],
+    "en": [
+      "Each edit-card section now shows whether all required items are filled in; missing items are named and the Run button is disabled until they are fixed."
+    ],
+    "zh-TW": [
+      "編輯卡的每個區塊會顯示必填項目是否已全部輸入；有缺漏時會標示項目名稱，並停用[執行]按鈕。"
+    ],
+    "zh-CN": [
+      "编辑卡的每个区块会显示必填项是否已全部输入；有缺漏时会标出项目名称，并禁用[执行]按钮。"
+    ]
+  },
   "v3_15_0": {
     "ko": [
       "건물 편집 카드를 번호 섹션 5개(형상·단면·층 구성·지진/풍하중·벽/코어)로 나누고, 접으면 현재 설정을 한 줄로 보여줍니다.",

@@ -4,6 +4,7 @@ import { uiClass } from '@/styles/component-classes'
 /* 건물 확인 카드 — 설명카드(건물유형) ↔ 편집카드(자유골조/수정). [실행]/[수정]/[취소].
    편집 시 디바운스 미리보기(3D). 실행되면(buildEpoch 증가) 모든 카드 버튼 제거 + 입력 잠금. */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { checkEditor, checkTotal } from '../agent/editorCheck'
 import { editorToSpec, initEditor, reconcileEditor, type EditorState } from '../agent/editor'
 import { confirmBuild } from '../agent/local'
 import { planSummaryHTML } from '../agent/plan'
@@ -27,6 +28,7 @@ export function PlanCard({ msg }: { msg: PlanMsg }) {
   const spec = useMemo(() => (st ? editorToSpec(st, msg.spec) : msg.spec), [st, msg.spec])
   const live = s.buildEpoch === msg.epoch
   const showButtons = live && !cancelled
+  const missing = editing && st ? checkTotal(checkEditor(st, msg.spec)) : 0
 
   /* 편집 변경 → pendingBuild 동기화 + 3D 미리보기 (첫 렌더 제외) */
   useEffect(() => {
@@ -54,7 +56,7 @@ export function PlanCard({ msg }: { msg: PlanMsg }) {
         : <div dangerouslySetInnerHTML={{ __html: planSummaryHTML(msg.spec) }} />}
       {showButtons && (
         <div className={uiClass("confirm-row")}>
-          <Button variant="native" size="plain" className={uiClass("btn btn-c")} onClick={() => void confirmBuild(spec, msg.buildId)}>{t('exec')}</Button>
+          <Button variant="native" size="plain" className={uiClass("btn btn-c")} disabled={missing > 0} title={missing > 0 ? t('pe_req_missing') : undefined} onClick={() => void confirmBuild(spec, msg.buildId)}>{t('exec')}</Button>
           {!editing && <Button variant="native" size="plain" className={uiClass("btn btn-ghost")} onClick={onEdit}>{t('edit_btn')}</Button>}
           <Button variant="native" size="plain" className={uiClass("btn btn-ghost")} onClick={() => { setCancelled(true); if (S.preview) draw3D() }}>{t('cancel')}</Button>
         </div>

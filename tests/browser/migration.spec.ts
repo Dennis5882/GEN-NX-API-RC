@@ -246,3 +246,20 @@ for (const width of [1440, 390]) {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   })
 }
+
+test('required-item status guards the execute button', async ({ page }) => {
+  await page.goto('/en/')
+  const composer = page.locator('.composer textarea')
+  await composer.fill('build a custom frame 3 stories')
+  await composer.press('Enter')
+  await expect(page.locator('.plan-editor')).toBeVisible()
+  const status = page.locator('[data-slot=editor-section]').first().getByRole('status')
+  await expect(status).toHaveAttribute('data-required', 'ok')
+  const count = page.locator('.plan-editor input').first()
+  await count.fill('')
+  await expect(status).toHaveAttribute('data-required', 'missing')
+  await expect(page.locator('.confirm-row .btn-c')).toBeDisabled()
+  await count.fill('1')
+  await expect(status).toHaveAttribute('data-required', 'ok')
+  await expect(page.locator('.confirm-row .btn-c')).toBeEnabled()
+})

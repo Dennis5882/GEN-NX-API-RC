@@ -345,6 +345,8 @@ export function windTW(p: BuildingSpec, wp: Record<string, any>) {
 
 const num = (key: string, label: () => string, def: ParamField['def'], unit?: string): ParamField =>
   ({ key, kind: 'number', label, def, unit })
+const numReq = (key: string, label: () => string, def: ParamField['def'], unit?: string): ParamField =>
+  ({ key, kind: 'number', label, def, unit, required: true })
 
 const maxShear = (rows: Record<string, string>[], d: 'X' | 'Y') =>
   rows.reduce((m, r) => Math.max(m, Math.abs(numOf(r['Shear Force/' + d])) || 0), 0)
@@ -375,8 +377,8 @@ export const TW: CodeProfile = {
     toggleKey: 'apply_equivalent_static_se',
     tipHtml: () => `<a href="https://seaport.ncree.org/sederes/" target="_blank" rel="noopener" class="[color:var(--cyan)]! [font-weight:600]!">↗ Sederes</a> ${t('look_up_site_sds_sd1_or_t0')} ${t('tw_seis_tip')} ${t('w0_auto_tip')}`,
     fields: [
-      num('SDS', () => 'SDS', () => 0.6),
-      num('SD1', () => 'SD1', () => 0.35),
+      numReq('SDS', () => 'SDS', () => 0.6),
+      numReq('SD1', () => 'SD1', () => 0.35),
       num('T0', () => t('t0_basin'), () => '', 's'),
       num('SMS', () => 'SMS', () => ''),
       num('SM1', () => 'SM1', () => ''),
@@ -454,12 +456,12 @@ export const TW: CodeProfile = {
     toggleKey: 'tw_wind_toggle',
     tipHtml: () => t('tw_wind_tip'),
     fields: [
-      num('V10', () => t('wind_v10'), () => 42.5, 'm/s'),
+      numReq('V10', () => t('wind_v10'), () => 42.5, 'm/s'),
       { key: 'exposure', kind: 'select', label: () => t('exposure'), def: () => 'B',
         options: () => ['A', 'B', 'C'].map(x => ({ value: x, label: `${x} ${t('expo', x)}` })) },
       /* 風 2.5 用途係數: 병원·학교·상업(공중 사용) 1.1, 그 외 1.0 */
-      num('Iw', () => t('tw_wind_i'), p => (p.bldgType === 'hospital' || p.bldgType === 'school' || p.bldgType === 'commercial') ? 1.1 : 1.0),
-      num('G', () => t('gust_g'), () => 1.88),
+      numReq('Iw', () => t('tw_wind_i'), p => (p.bldgType === 'hospital' || p.bldgType === 'school' || p.bldgType === 'commercial') ? 1.1 : 1.0),
+      numReq('G', () => t('gust_g'), () => 1.88),
     ],
     storyForces: (p, wp) => windTW(p, wp),
   },

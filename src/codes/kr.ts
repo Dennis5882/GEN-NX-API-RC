@@ -414,6 +414,8 @@ export function sizeColumnKR(p: BuildingSpec): { side: number; pu: number; cap: 
 
 const num = (key: string, label: () => string, def: ParamField['def'], unit?: string): ParamField =>
   ({ key, kind: 'number', label, def, unit })
+const numReq = (key: string, label: () => string, def: ParamField['def'], unit?: string): ParamField =>
+  ({ key, kind: 'number', label, def, unit, required: true })
 
 const maxShear = (rows: Record<string, string>[], d: 'X' | 'Y') =>
   rows.reduce((m, r) => Math.max(m, Math.abs(numOf(r['Shear Force/' + d])) || 0), 0)
@@ -572,7 +574,7 @@ export const KR: CodeProfile = {
     toggleKey: 'kr_wind_toggle',
     tipHtml: () => t('kr_wind_tip'),
     fields: [
-      num('V0', () => t('kr_v0'), () => 28, 'm/s'),
+      numReq('V0', () => t('kr_v0'), () => 28, 'm/s'),
       { key: 'exposure', kind: 'select', label: () => t('kr_expo'), def: () => 'C',
         options: () => ['A', 'B', 'C', 'D'].map(x => ({ value: x, label: `${x} ${t('kr_expo_n', x)}` })) },
       num('nD', () => t('kr_nd'), () => '', 'Hz'),

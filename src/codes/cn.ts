@@ -265,6 +265,8 @@ function windCN(p: BuildingSpec, wp: Record<string, any>) {
 
 const num = (key: string, label: () => string, def: ParamField['def'], unit?: string): ParamField =>
   ({ key, kind: 'number', label, def, unit })
+const numReq = (key: string, label: () => string, def: ParamField['def'], unit?: string): ParamField =>
+  ({ key, kind: 'number', label, def, unit, required: true })
 
 export const CN: CodeProfile = {
   id: 'CN',
@@ -404,7 +406,7 @@ export const CN: CodeProfile = {
     toggleKey: 'cn_wind_toggle',
     tipHtml: () => t('cn_wind_tip'),
     fields: [
-      num('w0', () => t('cn_w0wind'), () => 0.45, 'kN/㎡'),
+      numReq('w0', () => t('cn_w0wind'), () => 0.45, 'kN/㎡'),
       { key: 'terrain', kind: 'select', label: () => t('cn_terrain'), def: () => 'B',
         options: () => ['A', 'B', 'C', 'D'].map(x => ({ value: x, label: `${x} ${t('cn_terrain_n', x)}` })) },
       num('mus', () => t('cn_mus'), () => 1.3),

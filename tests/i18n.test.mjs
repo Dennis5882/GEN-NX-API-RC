@@ -52,7 +52,7 @@ it('imports the dictionaries without browser globals or installing a bridge', as
   vi.stubGlobal('document', undefined)
   vi.resetModules()
   const dictionaries = await import('../src/i18n/dictionaries.ts')
-  expect(Object.keys(dictionaries.I18N.en)).toHaveLength(581)
+  expect(Object.keys(dictionaries.I18N.en)).toHaveLength(583)
   expect(Object.keys(dictionaries.LOGS.en)).toHaveLength(15)
   expect(globalThis.window).toBeUndefined()
 })

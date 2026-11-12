@@ -74,6 +74,8 @@ export const messages = {
   pe_sec_walls: '墙与核心筒',
   pe_on: '开',
   pe_off: '关',
+  pe_req_ok: '所有必填项均已输入',
+  pe_req_missing: '请确认必填项',
   pal_cols: '柱截面 (H×B)',
   pal_beams: '梁截面 (深×宽)',
   pal_mats: '材料',

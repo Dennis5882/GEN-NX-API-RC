@@ -78,6 +78,8 @@ export const messages = {
   pe_sec_walls: '벽·코어',
   pe_on: '켬',
   pe_off: '끔',
+  pe_req_ok: '모든 필수 항목이 입력되었습니다',
+  pe_req_missing: '필수 항목을 확인하세요',
   pal_cols: '기둥 단면 (H×B)',
   pal_beams: '보 단면 (깊이×폭)',
   pal_mats: '재료',

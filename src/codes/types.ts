@@ -15,6 +15,8 @@ export interface ParamField {
   kind: 'number' | 'select'
   label(): string
   unit?: string
+  /** 편집 카드 필수 항목 — 켜진 상태에서 비었거나 0 이하이면 섹션에 경고 */
+  required?: boolean
   options?(): { value: string; label: string }[]
   /** 스펙에 값이 없을 때 초기값 ('' = 빈칸) */
   def(p: BuildingSpec): number | string

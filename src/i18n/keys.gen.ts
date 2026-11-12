@@ -317,6 +317,8 @@ export type I18nKey =
   | 'pe'
   | 'pe_off'
   | 'pe_on'
+  | 'pe_req_missing'
+  | 'pe_req_ok'
   | 'pe_sec_floors'
   | 'pe_sec_geom'
   | 'pe_sec_lateral'

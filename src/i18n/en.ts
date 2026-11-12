@@ -78,6 +78,8 @@ export const messages = {
   pe_sec_walls: 'Walls & core',
   pe_on: 'On',
   pe_off: 'Off',
+  pe_req_ok: 'All required items are filled in',
+  pe_req_missing: 'Check required items',
   pal_cols: 'Column sections (H×B)',
   pal_beams: 'Beam sections (depth×width)',
   pal_mats: 'Materials',

@@ -2,6 +2,7 @@ import { Button } from './ui/button'
 import { NativeSelect } from './ui/native-select'
 import { Input } from './ui/input'
 import { EditorSection, Segmented, SwitchRow } from './editor/EditorParts'
+import { checkEditor } from '../agent/editorCheck'
 import { uiClass } from '@/styles/component-classes'
 import { cn } from '@/lib/utils'
 /* 편집 가능 규격 카드 — 상단 그리드 · 단면/재료 팔레트 · 표준층 표 · 내진 · 풍 · 코어.
@@ -193,6 +194,7 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
   const fgDel = (key: number) => setSt(s => s.rows.length <= 1 ? s : ({ ...s, rows: renumber(s.rows.filter(r => r.key !== key)) }))
 
   const prof = profileOf(base)
+  const chk = checkEditor(st, base)
 
   /* 섹션이 접혔을 때 보이는 한 줄 요약 */
   const onOff = (g: LateralState | undefined, name: string) => (g?.on ? name : '')
@@ -206,7 +208,7 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
     <fieldset className={uiClass("[border:none]! [padding:0]! [margin:0]! [min-width:0]!")} disabled={disabled} >
       <div className={uiClass("plan-editor")}>
         <div dangerouslySetInnerHTML={{ __html: typeHeadHTML(base, '<div class="pe-head">') }} />
-        <EditorSection num={1} title={t('pe_sec_geom')} summary={sumGeom} defaultOpen>
+        <EditorSection num={1} title={t('pe_sec_geom')} summary={sumGeom} missing={chk.geom} defaultOpen>
         <div className={uiClass("pe-grid")}>
           {TOP_KEYS.map(k => (
             <div className={uiClass("pe-f")} key={k}>
@@ -221,7 +223,7 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
         </EditorSection>
 
         {/* ── 단면·재료 팔레트 ── */}
-        <EditorSection num={2} title={t('pe_sec_sections')} summary={sumPal}>
+        <EditorSection num={2} title={t('pe_sec_sections')} summary={sumPal} missing={chk.sections}>
         <div className={uiClass("palette")} >
           {palKinds.map(([kind, lbl, d], ki) => (
             <div className={uiClass(cn("pal-sec", ki ? "[margin-top:8px]!" : ""))} key={kind} >
@@ -256,7 +258,7 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
         </EditorSection>
 
         {/* ── 표준층 표 (위=지붕 → 아래=지하) ── */}
-        <EditorSection num={3} title={t('pe_sec_floors')} summary={sumFloors}>
+        <EditorSection num={3} title={t('pe_sec_floors')} summary={sumFloors} missing={chk.floors}>
         <div>
           <div className={uiClass("[font-size:.7rem]! [color:var(--amber)]! [font-family:'IBM_Plex_Mono',var(--cjk)]! [letter-spacing:.5px]! [margin-bottom:6px]!")} >
             {t('floor_stack_top_roof_botto')}
@@ -316,14 +318,14 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
         </EditorSection>
 
         {/* ── M2-A1 지진 · M2-A2 풍하중 (설계기준 프로필) ── */}
-        <EditorSection num={4} title={t('pe_sec_lateral')} summary={sumLat}>
+        <EditorSection num={4} title={t('pe_sec_lateral')} summary={sumLat} missing={chk.lateral}>
         {prof.unverified && <div className={uiClass("pe-tip [margin-bottom:8px]! [color:var(--amber)]!")} >{t(`code_${prof.id}`)} — {t('code_unverified')}</div>}
         <LateralSection g={prof.seismic} icon="🌐" st={st.seis} set={v => setSt(s => ({ ...s, seis: v }))} first />
         <LateralSection g={prof.wind} icon="🌬" st={st.wind} set={v => setSt(s => ({ ...s, wind: v }))} />
         </EditorSection>
 
         {/* ── 내력벽(벽식) — 한국 기준 또는 이미 켜진 스펙 ── */}
-        <EditorSection num={5} title={t('pe_sec_walls')} summary={sumWalls}>
+        <EditorSection num={5} title={t('pe_sec_walls')} summary={sumWalls} missing={chk.walls}>
         {(prof.id === 'KR' || st.bearing.on) && <div>
           <SwitchRow checked={st.bearing.on} onChange={v => setSt(s => ({ ...s, bearing: { ...s.bearing, on: v } }))} label={<>🏢 {t('bw_toggle')}</>} />
           {st.bearing.on && <div className={uiClass("pe-grid [margin-top:10px]!")} >
