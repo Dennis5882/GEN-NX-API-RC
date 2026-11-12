@@ -47,7 +47,7 @@ export function stageStatus(st: StageState): StageView {
   if (run('solve')) solve = 'running'
   else if (st.error.solve) solve = 'failed'
   else if (!st.solveDone) solve = 'none'
-  else solve = st.solveBasedOn === st.preEpoch ? 'fresh' : 'stale'
+  else solve = st.solveBasedOn === st.preEpoch && !run('pre') ? 'fresh' : 'stale'   // 모델을 바꾸는 중이면 이미 낡음(라이브 확인 2026-11-12)
   const postItems: Partial<Record<PostItem, StageStatus>> = {}
   for (const [k, basedOn] of Object.entries(st.post) as [PostItem, number][]) {
     postItems[k] = basedOn === st.solveEpoch && solve === 'fresh' ? 'fresh' : 'stale'

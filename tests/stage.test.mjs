@@ -22,6 +22,12 @@ describe('stage — 전이표', () => {
     review(st); expect(view(st)).toEqual(['fresh', 'fresh', 'fresh'])
   })
 
+  it('모델 편집 진행 중 → 해석·후처리는 즉시 오래됨', () => {
+    const st = St.initStage(); build(st); solve(st); review(st)
+    St.begin(st, 'pre'); expect(view(st)).toEqual(['running', 'stale', 'stale'])
+    St.prePassed(st, true); St.end(st, 'pre'); expect(view(st)).toEqual(['fresh', 'stale', 'stale'])
+  })
+
   it('실행 중 표시 — 중첩(동적해석 안의 심사)', () => {
     const st = St.initStage(); build(st)
     St.begin(st, 'solve'); expect(St.stageStatus(st).solve).toBe('running')
