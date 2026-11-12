@@ -1,0 +1,351 @@
+{
+ "lang": "ko",
+ "product": "Gen NX",
+ "title": "대만(TW) — MIDAS Gen NX MAPI 사용 흐름",
+ "subtitle": "대만 건축물 耐震設計規範·風力規範·混凝土112 를 앱이 계산해 Gen NX 에 입력한다.  v3.12.x · 2026-11-11",
+ "actors": [
+  {
+   "title": "사용자",
+   "sub": "브라우저 · 채팅/NLP/LLM"
+  },
+  {
+   "title": "React 앱",
+   "sub": "src/codes/tw.ts 프로필 · actions/"
+  },
+  {
+   "title": "mapi() 래퍼",
+   "sub": "src/mapi/client.ts · midas-nx SDK"
+  },
+  {
+   "title": "MAPI",
+   "sub": "Base URL + MAPI-Key"
+  },
+  {
+   "title": "Gen NX 모델",
+   "sub": "열린 문서 (새로 만들기)"
+  }
+ ],
+ "actors_note": "MAPI-Key는 메모리에만 보관. /db는 2분, /doc·/ope·/post는 15분 타임아웃",
+ "steps": [
+  {
+   "num": "00",
+   "title": "연결 확인",
+   "calls": [
+    {
+     "method": "GET",
+     "path": "/mapikey/verify",
+     "note": [
+      "SDK verifyConnection",
+      "제품 gen 확인"
+     ]
+    },
+    {
+     "method": "APP",
+     "path": "설계기준 선택",
+     "note": "헤더 select 또는 UI 언어(zh-TW)"
+    }
+   ]
+  },
+  {
+   "num": "01",
+   "title": "모델 생성",
+   "calls": [
+    {
+     "method": "POST",
+     "path": "/doc/new",
+     "note": "새 문서"
+    },
+    {
+     "method": "PUT",
+     "path": "/db/UNIT",
+     "note": "N·mm 입력 단위"
+    },
+    {
+     "method": "PUT",
+     "path": "/db/MATL",
+     "note": "CNS560(RC) · Ec=12,000√fc' 로 덮어씀 (bELAST)"
+    },
+    {
+     "method": "PUT",
+     "path": "/db/SECT · THIK",
+     "note": "단면(DBUSER)·판 두께"
+    },
+    {
+     "method": "PUT",
+     "path": "/db/NODE · ELEM · CONS",
+     "note": "기둥·보·막요소 바닥, 지점"
+    }
+   ]
+  },
+  {
+   "num": "02",
+   "title": "하중·조합",
+   "calls": [
+    {
+     "method": "PUT",
+     "path": "/db/STLD · BODF",
+     "note": "하중케이스, 자중"
+    },
+    {
+     "method": "PUT",
+     "path": "/db/FBLD · FBLA",
+     "note": "DL(칸막이 75kgf/m² 포함)·LL, 슬래브 자중"
+    },
+    {
+     "method": "PUT",
+     "path": "/db/CNLD",
+     "note": [
+      "EX/EY/WX/WY 층력(2.11)",
+      "우발편심 MZ, ±2케이스 EXm/EYm"
+     ]
+    },
+    {
+     "method": "PUT",
+     "path": "/db/CNLD (EV)",
+     "note": [
+      "수직지진 2.18 하향 균등",
+      "케이스 EV (USER)"
+     ]
+    },
+    {
+     "method": "PUT",
+     "path": "/db/PDEL",
+     "note": "P-Δ: 1.2D+1.0L (θ 추정 ≥0.1)"
+    },
+    {
+     "method": "DELETE",
+     "path": "/db/LCOM-GEN",
+     "note": "조합 수 줄 때만 전체 삭제 (confirm)"
+    },
+    {
+     "method": "PUT",
+     "path": "/db/LCOM-GEN",
+     "note": "112 5.3.1 (a)~(g), 방향별·EV 조합"
+    }
+   ]
+  },
+  {
+   "num": "03",
+   "title": "Story Data",
+   "calls": [
+    {
+     "method": "PUT",
+     "path": "/db/STOR",
+     "note": "층 정보·다이어프램 (앱이 계산)"
+    },
+    {
+     "method": "POST",
+     "path": "/ope/STOR",
+     "note": [
+      "Story Calc: 우발편심 지진 5%·풍 15%",
+      "해석 전 호출"
+     ]
+    },
+    {
+     "method": "POST",
+     "path": "/view/ANGLE",
+     "note": "ISO 뷰 H30 V15"
+    }
+   ]
+  },
+  {
+   "num": "04",
+   "title": "동적해석",
+   "calls": [
+    {
+     "method": "PUT",
+     "path": "/db/STYP · LTOM",
+     "note": "자중→질량, 활하중비(기본 0)"
+    },
+    {
+     "method": "PUT",
+     "path": "/db/EIGV",
+     "note": "고유치 Subspace, 모드 6~30"
+    },
+    {
+     "method": "PUT",
+     "path": "/db/SPFC",
+     "note": [
+      "TW-RS: SPEC_CODE USER",
+      "SaD 표 2-5(a) 곡선 앱 계산"
+     ]
+    },
+    {
+     "method": "PUT",
+     "path": "/db/SPLC",
+     "note": [
+      "RSX 0° · RSY 90°",
+      "SCALE=C(T₁) 3.2, 총횡력 ≥0.9V 3.3 보정"
+     ]
+    },
+    {
+     "method": "PUT",
+     "path": "/db/SPLC",
+     "note": "재PUT 후 재해석 (보정 시)"
+    },
+    {
+     "method": "POST",
+     "path": "/doc/saveas",
+     "note": "C:/temp 자동저장"
+    },
+    {
+     "method": "POST",
+     "path": "/doc/anal",
+     "note": [
+      "해석 실행",
+      "A_x(2.14) 비틀림 증폭 시 CNLD 재PUT·재해석"
+     ]
+    }
+   ]
+  },
+  {
+   "num": "05",
+   "title": "결과 · 심사 지표",
+   "calls": [
+    {
+     "method": "POST",
+     "path": "/post/table",
+     "note": "REACTIONG · DISPLACEMENTG · BEAMFORCE (정적)"
+    },
+    {
+     "method": "POST",
+     "path": "/post/table ×n",
+     "note": "EIGENVALUEMODE → T₁, 질량참여"
+    },
+    {
+     "method": "POST",
+     "path": "/post/table ×n",
+     "note": [
+      "STORY_DRIFT · TORSIONAL / STIFFNESS",
+      "_IRREGULARITY (twReview)"
+     ]
+    },
+    {
+     "method": "APP",
+     "path": "심사 지표 판정",
+     "note": "변위각 ≤0.005·비틀림·軟層·P-Δ θ·질량 90%"
+    }
+   ]
+  },
+  {
+   "num": "06",
+   "title": "QA 검증 (선택)",
+   "calls": [
+    {
+     "method": "PUT",
+     "path": "/db/SSEIS · SWIND",
+     "note": "USER TYPE 층력 입력"
+    },
+    {
+     "method": "GET",
+     "path": "/db/SSEIS · SWIND",
+     "note": "재조회 후 앱 계산과 대조"
+    },
+    {
+     "method": "DELETE",
+     "path": "/db/SSEIS",
+     "note": "검증 흔적 제거 (confirm)"
+    }
+   ]
+  }
+ ],
+ "steps_note": "지상 ≥50m 또는 ≥15층은 응답스펙트럼이 주 해석 (3.1)  ·  A_x는 해석 뒤 정적 EX/EY 결과로 산정",
+ "codes": {
+  "intro": "앱이 기준 식을 직접 계산한다. Gen NX 내장 코드는 아래 항목만 사용",
+  "items": [
+   {
+    "title": "응답스펙트럼",
+    "status": "not_used",
+    "code": "USER",
+    "rows": [
+     [
+      "이유",
+      "Gen NX 내장 대만 스펙트럼 없음"
+     ],
+     [
+      "대안",
+      "앱이 SaD(T) 곡선 계산 후 USER 로 입력"
+     ]
+    ]
+   },
+   {
+    "title": "콘크리트 재료",
+    "status": "used",
+    "code": "CNS560(RC)",
+    "rows": [
+     [
+      "어디",
+      "/db/MATL STANDARD"
+     ],
+     [
+      "Gen이 계산",
+      "재료 DB 물성"
+     ],
+     [
+      "앱이 덮어씀",
+      "Ec=12,000√fc' (DB 는 구판식 1.241배)"
+     ]
+    ]
+   },
+   {
+    "title": "정적 지진·풍하중",
+    "status": "not_used",
+    "code": "USER TYPE",
+    "rows": [
+     [
+      "이유",
+      "SSEIS/SWIND 는 KDS·USER 만 지원, 대만 코드 미지원"
+     ],
+     [
+      "대안",
+      "앱이 층력 계산 후 /db/CNLD 로 입력"
+     ]
+    ]
+   },
+   {
+    "title": "Story Data · 우발편심",
+    "status": "feature",
+    "rows": [
+     [
+      "어디",
+      "/db/STOR, /ope/STOR"
+     ],
+     [
+      "용도",
+      "층 결과표, 편심 자동산정"
+     ]
+    ]
+   },
+   {
+    "title": "고유치 · 질량",
+    "status": "feature",
+    "rows": [
+     [
+      "어디",
+      "/db/EIGV, LTOM, STYP"
+     ],
+     [
+      "용도",
+      "주기·질량참여"
+     ]
+    ]
+   }
+  ]
+ },
+ "safeguards": {
+  "rows": [
+   [
+    "쓰기 전",
+    "연결·모델 존재 확인, 표 전체 DELETE 는 허용 목록(lcom-gen·SSEIS)만 confirm"
+   ],
+   [
+    "쓰기 후",
+    "해석 거부 메시지(\"not allowed\") 검사, 실패 시 중단·로그"
+   ],
+   [
+    "하지 않는 일",
+    "MAPI-Key 저장, 임의 경로 저장 (C:/temp 고정)"
+   ]
+  ]
+ }
+}

@@ -1,0 +1,281 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1768" height="1237" viewBox="0 0 1768 1237"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker></defs><rect x="0" y="0" width="1768" height="1237" fill="#f6f7fb"/>
+<text x="40.0" y="50.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="24" fill="#1e293b" font-weight="700" text-anchor="start">대만(TW) — MIDAS Gen NX MAPI 사용 흐름</text>
+<text x="40.0" y="76.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="13" fill="#64748b" font-weight="400" text-anchor="start">대만 건축물 耐震設計規範·風力規範·混凝土112 를 앱이 계산해 Gen NX 에 입력한다.  v3.12.x · 2026-11-11</text>
+<rect x="1608.2" y="38.0" width="14.0" height="14.0" rx="3" fill="#64748b"/>
+<text x="1628.2" y="50.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12" fill="#64748b" font-weight="400" text-anchor="start">앱 계산(API 없음)</text>
+<rect x="1486.5" y="38.0" width="14.0" height="14.0" rx="3" fill="#dc2626"/>
+<text x="1506.5" y="50.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12" fill="#64748b" font-weight="400" text-anchor="start">번호 지정 삭제</text>
+<rect x="1349.2" y="38.0" width="14.0" height="14.0" rx="3" fill="#ea7317"/>
+<text x="1369.2" y="50.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12" fill="#64748b" font-weight="400" text-anchor="start">쓰기(POST/PUT)</text>
+<rect x="1283.2" y="38.0" width="14.0" height="14.0" rx="3" fill="#2563eb"/>
+<text x="1303.2" y="50.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12" fill="#64748b" font-weight="400" text-anchor="start">읽기</text>
+<rect x="40.0" y="100.0" width="300.8" height="62.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="40.0" y="100.0" width="5.0" height="62.0" rx="2" fill="#1e3a8a"/>
+<text x="58.0" y="126.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">사용자</text>
+<text x="58.0" y="147.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12" fill="#64748b" font-weight="400" text-anchor="start">브라우저 · 채팅/NLP/LLM</text>
+<rect x="386.8" y="100.0" width="300.8" height="62.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="386.8" y="100.0" width="5.0" height="62.0" rx="2" fill="#1e3a8a"/>
+<text x="404.8" y="126.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">React 앱</text>
+<text x="404.8" y="147.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12" fill="#64748b" font-weight="400" text-anchor="start">src/codes/tw.ts 프로필 · actions/</text>
+<line x1="344.8" y1="131.0" x2="382.8" y2="131.0" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="733.6" y="100.0" width="300.8" height="62.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="733.6" y="100.0" width="5.0" height="62.0" rx="2" fill="#1e3a8a"/>
+<text x="751.6" y="126.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">mapi() 래퍼</text>
+<text x="751.6" y="147.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12" fill="#64748b" font-weight="400" text-anchor="start">src/mapi/client.ts · midas-nx SDK</text>
+<line x1="691.6" y1="131.0" x2="729.6" y2="131.0" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="1080.4" y="100.0" width="300.8" height="62.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="1080.4" y="100.0" width="5.0" height="62.0" rx="2" fill="#1e3a8a"/>
+<text x="1098.4" y="126.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">MAPI</text>
+<text x="1098.4" y="147.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12" fill="#64748b" font-weight="400" text-anchor="start">Base URL + MAPI-Key</text>
+<line x1="1038.4" y1="131.0" x2="1076.4" y2="131.0" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="1427.2" y="100.0" width="300.8" height="62.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="1427.2" y="100.0" width="5.0" height="62.0" rx="2" fill="#1e3a8a"/>
+<text x="1445.2" y="126.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">Gen NX 모델</text>
+<text x="1445.2" y="147.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12" fill="#64748b" font-weight="400" text-anchor="start">열린 문서 (새로 만들기)</text>
+<line x1="1385.2" y1="131.0" x2="1423.2" y2="131.0" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="1728.0" y="182.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="end">MAPI-Key는 메모리에만 보관. /db는 2분, /doc·/ope·/post는 15분 타임아웃</text>
+<rect x="40.0" y="215.0" width="230.0" height="456.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="40.0" y="215.0" width="230.0" height="46.0" rx="8" fill="#eef2fb"/>
+<rect x="40.0" y="253.0" width="230.0" height="8.0" rx="0" fill="#eef2fb"/>
+<text x="54.0" y="244.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12" fill="#1e3a8a" font-weight="700" text-anchor="start">00</text>
+<text x="77.2" y="245.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">연결 확인</text>
+<rect x="52.0" y="278.0" width="31.3" height="18.0" rx="4" fill="#2563eb"/>
+<text x="67.7" y="291.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">GET</text>
+<text x="90.3" y="291.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/mapikey/verify</text>
+<text x="54.0" y="309.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">SDK verifyConnection</text>
+<text x="54.0" y="325.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">제품 gen 확인</text>
+<rect x="52.0" y="336.0" width="24.5" height="18.0" rx="4" fill="#64748b"/>
+<text x="64.2" y="349.5" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">앱</text>
+<text x="83.5" y="349.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">설계기준 선택</text>
+<text x="54.0" y="367.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">헤더 select 또는 UI 언어(zh-TW)</text>
+<line x1="271.0" y1="238.0" x2="282.0" y2="238.0" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="283.0" y="215.0" width="230.0" height="456.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="283.0" y="215.0" width="230.0" height="46.0" rx="8" fill="#eef2fb"/>
+<rect x="283.0" y="253.0" width="230.0" height="8.0" rx="0" fill="#eef2fb"/>
+<text x="297.0" y="244.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12" fill="#1e3a8a" font-weight="700" text-anchor="start">01</text>
+<text x="320.2" y="245.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">모델 생성</text>
+<rect x="295.0" y="278.0" width="37.1" height="18.0" rx="4" fill="#ea7317"/>
+<text x="313.6" y="291.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">POST</text>
+<text x="339.1" y="291.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/doc/new</text>
+<text x="297.0" y="309.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">새 문서</text>
+<rect x="295.0" y="320.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="310.7" y="333.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="333.3" y="333.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/UNIT</text>
+<text x="297.0" y="351.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">N·mm 입력 단위</text>
+<rect x="295.0" y="362.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="310.7" y="375.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="333.3" y="375.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/MATL</text>
+<text x="297.0" y="393.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">CNS560(RC) · Ec=12,000√fc&#x27; 로</text>
+<text x="297.0" y="409.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">덮어씀 (bELAST)</text>
+<rect x="295.0" y="420.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="310.7" y="433.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="333.3" y="433.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/SECT · THIK</text>
+<text x="297.0" y="451.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">단면(DBUSER)·판 두께</text>
+<rect x="295.0" y="462.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="310.7" y="475.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="333.3" y="475.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/NODE · ELEM · CONS</text>
+<text x="297.0" y="493.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">기둥·보·막요소 바닥, 지점</text>
+<line x1="514.0" y1="238.0" x2="525.0" y2="238.0" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="526.0" y="215.0" width="230.0" height="456.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="526.0" y="215.0" width="230.0" height="46.0" rx="8" fill="#eef2fb"/>
+<rect x="526.0" y="253.0" width="230.0" height="8.0" rx="0" fill="#eef2fb"/>
+<text x="540.0" y="244.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12" fill="#1e3a8a" font-weight="700" text-anchor="start">02</text>
+<text x="563.2" y="245.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">하중·조합</text>
+<rect x="538.0" y="278.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="553.7" y="291.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="576.3" y="291.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/STLD · BODF</text>
+<text x="540.0" y="309.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">하중케이스, 자중</text>
+<rect x="538.0" y="320.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="553.7" y="333.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="576.3" y="333.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/FBLD · FBLA</text>
+<text x="540.0" y="351.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">DL(칸막이 75kgf/m² 포함)·LL, 슬래브</text>
+<text x="540.0" y="367.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">자중</text>
+<rect x="538.0" y="378.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="553.7" y="391.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="576.3" y="391.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/CNLD</text>
+<text x="540.0" y="409.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">EX/EY/WX/WY 층력(2.11)</text>
+<text x="540.0" y="425.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">우발편심 MZ, ±2케이스 EXm/EYm</text>
+<rect x="538.0" y="436.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="553.7" y="449.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="576.3" y="449.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/CNLD (EV)</text>
+<text x="540.0" y="467.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">수직지진 2.18 하향 균등</text>
+<text x="540.0" y="483.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">케이스 EV (USER)</text>
+<rect x="538.0" y="494.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="553.7" y="507.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="576.3" y="507.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/PDEL</text>
+<text x="540.0" y="525.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">P-Δ: 1.2D+1.0L (θ 추정 ≥0.1)</text>
+<rect x="538.0" y="536.0" width="48.7" height="18.0" rx="4" fill="#dc2626"/>
+<text x="562.3" y="549.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">DELETE</text>
+<text x="593.6" y="549.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/LCOM-GEN</text>
+<text x="540.0" y="567.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">조합 수 줄 때만 전체 삭제 (confirm)</text>
+<rect x="538.0" y="578.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="553.7" y="591.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="576.3" y="591.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/LCOM-GEN</text>
+<text x="540.0" y="609.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">112 5.3.1 (a)~(g), 방향별·EV 조합</text>
+<line x1="757.0" y1="238.0" x2="768.0" y2="238.0" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="769.0" y="215.0" width="230.0" height="456.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="769.0" y="215.0" width="230.0" height="46.0" rx="8" fill="#eef2fb"/>
+<rect x="769.0" y="253.0" width="230.0" height="8.0" rx="0" fill="#eef2fb"/>
+<text x="783.0" y="244.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12" fill="#1e3a8a" font-weight="700" text-anchor="start">03</text>
+<text x="806.2" y="245.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">Story Data</text>
+<rect x="781.0" y="278.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="796.7" y="291.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="819.3" y="291.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/STOR</text>
+<text x="783.0" y="309.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">층 정보·다이어프램 (앱이 계산)</text>
+<rect x="781.0" y="320.0" width="37.1" height="18.0" rx="4" fill="#ea7317"/>
+<text x="799.5" y="333.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">POST</text>
+<text x="825.1" y="333.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/ope/STOR</text>
+<text x="783.0" y="351.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">Story Calc: 우발편심 지진 5%·풍 15%</text>
+<text x="783.0" y="367.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">해석 전 호출</text>
+<rect x="781.0" y="378.0" width="37.1" height="18.0" rx="4" fill="#ea7317"/>
+<text x="799.5" y="391.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">POST</text>
+<text x="825.1" y="391.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/view/ANGLE</text>
+<text x="783.0" y="409.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">ISO 뷰 H30 V15</text>
+<line x1="1000.0" y1="238.0" x2="1011.0" y2="238.0" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="1012.0" y="215.0" width="230.0" height="456.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="1012.0" y="215.0" width="230.0" height="46.0" rx="8" fill="#eef2fb"/>
+<rect x="1012.0" y="253.0" width="230.0" height="8.0" rx="0" fill="#eef2fb"/>
+<text x="1026.0" y="244.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12" fill="#1e3a8a" font-weight="700" text-anchor="start">04</text>
+<text x="1049.2" y="245.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">동적해석</text>
+<rect x="1024.0" y="278.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="1039.7" y="291.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="1062.3" y="291.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/STYP · LTOM</text>
+<text x="1026.0" y="309.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">자중→질량, 활하중비(기본 0)</text>
+<rect x="1024.0" y="320.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="1039.7" y="333.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="1062.3" y="333.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/EIGV</text>
+<text x="1026.0" y="351.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">고유치 Subspace, 모드 6~30</text>
+<rect x="1024.0" y="362.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="1039.7" y="375.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="1062.3" y="375.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/SPFC</text>
+<text x="1026.0" y="393.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">TW-RS: SPEC_CODE USER</text>
+<text x="1026.0" y="409.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">SaD 표 2-5(a) 곡선 앱 계산</text>
+<rect x="1024.0" y="420.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="1039.7" y="433.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="1062.3" y="433.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/SPLC</text>
+<text x="1026.0" y="451.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">RSX 0° · RSY 90°</text>
+<text x="1026.0" y="467.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">SCALE=C(T₁) 3.2, 총횡력 ≥0.9V 3.3</text>
+<text x="1026.0" y="483.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">보정</text>
+<rect x="1024.0" y="494.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="1039.7" y="507.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="1062.3" y="507.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/SPLC</text>
+<text x="1026.0" y="525.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">재PUT 후 재해석 (보정 시)</text>
+<rect x="1024.0" y="536.0" width="37.1" height="18.0" rx="4" fill="#ea7317"/>
+<text x="1042.5" y="549.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">POST</text>
+<text x="1068.1" y="549.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/doc/saveas</text>
+<text x="1026.0" y="567.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">C:/temp 자동저장</text>
+<rect x="1024.0" y="578.0" width="37.1" height="18.0" rx="4" fill="#ea7317"/>
+<text x="1042.5" y="591.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">POST</text>
+<text x="1068.1" y="591.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/doc/anal</text>
+<text x="1026.0" y="609.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">해석 실행</text>
+<text x="1026.0" y="625.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">A_x(2.14) 비틀림 증폭 시 CNLD</text>
+<text x="1026.0" y="641.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">재PUT·재해석</text>
+<line x1="1243.0" y1="238.0" x2="1254.0" y2="238.0" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="1255.0" y="215.0" width="230.0" height="456.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="1255.0" y="215.0" width="230.0" height="46.0" rx="8" fill="#eef2fb"/>
+<rect x="1255.0" y="253.0" width="230.0" height="8.0" rx="0" fill="#eef2fb"/>
+<text x="1269.0" y="244.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12" fill="#1e3a8a" font-weight="700" text-anchor="start">05</text>
+<text x="1292.2" y="245.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">결과 · 심사 지표</text>
+<rect x="1267.0" y="278.0" width="37.1" height="18.0" rx="4" fill="#ea7317"/>
+<text x="1285.5" y="291.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">POST</text>
+<text x="1311.1" y="291.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/post/table</text>
+<text x="1269.0" y="309.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">REACTIONG · DISPLACEMENTG ·</text>
+<text x="1269.0" y="325.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">BEAMFORCE (정적)</text>
+<rect x="1267.0" y="336.0" width="37.1" height="18.0" rx="4" fill="#ea7317"/>
+<text x="1285.5" y="349.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">POST</text>
+<text x="1311.1" y="349.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/post/table ×n</text>
+<text x="1269.0" y="367.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">EIGENVALUEMODE → T₁, 질량참여</text>
+<rect x="1267.0" y="378.0" width="37.1" height="18.0" rx="4" fill="#ea7317"/>
+<text x="1285.5" y="391.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">POST</text>
+<text x="1311.1" y="391.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/post/table ×n</text>
+<text x="1269.0" y="409.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">STORY_DRIFT · TORSIONAL /</text>
+<text x="1269.0" y="425.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">STIFFNESS</text>
+<text x="1269.0" y="441.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">_IRREGULARITY (twReview)</text>
+<rect x="1267.0" y="452.0" width="24.5" height="18.0" rx="4" fill="#64748b"/>
+<text x="1279.2" y="465.5" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">앱</text>
+<text x="1298.5" y="465.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">심사 지표 판정</text>
+<text x="1269.0" y="483.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">변위각 ≤0.005·비틀림·軟層·P-Δ θ·질량</text>
+<text x="1269.0" y="499.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">90%</text>
+<line x1="1486.0" y1="238.0" x2="1497.0" y2="238.0" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="1498.0" y="215.0" width="230.0" height="456.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="1498.0" y="215.0" width="230.0" height="46.0" rx="8" fill="#eef2fb"/>
+<rect x="1498.0" y="253.0" width="230.0" height="8.0" rx="0" fill="#eef2fb"/>
+<text x="1512.0" y="244.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12" fill="#1e3a8a" font-weight="700" text-anchor="start">06</text>
+<text x="1535.2" y="245.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">QA 검증 (선택)</text>
+<rect x="1510.0" y="278.0" width="31.3" height="18.0" rx="4" fill="#ea7317"/>
+<text x="1525.7" y="291.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">PUT</text>
+<text x="1548.3" y="291.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/SSEIS · SWIND</text>
+<text x="1512.0" y="309.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">USER TYPE 층력 입력</text>
+<rect x="1510.0" y="320.0" width="31.3" height="18.0" rx="4" fill="#2563eb"/>
+<text x="1525.7" y="333.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">GET</text>
+<text x="1548.3" y="333.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/SSEIS · SWIND</text>
+<text x="1512.0" y="351.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">재조회 후 앱 계산과 대조</text>
+<rect x="1510.0" y="362.0" width="48.7" height="18.0" rx="4" fill="#dc2626"/>
+<text x="1534.3" y="375.5" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">DELETE</text>
+<text x="1565.7" y="375.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#1e293b" font-weight="600" text-anchor="start">/db/SSEIS</text>
+<text x="1512.0" y="393.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#64748b" font-weight="400" text-anchor="start">검증 흔적 제거 (confirm)</text>
+<text x="40.0" y="697.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12.5" fill="#64748b" font-weight="400" text-anchor="start">지상 ≥50m 또는 ≥15층은 응답스펙트럼이 주 해석 (3.1)  ·  A_x는 해석 뒤 정적 EX/EY 결과로 산정</text>
+<text x="40.0" y="729.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">Gen NX에 내장된 설계 코드를 어디에 쓰는가</text>
+<text x="364.6" y="729.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12" fill="#64748b" font-weight="400" text-anchor="start">앱이 기준 식을 직접 계산한다. Gen NX 내장 코드는 아래 항목만 사용</text>
+<rect x="40.0" y="745.0" width="412.2" height="151.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="40.0" y="745.0" width="412.2" height="4.0" rx="2" fill="#64748b"/>
+<rect x="338.2" y="760.0" width="102.0" height="20.0" rx="10" fill="#64748b"/>
+<text x="389.2" y="774.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11" fill="#fff" font-weight="700" text-anchor="middle">내장 코드 미사용</text>
+<text x="54.0" y="775.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="14.5" fill="#1e293b" font-weight="700" text-anchor="start">응답스펙트럼</text>
+<text x="54.0" y="799.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#64748b" font-weight="700" text-anchor="start">USER</text>
+<text x="54.0" y="825.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e3a8a" font-weight="700" text-anchor="start">이유</text>
+<text x="110.0" y="825.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">Gen NX 내장 대만 스펙트럼 없음</text>
+<text x="54.0" y="846.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e3a8a" font-weight="700" text-anchor="start">대안</text>
+<text x="110.0" y="846.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">앱이 SaD(T) 곡선 계산 후 USER 로 입력</text>
+<rect x="465.2" y="745.0" width="412.2" height="151.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="465.2" y="745.0" width="412.2" height="4.0" rx="2" fill="#15803d"/>
+<rect x="774.5" y="760.0" width="91.0" height="20.0" rx="10" fill="#15803d"/>
+<text x="820.0" y="774.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11" fill="#fff" font-weight="700" text-anchor="middle">내장 코드 사용</text>
+<text x="479.2" y="775.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="14.5" fill="#1e293b" font-weight="700" text-anchor="start">콘크리트 재료</text>
+<text x="479.2" y="799.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#15803d" font-weight="700" text-anchor="start">CNS560(RC)</text>
+<text x="479.2" y="825.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e3a8a" font-weight="700" text-anchor="start">어디</text>
+<text x="556.4" y="825.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">/db/MATL STANDARD</text>
+<text x="479.2" y="846.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e3a8a" font-weight="700" text-anchor="start">Gen이 계산</text>
+<text x="556.4" y="846.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">재료 DB 물성</text>
+<text x="479.2" y="867.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e3a8a" font-weight="700" text-anchor="start">앱이 덮어씀</text>
+<text x="556.4" y="867.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">Ec=12,000√fc&#x27; (DB 는 구판식 1.241배)</text>
+<rect x="890.5" y="745.0" width="412.2" height="151.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="890.5" y="745.0" width="412.2" height="4.0" rx="2" fill="#64748b"/>
+<rect x="1188.7" y="760.0" width="102.0" height="20.0" rx="10" fill="#64748b"/>
+<text x="1239.7" y="774.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11" fill="#fff" font-weight="700" text-anchor="middle">내장 코드 미사용</text>
+<text x="904.5" y="775.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="14.5" fill="#1e293b" font-weight="700" text-anchor="start">정적 지진·풍하중</text>
+<text x="904.5" y="799.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#64748b" font-weight="700" text-anchor="start">USER TYPE</text>
+<text x="904.5" y="825.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e3a8a" font-weight="700" text-anchor="start">이유</text>
+<text x="960.5" y="825.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">SSEIS/SWIND 는 KDS·USER 만 지원, 대만 코드 미지원</text>
+<text x="904.5" y="846.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e3a8a" font-weight="700" text-anchor="start">대안</text>
+<text x="960.5" y="846.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">앱이 층력 계산 후 /db/CNLD 로 입력</text>
+<rect x="1315.8" y="745.0" width="412.2" height="151.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="1315.8" y="745.0" width="412.2" height="4.0" rx="2" fill="#0f766e"/>
+<rect x="1625.0" y="760.0" width="91.0" height="20.0" rx="10" fill="#0f766e"/>
+<text x="1670.5" y="774.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11" fill="#fff" font-weight="700" text-anchor="middle">제품 기능 사용</text>
+<text x="1329.8" y="775.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="14.5" fill="#1e293b" font-weight="700" text-anchor="start">Story Data · 우발편심</text>
+<text x="1329.8" y="799.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#0f766e" font-weight="700" text-anchor="start"></text>
+<text x="1329.8" y="825.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e3a8a" font-weight="700" text-anchor="start">어디</text>
+<text x="1385.8" y="825.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">/db/STOR, /ope/STOR</text>
+<text x="1329.8" y="846.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e3a8a" font-weight="700" text-anchor="start">용도</text>
+<text x="1385.8" y="846.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">층 결과표, 편심 자동산정</text>
+<rect x="40.0" y="909.0" width="412.2" height="130.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="40.0" y="909.0" width="412.2" height="4.0" rx="2" fill="#0f766e"/>
+<rect x="349.2" y="924.0" width="91.0" height="20.0" rx="10" fill="#0f766e"/>
+<text x="394.7" y="938.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11" fill="#fff" font-weight="700" text-anchor="middle">제품 기능 사용</text>
+<text x="54.0" y="939.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="14.5" fill="#1e293b" font-weight="700" text-anchor="start">고유치 · 질량</text>
+<text x="54.0" y="963.0" font-family="Consolas,'D2Coding','Menlo',monospace" font-size="12.5" fill="#0f766e" font-weight="700" text-anchor="start"></text>
+<text x="54.0" y="989.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e3a8a" font-weight="700" text-anchor="start">어디</text>
+<text x="110.0" y="989.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">/db/EIGV, LTOM, STYP</text>
+<text x="54.0" y="1010.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e3a8a" font-weight="700" text-anchor="start">용도</text>
+<text x="110.0" y="1010.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">주기·질량참여</text>
+<rect x="40.0" y="1072.0" width="1688.0" height="135.0" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="40.0" y="1072.0" width="5.0" height="135.0" rx="2" fill="#ea7317"/>
+<text x="60.0" y="1102.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="15" fill="#1e293b" font-weight="700" text-anchor="start">모든 쓰기에 공통인 안전장치</text>
+<text x="60.0" y="1130.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12.5" fill="#1e3a8a" font-weight="700" text-anchor="start">쓰기 전</text>
+<text x="154.5" y="1130.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12.5" fill="#1e293b" font-weight="400" text-anchor="start">연결·모델 존재 확인, 표 전체 DELETE 는 허용 목록(lcom-gen·SSEIS)만 confirm</text>
+<text x="60.0" y="1153.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12.5" fill="#1e3a8a" font-weight="700" text-anchor="start">쓰기 후</text>
+<text x="154.5" y="1153.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12.5" fill="#1e293b" font-weight="400" text-anchor="start">해석 거부 메시지(&quot;not allowed&quot;) 검사, 실패 시 중단·로그</text>
+<text x="60.0" y="1176.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12.5" fill="#1e3a8a" font-weight="700" text-anchor="start">하지 않는 일</text>
+<text x="154.5" y="1176.0" font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-size="12.5" fill="#1e293b" font-weight="400" text-anchor="start">MAPI-Key 저장, 임의 경로 저장 (C:/temp 고정)</text>
+</svg>
