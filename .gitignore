@@ -28,6 +28,11 @@ shot_*.png
 GEN_NX_v2.1_BETA_FEEDBACK.md
 GEN_NX_v2.1_RELNOTE_API_ADDENDUM.md
 GEN_NX_SSEIS_INTEGRATION_PLAN.md
+GEN_NX_NEXTBUILD_REVERIFY.md
+
+# Gen NX 매뉴얼 덤프·PDF (archive/ 는 동결 보관본만 커밋)
+archive/_man_*.json
+archive/*.pdf
 
 # Node / Vite
 node_modules/
