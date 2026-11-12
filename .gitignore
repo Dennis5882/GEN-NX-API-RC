@@ -33,6 +33,7 @@ GEN_NX_NEXTBUILD_REVERIFY.md
 # Gen NX 매뉴얼 덤프·PDF (archive/ 는 동결 보관본만 커밋)
 archive/_man_*.json
 archive/*.pdf
+archive/*.rar
 
 # Node / Vite
 node_modules/
@@ -42,3 +43,4 @@ dist/
 # Browser QA artifacts
 /test-results/
 /playwright-report/
+archive/TW_ncsea_RC_standard_drawings_*/
