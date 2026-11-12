@@ -11,7 +11,7 @@
    - 유효질량     3.5   X·Y 각각 ≥ 90%
    - RS 총횡력    3.3   V_RS ≥ 0.9(정형)·1.0(비정형)×정적 V (조정 η 안내)
 ════════════════════════════════════════════════════════════ */
-import { RC, type BuildingSpec } from '../engine'
+import { deriveFloorGroups, storyElevations, type BuildingSpec } from '../engine'
 import { t } from '../i18n'
 import { classifyModes, num, subTableObjs, tableObjs } from '../mapi/tables'
 import { rowsOf, storyByLevel, storyName } from './cnReviewExtra'
@@ -54,8 +54,8 @@ export function twReviewEvaluate(p: BuildingSpec, sp: Record<string, any>, data:
   const items: ReviewItem[] = []
   const src = ctx.rs ? 'RS' : 'ST'
   const H = heightAboveGround(p)
-  const elev: number[] = ctx.model?.elev?.length ? ctx.model.elev : RC.storyElevations(p)
-  const n = p.stories, g = RC.deriveFloorGroups(p)
+  const elev: number[] = ctx.model?.elev?.length ? ctx.model.elev : storyElevations(p)
+  const n = p.stories, g = deriveFloorGroups(p)
   let nb = 0
   for (let s = 1; s <= n; s++) if (g[s] && g[s].role === 'BASEMENT') nb = s
   const above = n - nb

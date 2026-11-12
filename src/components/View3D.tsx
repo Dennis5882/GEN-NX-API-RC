@@ -1,7 +1,10 @@
+import { cn } from '@/lib/utils'
+import { Button } from './ui/button'
+import { uiClass } from '@/styles/component-classes'
 /* 3D VIEW — v2 (바닐라 plot3D 1:1). Plotly 는 동적 import 로 첫 화면 번들에서 분리.
    S.preview(미리보기 스펙)가 있으면 그 형상, 없으면 현재 모델. S.viewNonce 변경 시 재플롯. */
 import { useEffect, useMemo, useRef } from 'react'
-import { RC } from '../engine'
+import { asSpans, buildFrame, cumPos, deriveFloorGroups, resolveWalls } from '../engine'
 import { roleLbl, t, type I18nKey } from '../i18n'
 import { S, notify, useStore, type AppState, type CamId, type VisKey } from '../state/store'
 
@@ -36,8 +39,8 @@ const FONT = 'IBM Plex Mono, Noto Sans KR, Noto Sans TC, Noto Sans SC'
 function frameOf(s: AppState): any | null {
   if (s.preview) {
     /* 템플릿 카드처럼 벽이 아직 생성되지 않은 스펙 — 코어·내력벽을 스펙에서 생성(모델 생성과 같은 규칙) */
-    const pv = { ...s.preview, walls: RC.resolveWalls(s.preview) }
-    return { ...RC.buildFrame(pv), spec: pv }
+    const pv = { ...s.preview, walls: resolveWalls(s.preview) }
+    return { ...buildFrame(pv), spec: pv }
   }
   const m = s.model
   if (!m.nodes.length) return null
@@ -67,7 +70,7 @@ function buildTraces(f: any, vis: Record<VisKey, boolean>, P: Pal, cam: Cam) {
   const idx: Record<VisKey, number[]> = { col: [], beam: [], node: [], floor: [] }
 
   /* ── 1+2. Columns & beams colored by typical-floor group (role) ── */
-  const grp = f.spec ? RC.deriveFloorGroups(f.spec) : {}
+  const grp = f.spec ? deriveFloorGroups(f.spec) : {}
   const elev: number[] = f.elev || []
   const storyOf = (z: number) => { let best = 1, bd = 1e18; for (let i = 1; i < elev.length; i++) { const d = Math.abs(elev[i] - z); if (d < bd) { bd = d; best = i } } return best }
   const roleOf = (z: number) => { const g = grp[storyOf(z)]; return (g && g.role) || 'TYPICAL' }
@@ -143,8 +146,8 @@ function buildTraces(f: any, vis: Record<VisKey, boolean>, P: Pal, cam: Cam) {
   /* ── 7. Floor outline rectangles ── */
   if (f.elev && f.spec) {
     const p = f.spec
-    const sx = RC.asSpans(p.spanX, p.bayX), sy = RC.asSpans(p.spanY, p.bayY)
-    const Xp = RC.cumPos(sx), Yp = RC.cumPos(sy)
+    const sx = asSpans(p.spanX, p.bayX), sy = asSpans(p.spanY, p.bayY)
+    const Xp = cumPos(sx), Yp = cumPos(sy)
     const bW = Xp[sx.length], totalY = Yp[sy.length]
     const flx: any[] = [], fly: any[] = [], flz: any[] = []
     f.elev.forEach((z: number) => {
@@ -213,20 +216,20 @@ const CONFIG = {
 }
 
 function ViewStats({ f }: { f: any }) {
-  if (!f) return <span style={{ color: 'var(--dim)', fontStyle: 'italic' }}>{t('view_empty')}</span>
+  if (!f) return <span className={uiClass("[color:var(--dim)]! [font-style:italic]!")} >{t('view_empty')}</span>
   const n = (f.nodes || []).length, cols = (f.cols || []).length, beams = (f.beams || []).length
   const links = (f.links || []).length, braces = (f.braces || []).length
   const zH = f.nodes && f.nodes.length ? Math.max(...f.nodes.map((nd: any) => nd.z)) : 0
   const stories = f.elev ? f.elev.length - 1 : (f.spec ? f.spec.stories : '?')
   return (
     <>
-      <span className="vs-item">{t('vs_node')} <span className="vs-val vs-hi">{n}</span></span>
-      <span className="vs-item">{t('vs_col')} <span className="vs-val">{cols}</span></span>
-      <span className="vs-item">{t('vs_beam')} <span className="vs-val">{beams}</span></span>
-      {links > 0 && <span className="vs-item">{t('vs_link')} <span className="vs-val">{links}</span></span>}
-      {braces > 0 && <span className="vs-item">{t('vs_brace')} <span className="vs-val vs-hi">{braces}</span></span>}
-      <span style={{ flex: 1 }} />
-      <span className="vs-item">{t('vs_story', stories)} · <span className="vs-val vs-hi">{(zH / 1000).toFixed(1)} m</span></span>
+      <span className={uiClass("vs-item")}>{t('vs_node')} <span className={uiClass("vs-val vs-hi")}>{n}</span></span>
+      <span className={uiClass("vs-item")}>{t('vs_col')} <span className={uiClass("vs-val")}>{cols}</span></span>
+      <span className={uiClass("vs-item")}>{t('vs_beam')} <span className={uiClass("vs-val")}>{beams}</span></span>
+      {links > 0 && <span className={uiClass("vs-item")}>{t('vs_link')} <span className={uiClass("vs-val")}>{links}</span></span>}
+      {braces > 0 && <span className={uiClass("vs-item")}>{t('vs_brace')} <span className={uiClass("vs-val vs-hi")}>{braces}</span></span>}
+      <span className={uiClass("[flex:1]!")}  />
+      <span className={uiClass("vs-item")}>{t('vs_story', stories)} · <span className={uiClass("vs-val vs-hi")}>{(zH / 1000).toFixed(1)} m</span></span>
     </>
   )
 }
@@ -287,30 +290,31 @@ export function View3D() {
   const onToggle = (k: VisKey) => setView({ vis: { [k]: !vis[k] } })
 
   const camBtn = (c: Cam, key: I18nKey) => (
-    <button className={`vcam${cam === c ? ' on' : ''}`} onClick={() => onCam(c)}>{t(key)}</button>
+    <Button variant="plain" size="plain" className={uiClass(`vcam${cam === c ? ' on' : ''}`)} onClick={() => onCam(c)}>{t(key)}</Button>
   )
-  const togBtn = (k: VisKey, color: string, key: I18nKey) => (
-    <button className={`vtog ${vis[k] ? 'on' : 'off'}`} onClick={() => onToggle(k)}>
-      <span className="swatch" style={{ background: color }} /><span>{t(key)}</span>
-    </button>
+  const swatch: Record<VisKey, string> = { col: 'bg-[var(--p-typ)]', beam: 'bg-[var(--cyan)]', node: 'bg-[var(--p-node)]', floor: 'bg-[var(--p-floor)]' }
+  const togBtn = (k: VisKey, key: I18nKey) => (
+    <Button variant="plain" size="plain" className={uiClass(`vtog ${vis[k] ? 'on' : 'off'}`)} onClick={() => onToggle(k)}>
+      <span className={uiClass(cn("swatch", swatch[k]))} /><span>{t(key)}</span>
+    </Button>
   )
 
   return (
     <>
-      <div className="view-tb">
-        <span className="vlbl">{t('cam')}</span>
+      <div className={uiClass("view-tb")}>
+        <span className={uiClass("vlbl")}>{t('cam')}</span>
         {camBtn('iso', 'cam_iso')}{camBtn('front', 'cam_front')}{camBtn('side', 'cam_side')}{camBtn('top', 'cam_top')}
-        <span className="vsep" />
-        <span className="vlbl">{t('show')}</span>
-        {togBtn('col', 'var(--p-typ)', 'show_col')}{togBtn('beam', 'var(--cyan)', 'show_beam')}
-        {togBtn('node', 'var(--p-node)', 'show_node')}{togBtn('floor', 'var(--p-floor)', 'show_floor')}
+        <span className={uiClass("vsep")} />
+        <span className={uiClass("vlbl")}>{t('show')}</span>
+        {togBtn('col', 'show_col')}{togBtn('beam', 'show_beam')}
+        {togBtn('node', 'show_node')}{togBtn('floor', 'show_floor')}
       </div>
-      <div id="plot">
+      <div className={uiClass(undefined, "plot")} id="plot">
         {/* Plotly 전용 노드(React 자식 없음) — 빈 상태 안내는 형제 요소로 */}
-        <div ref={plotRef} style={{ width: '100%', height: '100%', display: f ? 'block' : 'none' }} />
-        {!f && <div className="res-empty" style={{ paddingTop: 120 }}>{t('view_empty')}</div>}
+        <div className={uiClass(cn('[width:100%]! [height:100%]!', f ? 'block!' : 'hidden!'))} ref={plotRef} />
+        {!f && <div className={uiClass("res-empty [padding-top:120px]!")} >{t('view_empty')}</div>}
       </div>
-      <div className="view-stats"><ViewStats f={f} /></div>
+      <div className={uiClass("view-stats")}><ViewStats f={f} /></div>
     </>
   )
 }

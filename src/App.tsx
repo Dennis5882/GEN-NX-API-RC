@@ -1,4 +1,5 @@
-/* 앱 셸 — 바닐라 index.html 레이아웃·클래스명 유지(shared/app.css 재사용) */
+import { uiClass } from '@/styles/component-classes'
+/* 앱 셸 — 기존 레이아웃·상태 클래스 계약을 Tailwind 유틸리티로 유지. */
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { Chat } from './components/Chat'
 import { Drawers, type DrawerId } from './components/Drawers'
@@ -10,6 +11,7 @@ import { View3D, onView3DTab } from './components/View3D'
 import { htmlLang, t, type I18nKey } from './i18n'
 import { useStore, type PanelId } from './state/store'
 import { addMsg, tab } from './state/ui'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs'
 
 const TABS: { id: PanelId; key: I18nKey }[] = [
   { id: 'logP', key: 'tab_log' },
@@ -64,27 +66,26 @@ export function App() {
   return (
     <>
       <Header onOpenMapi={() => setDrawer('mapi')} onOpenLlm={() => setDrawer('llm')} />
-      <main ref={mainRef} className={dragging ? 'splitting' : undefined} style={{ ['--split' as any]: `${split}%` }}>
-        <section className="chat">
+      <main ref={mainRef} className={uiClass(dragging ? 'splitting' : undefined)} style={{ ['--split' as any]: `${split}%` }}>
+        <section className={uiClass("chat")}>
           <Guide collapsed={guideCollapsed} onToggle={toggleGuide} />
           <Chat guideCollapsed={guideCollapsed} onOpenGuide={toggleGuide} />
         </section>
-        <div className="splitter" title={t('split_tip')} onPointerDown={onSplitDown} onPointerMove={onSplitMove}
+        <div className={uiClass("splitter")} title={t('split_tip')} onPointerDown={onSplitDown} onPointerMove={onSplitMove}
           onPointerUp={onSplitUp} onPointerCancel={onSplitUp} onDoubleClick={resetSplit} />
-        <section className="right">
-          <div className="tabbar">
+        <Tabs plain asChild value={s.panel} onValueChange={value => { tab(value as PanelId); if (value === 'viewP') onView3DTab() }}><section className={uiClass("right")}>
+          <TabsList plain asChild><div className={uiClass("tabbar")}>
             {TABS.map(tb => (
-              <div key={tb.id} className={`tab${s.panel === tb.id ? ' on' : ''}`}
-                onClick={() => { tab(tb.id); if (tb.id === 'viewP') onView3DTab() }}>
+              <TabsTrigger plain value={tb.id} aria-controls={tb.id} key={tb.id} className={uiClass(`tab${s.panel === tb.id ? ' on' : ''}`)}>
                 {t(tb.key)}
-              </div>
+              </TabsTrigger>
             ))}
-          </div>
-          <div id="logP" className={`panel${s.panel === 'logP' ? ' on' : ''}`}><LogPanel /></div>
-          <div id="modelP" className={`panel${s.panel === 'modelP' ? ' on' : ''}`}><ModelPanel /></div>
-          <div id="viewP" className={`panel${s.panel === 'viewP' ? ' on' : ''}`}><View3D /></div>
-          <div id="resP" className={`panel${s.panel === 'resP' ? ' on' : ''}`}><ResultsPanel /></div>
-        </section>
+          </div></TabsList>
+          <TabsContent plain forceMount asChild value="logP"><div id="logP" className={uiClass(`panel${s.panel === 'logP' ? ' on' : ''}`, "logP")}><LogPanel /></div></TabsContent>
+          <TabsContent plain forceMount asChild value="modelP"><div id="modelP" className={uiClass(`panel${s.panel === 'modelP' ? ' on' : ''}`, "modelP")}><ModelPanel /></div></TabsContent>
+          <TabsContent plain forceMount asChild value="viewP"><div id="viewP" className={uiClass(`panel${s.panel === 'viewP' ? ' on' : ''}`, "viewP")}><View3D /></div></TabsContent>
+          <TabsContent plain forceMount asChild value="resP"><div id="resP" className={uiClass(`panel${s.panel === 'resP' ? ' on' : ''}`, "resP")}><ResultsPanel /></div></TabsContent>
+        </section></Tabs>
       </main>
       <Footer />
       <Drawers open={drawer} onClose={() => setDrawer(null)} />

@@ -14,7 +14,7 @@
                   지하실 '相关范围'(지상 외곽 3跨)·토층 구속은 모델에 없음 → 같은 평면이면 보통 미달로 나옴
    - 风振舒适度   JGJ 3 3.7.6 (H ≥ 150m) — GB 50009 附录 J 横风向(附录 H 풍력 스펙트럼)·10년 풍압이 필요해 미산정 안내만
 ════════════════════════════════════════════════════════════ */
-import { RC, type BuildingSpec } from '../engine'
+import { deriveFloorGroups, storyElevations, type BuildingSpec } from '../engine'
 import { t } from '../i18n'
 import { num } from '../mapi/tables'
 import type { ReviewItem, ReviewTable } from './types'
@@ -70,7 +70,7 @@ export interface CnExtraInfo {
 
 export function cnExtraItems(p: BuildingSpec, data: Record<string, any>, model: any, info: CnExtraInfo): ReviewItem[] {
   const items: ReviewItem[] = []
-  const elev: number[] = model?.elev?.length ? model.elev : RC.storyElevations(p)
+  const elev: number[] = model?.elev?.length ? model.elev : storyElevations(p)
   const n = p.stories, nb = info.nb, wallSys = info.sys !== 'frame'
   const hOf = (s: number) => ((elev[s] || 0) - (elev[s - 1] || 0)) / 1000
   const Gd = (s: number) => 1.2 * (info.grav.D[s] || 0) + 1.4 * (info.grav.L[s] || 0)
@@ -234,7 +234,7 @@ function stabItem(d: 'X' | 'Y', v: number, lo: number, hi: number, f: string, wh
 }
 
 export function storyName(p: BuildingSpec, s: number): string {
-  const g = RC.deriveFloorGroups(p)
+  const g = deriveFloorGroups(p)
   let nb = 0
   for (let i = 1; i <= p.stories; i++) if (g[i] && g[i].role === 'BASEMENT') nb = i
   return s <= nb ? `B${nb - s + 1}` : `${s - nb}F`

@@ -3,7 +3,7 @@
    인텐트: help · tab · conn_check · clear · build · modify_section · resize_subset ·
           add_load · add_bracing · change_spec · dynamic · analyze · result · status · unknown
 ════════════════════════════════════════════════════════════ */
-import { RC, type BuildingSpec } from '../engine'
+import { BUILDING_TYPES, DEFAULT_SPEC, detectBuildingType, type BuildingSpec } from '../engine'
 import { profileOf } from '../codes'
 import { S, type ResultTab } from '../state/store'
 
@@ -135,9 +135,9 @@ export function parseCommand(txt: string): Command {
   if (/휨\s*모멘트|bending\s*moment|彎矩/.test(t)) return { intent: 'result', which: 'moment' }
   if (/부재력|모멘트|전단|桿件內力|構材內力|內力|剪力|force|moment|shear/.test(t)) return { intent: 'result', which: 'force' }
   if (/상태|요약|현재|狀態|摘要|目前|現況|status|summary/.test(t)) return { intent: 'status' }
-  const bldgType = RC.detectBuildingType(t)
+  const bldgType = detectBuildingType(t)
   if (/만들|생성|모델링|세워|짓|建立|生成|建模|建造|蓋|做一個|做個|create|build/.test(t) || bldgType || /건물|골조|프레임|建築|構架|構架系統|剛架|frame|building/.test(t)) {
-    const p: BuildingSpec = bldgType ? { ...RC.BUILDING_TYPES[bldgType], bldgType } as BuildingSpec : { ...RC.DEFAULT_SPEC, bldgType: null }
+    const p: BuildingSpec = bldgType ? { ...BUILDING_TYPES[bldgType], bldgType } as BuildingSpec : { ...DEFAULT_SPEC, bldgType: null }
     const ex: string[] = []   // 사용자가 직접 준 항목 — 기준별 새 스펙 보정(prepareNew)이 덮어쓰지 않음
     const stories = num(/(\d+)\s*(?:층|樓|層)/, t) || num(/(\d+)\s*stor/, t); if (stories) { p.stories = stories; ex.push('stories') }
     const bld = num(/(\d+)\s*동|(\d+)\s*棟|(\d+)\s*building/, t); if (bld) { p.buildings = bld; ex.push('buildings') }

@@ -4,7 +4,7 @@
 ════════════════════════════════════════════════════════════ */
 import { profileOf } from '../codes'
 import { slabLoad, slabThk } from '../codes/selfweight'
-import { RC, type BuildingSpec } from '../engine'
+import { asSpans, buildFrame, buildStoryData, cumPos, deriveFloorGroups, resolveWalls, specSections, type BuildingSpec } from '../engine'
 import { t, tl } from '../i18n'
 import { mapi } from '../mapi/client'
 import { S, type ElemRec } from '../state/store'
@@ -96,7 +96,7 @@ async function putNodalLoad(_no: number, lcName: string, nodeIds: number[], f: {
 
 /* 바닥하중: FBLD(용도 타입) + FBLA(층별 면적). 중력=음수, N/mm^2 = kN/m^2 * 1e-3 */
 async function applyFloorLoads(p: BuildingSpec, f: any): Promise<void> {
-  const groups = RC.deriveFloorGroups(p)
+  const groups = deriveFloorGroups(p)
   const uses: string[] = [...new Set(Object.values(groups).map((g: any) => g.use as string))]
   if (!uses.length || !f.floorCorners) return
   S.model.floorGroups = groups
@@ -161,7 +161,7 @@ async function putCombos(): Promise<void> {
 /* db/STOR 층 데이터 PUT — 표준층 모델에서 Story Data 자동 생성(엔진 buildStoryData, 15필드 라이브 스키마).
    규약 A: 지반 1F@0(다이어프램 OFF) + 층 (iz+1)F·최상 RF. ⚠ Story Data 테이블만 채움(Story Manager 등록은 GUI 별도). */
 async function putStoryData(p: BuildingSpec, f: any): Promise<void> {
-  const a = RC.buildStoryData(p, f)
+  const a = buildStoryData(p, f)
   const n = Object.keys(a).length
   await mapi('PUT', 'STOR', { Assign: a })
   log('▸ ' + t('story_data_db_stor') + ' <b>' + n + '</b> ' + t('g_l_1f_floors_diaphragm_vi'), 'ok')
@@ -202,8 +202,8 @@ async function applyLateral(p: BuildingSpec, f: any): Promise<void> {
     for (const [nm] of cases) { await putLoadCase(no, nm, 'E'); S.model.loadCases.push({ name: nm, type: 'E' }); no++ }
     /* 우발편심: EX 는 Y 치수, EY 는 X 치수 × e 만큼 편심 → 층 비틀림 MZ 를 절점 균등분배(강성 다이어프램이 합산). N·mm.
        비틀림 몫은 tor 로 따로 보관 — 해석 뒤 층별 A_x(2.14)를 곱해 다시 재하(reapplyTorsionAmp) */
-    const Lx = RC.asSpans(p.spanX, p.bayX).reduce((a: number, b: number) => a + b, 0)
-    const Ly = RC.asSpans(p.spanY, p.bayY).reduce((a: number, b: number) => a + b, 0)
+    const Lx = asSpans(p.spanX, p.bayX).reduce((a: number, b: number) => a + b, 0)
+    const Ly = asSpans(p.spanY, p.bayY).reduce((a: number, b: number) => a + b, 0)
     /* 2동 이상: 다이어프램이 동별 막요소라 절점 MZ 는 전달이 불확실 → 동마다 우발편심 비틀림을 강체 회전 분포의 절점 힘 짝(합력 0)으로 */
     const nodeAt = new Map<number, any>(f.nodes.map((n: any) => [n.id, n]))
     const multiB = (p.buildings || 1) > 1
@@ -348,15 +348,15 @@ async function putFloorMembranes(p: BuildingSpec, f: any, recs: ElemRec[], eid: 
 
 export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any> {
   if (!S.connected) throw new Error(t('e_notconn'))
-  p.walls = RC.resolveWalls(p)   // 코어 + 내력벽 — 층수·경간이 바뀐 스펙(change_spec 등)의 낡은 walls 재생성
-  const f = RC.buildFrame(p)
+  p.walls = resolveWalls(p)   // 코어 + 내력벽 — 층수·경간이 바뀐 스펙(change_spec 등)의 낡은 walls 재생성
+  const f = buildFrame(p)
   S.review = null
   /* 이전 동적해석 상태 초기화 — 남아 있으면 새 모델 조합이 없는 RSX/RSY 를 참조 (doc/new 가 조합도 지움) */
   S.model.rsCases = undefined
   S.model.dynamic = null
   if (clear) { await clearModel(); S.model.combos = [] }              // doc/new가 단위를 리셋하므로 setUnit은 그 다음
   await setUnit('N', 'MM')
-  const R = RC.specSections(p)               // 다중 단면·재료 레지스트리 + 층별 배정
+  const R = specSections(p)               // 다중 단면·재료 레지스트리 + 층별 배정
   await putMaterials(p, R.mats)
   await putSections(R.sections)
   await putNodes(f.nodes)
@@ -446,7 +446,7 @@ export async function actBuildFrame(p: BuildingSpec, clear = true): Promise<any>
   if (diaMethod === 'rigd') {
     const dia: Record<number, any> = {}
     let rid = 1
-    const dg = RC.deriveFloorGroups(p)
+    const dg = deriveFloorGroups(p)
     for (const k in (f.floorGroups || {})) {
       const iz = +k.split('_')[1]; const g = dg[iz]
       if (g && g.dia === false) continue
@@ -544,9 +544,9 @@ export async function actAddLoad(name: string, type: string, floor: number, fz: 
 export async function actAddBracing(building: number, floors: number[]): Promise<string> {
   if (!S.model.nodes.length) throw new Error(t('e_nomodel'))
   const p = S.model.spec!
-  const sx = RC.asSpans(p.spanX, p.bayX), sy = RC.asSpans(p.spanY, p.bayY)
+  const sx = asSpans(p.spanX, p.bayX), sy = asSpans(p.spanY, p.bayY)
   const nbx = sx.length, nby = sy.length, npy = nby + 1
-  const Xp = RC.cumPos(sx), Yp = RC.cumPos(sy), bW = Xp[nbx]
+  const Xp = cumPos(sx), Yp = cumPos(sy), bW = Xp[nbx]
   const ox = building * (bW + p.gap)
   const nodeAt = (ix: number, iy: number, iz: number) => S.model.nodes.find(n =>
     Math.abs(n.x - (ox + Xp[ix])) < 1 && Math.abs(n.y - Yp[iy]) < 1 && Math.abs(n.z - S.model.elev[iz]) < 1)

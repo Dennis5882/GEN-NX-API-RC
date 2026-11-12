@@ -12,7 +12,7 @@ import { actReview } from '../actions/review'
 import { actStoryWeightVerify, actSseisVerify, actSwindVerify } from '../actions/verify'
 import { CODE_IDS, PROFILES, profile, profileOf, stampSpec, takePrepNotes, type CodeId, type LateralGroup } from '../codes'
 import { onView3DTab, setView } from '../components/View3D'
-import { RC, type BuildingSpec } from '../engine'
+import { BUILDING_TYPES, DEFAULT_SPEC, coreLayout, specWalls, type BuildingSpec } from '../engine'
 import { escapeHtml, t } from '../i18n'
 import { S, THEMES, type PanelId, type Provider, type ResultTab, type Table } from '../state/store'
 import { addMsg, renderModelState, tab, thinking } from '../state/ui'
@@ -98,9 +98,9 @@ function lateralSchema(g: LateralGroup, what: string, p: BuildingSpec): any {
 }
 
 function specProps(): Record<string, any> {
-  const prof = profile(), p = RC.DEFAULT_SPEC as BuildingSpec
+  const prof = profile(), p = DEFAULT_SPEC as BuildingSpec
   return {
-    bldgType: { type: 'string', enum: Object.keys(RC.BUILDING_TYPES), description: 'building-type template (sets bays/spans/heights/sections/uses/podium): apartment=residential, office, commercial=retail, hospital, school. Other given fields override the template.' },
+    bldgType: { type: 'string', enum: Object.keys(BUILDING_TYPES), description: 'building-type template (sets bays/spans/heights/sections/uses/podium): apartment=residential, office, commercial=retail, hospital, school. Other given fields override the template.' },
     buildings: { type: 'integer', description: 'number of towers (1–4)' }, stories: { type: 'integer', description: 'stories above ground' },
     bayX: { type: 'integer' }, bayY: { type: 'integer' },
     spanX: { type: ['number', 'array'], items: { type: 'number' }, description: 'mm; single value = uniform, or array of per-bay distances e.g. [3000,4000,3000]' },
@@ -191,7 +191,7 @@ const CODE_BRIEF: Record<CodeId, string> = {
 }
 
 function system(): string {
-  const prof = profile(), d = RC.DEFAULT_SPEC
+  const prof = profile(), d = DEFAULT_SPEC
   const m = S.model, sp = m.spec
   const model = m.nodes.length && sp
     ? `Current model: code ${sp.code || prof.id}, ${sp.buildings} tower(s) × ${sp.stories} stories, ${sp.colName}/${sp.beamName}, ${sp.matName}, seismic ${sp.seismic?.on ? 'ON' : 'off'}, wind ${sp.wind?.on ? 'ON' : 'off'}; static results ${S.results.react ? 'available' : 'none'}; dynamic ${m.dynamic ? (m.dynamic.rs ? 'eigen + RS done' : 'eigen done') : 'not run'}; review ${S.review ? 'available' : 'none'}. Gen NX ${S.connected ? 'connected' : 'NOT connected'}.`
@@ -212,8 +212,8 @@ Reply concisely in the user's language with correct structural terminology — K
 }
 
 function buildSpec(inp: any, base: BuildingSpec): BuildingSpec {
-  const tpl: any = inp.bldgType && RC.BUILDING_TYPES[inp.bldgType as keyof typeof RC.BUILDING_TYPES]
-    ? { ...RC.BUILDING_TYPES[inp.bldgType as keyof typeof RC.BUILDING_TYPES], bldgType: inp.bldgType } : {}
+  const tpl: any = inp.bldgType && BUILDING_TYPES[inp.bldgType as keyof typeof BUILDING_TYPES]
+    ? { ...BUILDING_TYPES[inp.bldgType as keyof typeof BUILDING_TYPES], bldgType: inp.bldgType } : {}
   const { seismic, wind, core, bearing, ...rest } = inp
   let p: BuildingSpec = { ...base, ...tpl, ...rest }
   if (core) p.core = { ...(base.core || {}), ...core }
@@ -226,7 +226,7 @@ function buildSpec(inp: any, base: BuildingSpec): BuildingSpec {
   if (Array.isArray(p.spanX)) p.bayX = p.spanX.length
   if (Array.isArray(p.spanY)) p.bayY = p.spanY.length
   /* 코어 벽은 항상 현재 형상으로 다시 생성(층수·경간 변경 반영) */
-  if (p.core || (p as any).bearing) p.walls = RC.specWalls(p)
+  if (p.core || (p as any).bearing) p.walls = specWalls(p)
   /* 편집카드(editorToSpec)와 같은 마무리 — 질량원 활하중비·풍↔지진 공유값(KR 중요도·시스템, TW I) */
   const seis = { ...(p.seismic || {}) }, wnd = { ...(p.wind || {}) }
   profileOf(p).finalizeLateral?.(seis, wnd)
@@ -246,7 +246,7 @@ function withExplicit(p: BuildingSpec, inp: any): BuildingSpec {
 
 async function callTool(name: string, inp: any): Promise<string> {
   if (name === 'build_frame') {
-    const p = stampSpec(withExplicit(buildSpec(inp, { ...RC.DEFAULT_SPEC } as BuildingSpec), inp))   // 현재 설계기준 기록 + 재료명 변환 + 기준별 보정
+    const p = stampSpec(withExplicit(buildSpec(inp, { ...DEFAULT_SPEC } as BuildingSpec), inp))   // 현재 설계기준 기록 + 재료명 변환 + 기준별 보정
     const notes = takePrepNotes(p)
     tab('logP'); await actBuildFrame(p)
     return (notes.length ? `Code defaults applied: ${notes.map(n => n.replace(/<[^>]+>/g, '')).join(' / ')}. ` : '') + `Built ${p.buildings} tower(s) × ${p.stories} stories (code ${p.code}). Nodes=${S.model.nodes.length}, elements=${S.model.cols.length + S.model.beams.length + S.model.links.length}. Seismic ${p.seismic?.on ? 'on' : 'off'}, wind ${p.wind?.on ? 'on' : 'off'}.`
@@ -298,7 +298,7 @@ async function callTool(name: string, inp: any): Promise<string> {
     renderModelState(); return 'Model cleared.'
   }
   if (name === 'propose_model') {
-    const p = stampSpec(withExplicit(buildSpec(inp, { ...RC.DEFAULT_SPEC } as BuildingSpec), inp))
+    const p = stampSpec(withExplicit(buildSpec(inp, { ...DEFAULT_SPEC } as BuildingSpec), inp))
     const notes = ((p.prepNotes as string[]) || []).map(n => n.replace(/<[^>]+>/g, ''))   // proposeBuild 가 카드에 표시 후 제거
     proposeBuild(p, false)   // 확인 카드 + 3D 미리보기 (Gen NX 불필요)
     return (notes.length ? `Code defaults applied: ${notes.join(' / ')}. ` : '') + `Proposal card shown with 3D preview: ${p.buildings} tower(s) × ${p.stories} stories, ${p.colName}/${p.beamName}, ${p.matName} (code ${p.code}). Waiting for the user to press Run (or call confirm_build).`
@@ -345,7 +345,7 @@ async function callTool(name: string, inp: any): Promise<string> {
 function coreBrief(sp: BuildingSpec): string {
   const c: any = sp.core
   if (!c?.on) return 'off'
-  const L = RC.coreLayout(sp, c)
+  const L = coreLayout(sp, c)
   return JSON.stringify({ thick: c.thick ?? 250, nx: L.nx, ny: L.ny, bays: [L.nbx, L.nby], layout: L.layout, towers: L.towers })
 }
 

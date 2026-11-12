@@ -19,7 +19,7 @@ export function proposeBuild(p: BuildingSpec, editable: boolean): void {
   const notes = takePrepNotes(p)
   S.pendingBuild = p
   S.pendingBuildId++
-  const intro = t(editable ? 'plan_intro_custom' : 'plan_intro_tpl') + notes.map(n => `<br><span style="color:var(--amber)">▸ ${n}</span>`).join('')
+  const intro = t(editable ? 'plan_intro_custom' : 'plan_intro_tpl') + notes.map(n => `<br><span class="[color:var(--amber)]!">▸ ${n}</span>`).join('')
   addPlanMsg({ intro, spec: p, editable, buildId: S.pendingBuildId, epoch: S.buildEpoch })
   tab('viewP'); previewSpec(p)
 }
@@ -105,7 +105,7 @@ export async function handleLocal(txt: string): Promise<void> {
     }
     case 'conn_check':
       addMsg('bot', S.connected
-        ? `✅ ${t('conn_linked')}${S.apiUser ? ` <span style="color:var(--muted)">· ${S.apiUser}</span>` : ''}`
+        ? `✅ ${t('conn_linked')}${S.apiUser ? ` <span class="[color:var(--muted)]!">· ${S.apiUser}</span>` : ''}`
         : `⚠ ${t('e_notconn')}`)
       return
     case 'change_spec': {
@@ -115,7 +115,7 @@ export async function handleLocal(txt: string): Promise<void> {
     }
   }
   const hint = t('unknown_hint')
-  addMsg('bot', t('unknown') + (hint ? `<br><span style="color:var(--dim);font-size:.78rem">${hint}</span>` : ''))
+  addMsg('bot', t('unknown') + (hint ? `<br><span class="[color:var(--dim)]! [font-size:.78rem]!">${hint}</span>` : ''))
 }
 
 /** 카드의 [실행] — 오래된 카드(buildId 불일치)는 무시. 실행 시 모든 카드의 버튼 제거(buildEpoch++). */
@@ -132,11 +132,11 @@ export async function confirmBuild(p: BuildingSpec, buildId: number): Promise<vo
     let msg = t('build_ok', p.buildings, p.stories, S.model.nodes.length, e)
     const prof = profileOf(p)
     const sm = S.model.seismic
-    if (sm) msg += `<br><span style="color:var(--cyan)">🌐 ${t('seismic')}: V=${Math.round(sm.V)} kN · T=${sm.T.toFixed(2)}s · ${prof.seismic.coefLabel}=${sm.Cs.toFixed(3)} (EX·EY, ${prof.comboRefs.seismic})</span>`
-    if (sm && p.seismic && prof.seismic.rsPrimary?.(p, p.seismic)) msg += `<br><span style="color:var(--amber)">📈 ${t('rs_primary_build', (p.seismic as any).method === 'RS' ? t('rs_primary_forced') : prof.seismic.rsPrimaryWhy?.(p) ?? '')}</span>`
+    if (sm) msg += `<br><span class="[color:var(--cyan)]!">🌐 ${t('seismic')}: V=${Math.round(sm.V)} kN · T=${sm.T.toFixed(2)}s · ${prof.seismic.coefLabel}=${sm.Cs.toFixed(3)} (EX·EY, ${prof.comboRefs.seismic})</span>`
+    if (sm && p.seismic && prof.seismic.rsPrimary?.(p, p.seismic)) msg += `<br><span class="[color:var(--amber)]!">📈 ${t('rs_primary_build', (p.seismic as any).method === 'RS' ? t('rs_primary_forced') : prof.seismic.rsPrimaryWhy?.(p) ?? '')}</span>`
     const wm = S.model.wind
-    if (wm) msg += `<br><span style="color:var(--cyan)">🌬 ${t('wind')}: Vx=${Math.round(wm.Vx)} · Vy=${Math.round(wm.Vy)} kN (WX·WY, ${prof.comboRefs.wind})</span>`
-    if (S.model.walls && S.model.walls.length) msg += `<br><span style="color:var(--cyan)">🧱 ${t('shear_wall_core')}: ${S.model.walls.length} ${t('panels_plate')}</span>`
+    if (wm) msg += `<br><span class="[color:var(--cyan)]!">🌬 ${t('wind')}: Vx=${Math.round(wm.Vx)} · Vy=${Math.round(wm.Vy)} kN (WX·WY, ${prof.comboRefs.wind})</span>`
+    if (S.model.walls && S.model.walls.length) msg += `<br><span class="[color:var(--cyan)]!">🧱 ${t('shear_wall_core')}: ${S.model.walls.length} ${t('panels_plate')}</span>`
     addMsg('bot', msg)
   } catch (e: any) { th.remove(); addMsg('bot', t('build_fail', e.message)) }
 }

@@ -1,4 +1,4 @@
-/* 자동 생성 — 수정 금지. `npm run i18n:check -- --write` 로 갱신 (원본: shared/i18n.js 의 en 블록) */
+/* 자동 생성 — 수정 금지. `npm run i18n:check -- --write` 로 갱신 (원본: src/i18n/en.ts) */
 export type I18nKey =
   | '1st_mode_period'
   | 'acc_ecc'

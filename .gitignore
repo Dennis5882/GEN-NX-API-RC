@@ -33,3 +33,7 @@ GEN_NX_SSEIS_INTEGRATION_PLAN.md
 node_modules/
 dist/
 *.tsbuildinfo
+
+# Browser QA artifacts
+/test-results/
+/playwright-report/

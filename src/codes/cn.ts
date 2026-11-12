@@ -13,7 +13,7 @@
      표값과 ≤1% 차), CH2010 EQ_ "FREQUENT"(대문자만) 수용 + 생성 곡선이 alphaOf 와 4개 사례 전 구간 오차 0, DCON "GB/T50010-10" 수용.
      SSEIS/SWIND 는 중국 코드 미지원(Wrong Field) → 정적 지진·풍은 자체 계산 + CNLD 경로 유지
 ════════════════════════════════════════════════════════════ */
-import { RC } from '../engine'
+import { asSpans, cumPos, deriveFloorGroups, planAreaM2, storyElevations } from '../engine'
 import type { BuildingSpec, MaterialProps } from '../engine/types'
 import { t } from '../i18n'
 import type { CodeProfile, Combo, LoadCaseRef, ParamField, StoryForce } from './types'
@@ -128,8 +128,8 @@ function deltaN(T1: number, Tg: number): number {
 function storyWeightsCN(p: BuildingSpec, sp: Record<string, any>): number[] {
   const D = sp.w0 != null ? null : modelDeadWeights(p, CN)   // w0 빈칸 = 모델 고정하중(부재+슬래브+마감)
   const psi = sp.psiL != null ? sp.psiL : 0.5
-  const area = RC.planAreaM2(p) * (p.buildings || 1)
-  const g = RC.deriveFloorGroups(p)
+  const area = planAreaM2(p) * (p.buildings || 1)
+  const g = deriveFloorGroups(p)
   const W: number[] = []
   for (let s = 1; s <= p.stories; s++) {
     const fu = FLOOR_USE[(g[s] && g[s].use) || 'Residential'] || FLOOR_USE.Residential
@@ -141,8 +141,8 @@ function storyWeightsCN(p: BuildingSpec, sp: Record<string, any>): number[] {
 /** 층별 고정하중 D·바닥 활하중 L (kN, index = story) — 刚重比 G = 1.2D+1.4L (JGJ 3 5.4.1) 용. 不上人屋面 활하중 제외 */
 export function storyGravityCN(p: BuildingSpec): { D: number[]; L: number[] } {
   const D = modelDeadWeights(p, CN)
-  const area = RC.planAreaM2(p) * (p.buildings || 1)
-  const g = RC.deriveFloorGroups(p)
+  const area = planAreaM2(p) * (p.buildings || 1)
+  const g = deriveFloorGroups(p)
   const L: number[] = []
   for (let s = 1; s <= p.stories; s++) {
     const fu = FLOOR_USE[(g[s] && g[s].use) || 'Residential'] || FLOOR_USE.Residential
@@ -156,11 +156,11 @@ export function storyGravityCN(p: BuildingSpec): { D: number[]; L: number[] } {
 export function sizeColumnCN(p: BuildingSpec): { side: number; mu0: number; lim: number } | null {
   const { lim } = axialLimitCN(p, (p.seismic as Record<string, any>) || {})
   const fc = FC[p.matName]; if (!fc) return null
-  const mx = (s: number | number[], n: number) => Math.max(...RC.asSpans(s, n)) / 1000
+  const mx = (s: number | number[], n: number) => Math.max(...asSpans(s, n)) / 1000
   const trib = mx(p.spanX, p.bayX) * mx(p.spanY, p.bayY)
   const Nof = (h: number, b: number) => {
     const q = { ...p, colH: h, colB: b, colName: `C${h}x${b}` }
-    const gr = storyGravityCN(q), area = RC.planAreaM2(q) * (q.buildings || 1)
+    const gr = storyGravityCN(q), area = planAreaM2(q) * (q.buildings || 1)
     let w = 0; for (let s = 1; s <= q.stories; s++) w += 1.3 * ((gr.D[s] || 0) + 0.5 * (gr.L[s] || 0)) / area
     return w * trib
   }
@@ -184,9 +184,9 @@ export function rsPrimaryCN(p: BuildingSpec, sp: Record<string, any>): boolean {
 /** 경험 기본주기 — GB 50009 F.2.2-1 (철근콘크리트 골조·골조-전단벽) T1 = 0.25 + 0.53e-3·H²/∛B
     H 총높이(m), B 건물폭(m) — 1개 동 평면 장변 사용(주기를 짧게 → 底部剪力 보수적) */
 export function periodCN(p: BuildingSpec): number {
-  const elev = RC.storyElevations(p)
+  const elev = storyElevations(p)
   const H = (elev[elev.length - 1] || 0) / 1000
-  const Xp = RC.cumPos(RC.asSpans(p.spanX, p.bayX)), Yp = RC.cumPos(RC.asSpans(p.spanY, p.bayY))
+  const Xp = cumPos(asSpans(p.spanX, p.bayX)), Yp = cumPos(asSpans(p.spanY, p.bayY))
   const B = Math.max(Xp[Xp.length - 1] || 0, Yp[Yp.length - 1] || 0) / 1000
   return 0.25 + 0.53e-3 * H * H / Math.cbrt(Math.max(B, 1))
 }
@@ -200,7 +200,7 @@ function lambdaMin(amax: number, T: number): number {
 function seismicCN(p: BuildingSpec, sp: Record<string, any>, opt: { T?: number } = {}) {
   const { it, Tg, zeta } = siteParams(sp)
   const W = storyWeightsCN(p, sp)
-  const elev = RC.storyElevations(p)
+  const elev = storyElevations(p)
   const Wtot = W.reduce((a, b) => a + (b || 0), 0)
   /* 기본주기: 모달 → 직접입력 → 경험식 GB 50009 F.2.2-1.
      周期折减 ψT(JGJ 3 4.3.17)는 해석(모달) 주기에만 — 경험식은 실측 기반(填充墙 포함), 직접입력은 최종 설계주기로 봄.
@@ -246,10 +246,10 @@ function windCN(p: BuildingSpec, wp: Record<string, any>) {
   const bz = Math.max(1.2, wp.betaz != null ? wp.betaz : 1.2)
   const mus = wp.mus != null ? wp.mus : 1.3                       // 表8.3.1-30 직사각형 +0.8/−0.5
   const cat = wp.terrain || 'B'
-  const Xp = RC.cumPos(RC.asSpans(p.spanX, p.bayX)), Yp = RC.cumPos(RC.asSpans(p.spanY, p.bayY))
+  const Xp = cumPos(asSpans(p.spanX, p.bayX)), Yp = cumPos(asSpans(p.spanY, p.bayY))
   const Lx = (Xp[Xp.length - 1] || 0) / 1000, Ly = (Yp[Yp.length - 1] || 0) / 1000
   const nb = p.buildings || 1
-  const elev = RC.storyElevations(p)
+  const elev = storyElevations(p)
   const fx: (StoryForce & { story: number })[] = [], fy: (StoryForce & { story: number })[] = []
   let Vx = 0, Vy = 0
   for (let s = 1; s <= p.stories; s++) {
@@ -333,7 +333,7 @@ export const CN: CodeProfile = {
       const chk = { lambda, x, y, scaled: false }
       const lines: string[] = []
       for (const [d, c] of [['X', x], ['Y', y]] as const) if (c)
-        lines.push(`${t('rs_min_shear', d, c.min.toFixed(4), c.story, lambda.toFixed(4))} ${c.eta <= 1 ? '✓' : `<b style="color:var(--amber)">→ ×${c.eta}</b>`}`)
+        lines.push(`${t('rs_min_shear', d, c.min.toFixed(4), c.story, lambda.toFixed(4))} ${c.eta <= 1 ? '✓' : `<b class="[color:var(--amber)]!">→ ×${c.eta}</b>`}`)
       if ((x?.eta ?? 1) > 1 || (y?.eta ?? 1) > 1) lines.push(t('rs_scaled_note'))
       return { scale: { X: ctx.scale0.X * (x?.eta ?? 1), Y: ctx.scale0.Y * (y?.eta ?? 1) }, chk, lines }
     },

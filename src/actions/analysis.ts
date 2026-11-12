@@ -1,6 +1,6 @@
 /* 해석·결과 회수·동적해석 — 바닐라 1:1 이전 */
 import { profileOf } from '../codes'
-import { RC } from '../engine'
+import { eigvPayload, pickModalPeriods, splcPayload } from '../engine'
 import { t, tl } from '../i18n'
 import { mapi } from '../mapi/client'
 import { dirPeriods, num, tableObjs } from '../mapi/tables'
@@ -133,8 +133,8 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   const wasAmp = await revertTorsionAmp()   // 실패하면 던짐
   const scale0 = prof.seismic.rsScale0?.(p, sp) ?? { X: 1, Y: 1 }
   const putSplc = (fn: string, sx: number, sy: number) => mapi('PUT', 'splc', { Assign: {
-    1: { ...RC.splcPayload('RSX', 'XY', fn, sx), ANGLE: 0, ...extra },
-    2: { ...RC.splcPayload('RSY', 'XY', fn, sy), ANGLE: 90, ...extra },
+    1: { ...splcPayload('RSX', 'XY', fn, sx), ANGLE: 0, ...extra },
+    2: { ...splcPayload('RSY', 'XY', fn, sy), ANGLE: 90, ...extra },
   } })
   /* 이전 RS 실행의 증폭된 우발편심 %가 SPLC 에 남아 있으면(이번엔 RS 미지정 → SPLC 를 다시 쓰지 않음) 기본값으로 복원 */
   if (wasAmp && !doRS && extra.ACCECC_PERCENT) try {
@@ -153,7 +153,7 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   log('▸ ' + t('massSrc', liveF), 'ok')
   /* 2) 고유치 해석 제어 (Subspace), 모드수 = clamp(층수×3, 6..30) */
   const modes = Math.min(Math.max(stories * 3, 6), 30)
-  await mapi('PUT', 'eigv', { Assign: { 1: RC.eigvPayload(modes) } })
+  await mapi('PUT', 'eigv', { Assign: { 1: eigvPayload(modes) } })
   log('▸ ' + t('eigenvalue_setup') + ` (${modes} modes)`, 'ok')
   /* 3) (옵션) 응답스펙트럼: 기준별 설계스펙트럼 → SPFC, RSX·RSY → SPLC(CQC) */
   let ds: ReturnType<typeof prof.seismic.spectrum> = null
@@ -208,7 +208,7 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   let evResp: any = null
   try {
     const resp = await mapi('POST', '/post/table', { Argument: { TABLE_NAME: 'EV', TABLE_TYPE: 'EIGENVALUEMODE', UNIT: { FORCE: 'KN', DIST: 'M' } } })
-    modal = RC.pickModalPeriods(resp)
+    modal = pickModalPeriods(resp)
     evResp = resp
   } catch (e: any) { log('▸ ' + t('period_retrieval_failed') + e.message, 'warn') }
   /* 5b) RS 보정 — 기준 훅(rsAdjust)이 방향별 최종 SCALE 결정 → 바뀌면 SPLC 갱신 후 재해석.
@@ -268,7 +268,7 @@ export async function actDynamic(opt: { rs?: boolean } = {}): Promise<string> {
   if (ds && rsLines.length) {
     msg += rsLines.map(l => '<br>　' + l).join('')
   }
-  msg += `<br><span style="color:var(--dim);font-size:.85em">` + t('dynNote', liveF) + `</span>`
+  msg += `<br><span class="[color:var(--dim)]! [font-size:.85em]!">` + t('dynNote', liveF) + `</span>`
   /* 심사 지표(기준 지원 시) — 재해석까지 끝난 결과로 */
   if (prof.review && !notAllowed) {
     try { msg += '<br><br>' + await actReview() } catch (e: any) { log('▸ ' + t('rv_fetch_failed') + e.message, 'warn') }

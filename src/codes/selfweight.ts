@@ -3,7 +3,7 @@
    부재 자중(BODF: 기둥·보·연결보·전단벽) + 바닥 DL(마감 SDL + 슬래브 자중).
    정적 지진 중량이 동적해석 질량과 어긋나지 않게 하는 단일 출처(w0 미입력 시).
 ════════════════════════════════════════════════════════════ */
-import { RC } from '../engine'
+import { buildFrame, deriveFloorGroups, planAreaM2, resolveWalls, specSections, storyElevations } from '../engine'
 import type { BuildingSpec } from '../engine/types'
 import type { CodeProfile } from './types'
 
@@ -18,8 +18,8 @@ export function slabThk(p: BuildingSpec): number {
 
 /** 지상 높이 H (m) — 지하층(BASEMENT) 제외. 예: GB 50011 5.1.2 '高度不超过40m' 판정 */
 export function heightAboveGround(p: BuildingSpec): number {
-  const elev = RC.storyElevations(p)
-  const g = RC.deriveFloorGroups(p)
+  const elev = storyElevations(p)
+  const g = deriveFloorGroups(p)
   let nb = 0
   for (let s = 1; s <= p.stories; s++) if (g[s] && g[s].role === 'BASEMENT') nb = s
   return ((elev[p.stories] || 0) - (elev[nb] || 0)) / 1000
@@ -31,10 +31,10 @@ export const slabLoad = (p: BuildingSpec, prof: CodeProfile): number => slabThk(
 /** 층별 고정하중 W_D[s] (kN, s=1..stories). 기둥·벽은 아래·위 층에 반씩, 보·바닥은 그 층.
     지반(0층)으로 가는 몫은 질량에서 빠지므로 제외 — Gen NX 질량 집계와 같은 방식. */
 export function modelDeadWeights(p: BuildingSpec, prof: CodeProfile): number[] {
-  const q: BuildingSpec = { ...p, walls: RC.resolveWalls(p) }
-  const f = RC.buildFrame(q)
-  const R = RC.specSections(q)
-  const g = RC.deriveFloorGroups(q)
+  const q: BuildingSpec = { ...p, walls: resolveWalls(p) }
+  const f = buildFrame(q)
+  const R = specSections(q)
+  const g = deriveFloorGroups(q)
   const gam = prof.concreteGamma
   const xyz: Record<number, { x: number; y: number; z: number }> = {}
   f.nodes.forEach((n: any) => { xyz[n.id] = n })
@@ -54,7 +54,7 @@ export function modelDeadWeights(p: BuildingSpec, prof: CodeProfile): number[] {
   f.beamMeta.forEach((c: any) => { if (c.inWall) return; const sc = sect(asg(c.iz).beamSect); W[c.iz] += kN(sc.H * sc.B * len(c.n1, c.n2)) })
   f.linkMeta.forEach((c: any) => { const sc = sect(asg(c.iz).beamSect); W[c.iz] += kN(sc.H * sc.B * len(c.n1, c.n2)) })
   /* 바닥 DL: (SDL + 슬래브) × 바닥면적 — FBLA 와 같은 면적(동별 평면 × 동수) */
-  const area = RC.planAreaM2(q) * (q.buildings || 1)
+  const area = planAreaM2(q) * (q.buildings || 1)
   const slab = slabLoad(q, prof)
   for (let s = 1; s <= q.stories; s++) {
     const fu = prof.floorUse[(g[s] && g[s].use) || 'Residential'] || prof.floorUse.Residential
@@ -67,9 +67,9 @@ export function modelDeadWeights(p: BuildingSpec, prof: CodeProfile): number[] {
 /** 층별 기둥·벽 자중 (kN) — 수직지진(2.18 해설)에서 기둥은 지반과 함께 상하 운동하므로 보·바닥과 계수를 달리함.
     modelDeadWeights 와 같은 반분 규칙 */
 export function modelColumnWeights(p: BuildingSpec, prof: CodeProfile): number[] {
-  const q: BuildingSpec = { ...p, walls: RC.resolveWalls(p) }
-  const f = RC.buildFrame(q)
-  const R = RC.specSections(q)
+  const q: BuildingSpec = { ...p, walls: resolveWalls(p) }
+  const f = buildFrame(q)
+  const R = specSections(q)
   const xyz: Record<number, { x: number; y: number; z: number }> = {}
   f.nodes.forEach((n: any) => { xyz[n.id] = n })
   const len = (a: number, b: number) => Math.hypot(xyz[a].x - xyz[b].x, xyz[a].y - xyz[b].y, xyz[a].z - xyz[b].z)

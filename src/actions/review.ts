@@ -14,12 +14,13 @@ export const reviewIcon = (s: ReviewItem['status']) => ({ icon: ICON[s], color: 
 /** 채팅용 요약 — 항목당 한 줄 */
 export function reviewHtml(items: ReviewItem[], rs: boolean): string {
   const ng = items.filter(i => i.status === 'ng').length, warn = items.filter(i => i.status === 'warn').length
-  let h = `<b>📋 ${t('rv_title')}</b> <span style="color:var(--dim)">(${rs ? t('rv_src_rs') : t('rv_src_st')})</span>`
+  let h = `<b>📋 ${t('rv_title')}</b> <span class="[color:var(--dim)]!">(${rs ? t('rv_src_rs') : t('rv_src_st')})</span>`
   for (const it of items) {
     const c = reviewIcon(it.status)
-    h += `<br><span style="color:${c.color}">${c.icon}</span> ${it.label}${it.dir ? ' ' + it.dir : ''}: <b>${it.value}</b> <span style="color:var(--dim)">${it.limit}${it.where ? ' · ' + it.where : ''}</span>`
+    const tone = { ok: 'text-[var(--green)]!', warn: 'text-[var(--amber)]!', ng: 'text-[var(--red)]!', info: 'text-[var(--muted)]!' }[it.status]
+    h += `<br><span class="${tone}">${c.icon}</span> ${it.label}${it.dir ? ' ' + it.dir : ''}: <b>${it.value}</b> <span class="[color:var(--dim)]!">${it.limit}${it.where ? ' · ' + it.where : ''}</span>`
   }
-  h += `<br><span style="color:var(--dim);font-size:.85em">${ng || warn ? t('rv_summary_bad', ng, warn) : t('rv_summary_ok')} ${t('rv_panel_hint')}</span>`
+  h += `<br><span class="[color:var(--dim)]! [font-size:.85em]!">${ng || warn ? t('rv_summary_bad', ng, warn) : t('rv_summary_ok')} ${t('rv_panel_hint')}</span>`
   return h
 }
 

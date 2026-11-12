@@ -1,9 +1,10 @@
+import type { BuildingTypeKey } from '../engine'
 /* 건물 규격 설명카드 HTML + 편집 카드용 팔레트 헬퍼 (바닐라 planSummary · floorCompoLine · editorPalette) */
-import { RC, type BuildingSpec, type Palette } from '../engine'
+import { paletteFor, specSections, specToGroupRows, type BuildingSpec, type Palette } from '../engine'
 import { roleLbl, t, useLbl } from '../i18n'
 
 /** 건물유형 문구 (사전 bt_<type>_label|desc|tip) */
-export function bt(typeKey: keyof typeof RC.BUILDING_TYPES, field: 'label' | 'desc' | 'tip'): string {
+export function bt(typeKey: BuildingTypeKey, field: 'label' | 'desc' | 'tip'): string {
   return t(`bt_${typeKey}_${field}`)
 }
 
@@ -11,14 +12,14 @@ const rng = (r: { from: number; to: number }) => (r.from === r.to) ? `${r.from}F
 
 /* 표준층 구성 한 줄: "1F 기단부(商業) · 2–14F 표준층(住宅) · 15F 지붕" */
 function floorCompoLine(p: BuildingSpec): string {
-  return RC.specToGroupRows(p).map(r => `${rng(r)} ${roleLbl(r.role)}(${useLbl(r.use)})`).join('  ·  ')
+  return specToGroupRows(p).map(r => `${rng(r)} ${roleLbl(r.role)}(${useLbl(r.use)})`).join('  ·  ')
 }
 
 /* 구역별 단면/재료 — 다중 단면일 때만 줄 단위로 표시(단일이면 빈 문자열) */
 function sectionCompoLine(p: BuildingSpec): string {
-  const R = RC.specSections(p)
+  const R = specSections(p)
   if (R.sections.length <= 2 && R.mats.length <= 1) return ''
-  return RC.specToGroupRows(p).map(r => `${rng(r)}: ${r.col || p.colName} / ${r.beam || p.beamName} · ${r.mat || p.matName}`).join('<br>')
+  return specToGroupRows(p).map(r => `${rng(r)}: ${r.col || p.colName} / ${r.beam || p.beamName} · ${r.mat || p.matName}`).join('<br>')
 }
 
 /** 건물유형 헤더(아이콘·이름·설명). openTag = 감싸는 div 여는 태그 */
@@ -32,7 +33,7 @@ export function typeHeadHTML(p: BuildingSpec, openTag: string): string {
 export function planSummaryHTML(p: BuildingSpec): string {
   const k = p.bldgType
   const header = typeHeadHTML(p,
-    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;padding-bottom:8px;border-bottom:1px dashed var(--line2)">')
+    '<div class="[display:flex]! [align-items:center]! [gap:8px]! [margin-bottom:9px]! [padding-bottom:8px]! [border-bottom:1px_dashed_var(--line2)]!">')
   const tip = k ? `<div class="plan-tip">${bt(k, 'tip')}</div>` : ''
   const sec = sectionCompoLine(p)
   return `<div class="plan">${header}` +
@@ -49,7 +50,7 @@ export function planSummaryHTML(p: BuildingSpec): string {
 
 /* 편집용 팔레트: 엔진 paletteFor + 최상위 기본 단면/재료를 항상 포함(드롭다운 기본 선택지) */
 export function editorPalette(p: BuildingSpec): Palette {
-  const pal = RC.paletteFor(p)
+  const pal = paletteFor(p)
   const cols = pal.cols.slice(), beams = pal.beams.slice(), mats = pal.mats.slice()
   if (p.colName && !cols.some(c => c.name === p.colName)) cols.unshift({ name: p.colName, H: p.colH, B: p.colB })
   if (p.beamName && !beams.some(b => b.name === p.beamName)) beams.unshift({ name: p.beamName, H: p.beamH, B: p.beamB })

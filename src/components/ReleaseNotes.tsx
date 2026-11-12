@@ -1,14 +1,18 @@
+import { uiClass } from '@/styles/component-classes'
 /* 릴리즈 노트 — 하단 바 버전 클릭 시.
    v3.11.0 이후 = src/data/releases.json(버전·날짜·노트 수) + releaseNotes.json(4개 언어 한 줄 노트) — `npm run release` 로만 추가,
    release-check 가 버전·노트 완비를 빌드에서 강제. 현재 UI 언어로 표시(없으면 ko).
    그 이전 이력 = CHANGELOG.md(한국어 원문) — 열 때만 별도 청크로 로드. 마크다운은 이 파일이 쓰는 부분만 변환:
    ## 버전 머리, ### 소제목, - 목록(2칸 들여쓰기 = 하위), **굵게**, `코드`. */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { t } from '../i18n'
 import releases from '../data/releases.json'
 import notes from '../data/releaseNotes.json'
 import { S, useStore } from '../state/store'
 import { APP_VERSION } from '../version'
+import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 
 interface Release { ver: string; date: string; title: string; html: string }
 
@@ -67,41 +71,38 @@ function currentReleases(lang: string): Release[] {
 }
 
 export function ReleaseNotes({ onClose }: { onClose(): void }) {
+  const opener = useRef<HTMLElement | null>(null)
   useStore()   // 언어 변경 시 다시 그림
   const [legacy, setList] = useState<Release[] | null>(null)
   const [err, setErr] = useState('')
   useEffect(() => {
     const have = new Set((releases as { version: string }[]).map(r => r.version))
     import('../../CHANGELOG.md?raw').then(m => setList(parseChangelog(m.default).filter(r => !have.has(r.ver)))).catch(e => setErr(String(e?.message || e)))
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
   return (
-    <>
-      <div className="scrim on" onClick={onClose} />
-      <div className="rn" role="dialog" aria-modal="true" aria-label={t('rn_title')}>
-        <div className="rn-hd">
-          <b>{t('rn_title')}</b>
-          <span className="rn-sub">{t('rn_note')}</span>
-          <button className="rn-x" onClick={onClose} aria-label={t('close')}>✕</button>
+    <Dialog open onOpenChange={open => { if (!open) onClose() }}>
+      <DialogContent onOpenAutoFocus={() => { opener.current = document.activeElement as HTMLElement }} onCloseAutoFocus={event => { event.preventDefault(); opener.current?.focus() }} showCloseButton={false} aria-describedby={undefined} overlayClassName="z-40 bg-[var(--scrim)] backdrop-blur-[3px]" className={uiClass("z-[41] flex h-[min(80vh,820px)] w-[min(760px,calc(100vw-32px))] max-w-none flex-col gap-0 overflow-hidden rounded-[8px] border border-border bg-card p-0 shadow-[0_18px_50px_var(--shadow)] sm:max-w-none")}>
+        <div className={uiClass("rn-hd")}>
+          <DialogTitle className={uiClass("text-[1rem] font-semibold text-[var(--txt-hi)]")}>{t('rn_title')}</DialogTitle>
+          <span className={uiClass("rn-sub")}>{t('rn_note')}</span>
+          <Button variant="plain" size="plain" className={uiClass("rn-x")} onClick={onClose} aria-label={t('close')}>✕</Button>
         </div>
-        <div className="rn-body">
-          {err && <p className="rn-err">{err}</p>}
-          {!legacy && !err && <p className="rn-sub">…</p>}
+        <div className={uiClass("rn-body")}>
+          {err && <p className={uiClass("rn-err")}>{err}</p>}
+          {!legacy && !err && <p className={uiClass("rn-sub")}>…</p>}
           {[...currentReleases(S.lang), ...(legacy || [])].map((r, i) => (
-            <details key={r.ver} className="rn-item" open={i === 0}>
+            <details key={r.ver} className={uiClass("rn-item")} open={i === 0}>
               <summary>
-                <span className="rn-ver">v{r.ver}</span>
-                {r.ver === APP_VERSION && <span className="rn-cur">{t('rn_current')}</span>}
-                <span className="rn-date">{r.date}</span>
-                <span className="rn-title">{r.title}</span>
+                <span className={uiClass("rn-ver")}>v{r.ver}</span>
+                {r.ver === APP_VERSION && <Badge plain className={uiClass("rn-cur")}>{t('rn_current')}</Badge>}
+                <span className={uiClass("rn-date")}>{r.date}</span>
+                <span className={uiClass("rn-title")}>{r.title}</span>
               </summary>
-              <div className="rn-text" dangerouslySetInnerHTML={{ __html: r.html }} />
+              <div className={uiClass("rn-text")} dangerouslySetInnerHTML={{ __html: r.html }} />
             </details>
           ))}
         </div>
-      </div>
-    </>
+      </DialogContent>
+    </Dialog>
   )
 }

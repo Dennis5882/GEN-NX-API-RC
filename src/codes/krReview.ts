@@ -21,7 +21,7 @@ import { t } from '../i18n'
 import { classifyModes, num, subTableObjs, tableObjs } from '../mapi/tables'
 import { heightAboveGround } from './selfweight'
 import type { ReviewItem, ReviewTable } from './types'
-import { RC } from '../engine'
+import { deriveFloorGroups, storyElevations } from '../engine'
 import { IE_KR, SYSTEMS, impKR, rsRequiredKR, siteKR, sdcKR, storyGravityKR, storyWeightsKR, systemKR } from './kr'
 import { rowsOf, storyByLevel, storyName } from './cnReviewExtra'
 
@@ -97,8 +97,8 @@ export function krReviewEvaluate(p: BuildingSpec, sp: Record<string, any>, data:
   }
 
   /* 2b) 연층 V-1 · 중량비 V-2 · P-Δ 안정계수 θ — 층 강성 K = V/Δ (kN/m) */
-  const elev: number[] = ctx.model?.elev?.length ? ctx.model.elev : RC.storyElevations(p)
-  const n = p.stories, g = RC.deriveFloorGroups(p)
+  const elev: number[] = ctx.model?.elev?.length ? ctx.model.elev : storyElevations(p)
+  const n = p.stories, g = deriveFloorGroups(p)
   let nb = 0
   for (let s = 1; s <= n; s++) if (g[s] && g[s].role === 'BASEMENT') nb = s
   const hOf = (s: number) => ((elev[s] || 0) - (elev[s - 1] || 0)) / 1000

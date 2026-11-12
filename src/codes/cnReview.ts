@@ -11,7 +11,7 @@
    - 有效质量     GB 50011 5.2.2 条文说明 / JGJ 3 5.1.13 (≥ 90%)
    - 周期比       JGJ 3 3.4.5 (A级 ≤0.9, B级 ≤0.85) — 고층(JGJ 3 1.0.2)에만 적용
 ════════════════════════════════════════════════════════════ */
-import { RC, type BuildingSpec } from '../engine'
+import { deriveFloorGroups, paletteFor, type BuildingSpec } from '../engine'
 import { t } from '../i18n'
 import { classifyModes, num, subTableObjs, tableObjs } from '../mapi/tables'
 import { heightAboveGround } from './selfweight'
@@ -152,7 +152,7 @@ export function cnReviewEvaluate(p: BuildingSpec, sp: Record<string, any>, data:
     status: beyond ? 'warn' : 'info', where: beyond ? t('rv_grade_beyond') : undefined,
     clause: cat === 'B' ? (md > 9 ? 'GB 55002 2.3.2 / JGJ 3 3.9.3' : beyond ? 'GB 55002 2.3.2 / GB 50011 6.1.3' : 'GB 55002 2.3.2 · 5.2.1') : 'GB 55002 5.2.1',
     note: t(cat === 'B' ? 'rv_grade_note_B' : 'rv_grade_note_C') })
-  const mats = new Set<string>([p.matName, ...(RC.paletteFor(p).mats || [])].filter(Boolean) as string[])
+  const mats = new Set<string>([p.matName, ...(paletteFor(p).mats || [])].filter(Boolean) as string[])
   const fcu = (m: string) => +(m.match(/^C(\d+)$/)?.[1] || NaN)
   const minMat = [...mats].filter(m => !isNaN(fcu(m))).sort((a, b) => fcu(a) - fcu(b))[0]
   const need = Math.min(sg.frame, sg.wall ?? 9) <= 2 ? 30 : 25
@@ -228,7 +228,7 @@ export function cnReviewEvaluate(p: BuildingSpec, sp: Record<string, any>, data:
     items.push({ id: 'mass', label: t('rv_mass'), value: '-', limit: '≥ 90%', status: 'info', clause: 'GB 50011 5.2.2 条文说明', note: t('rv_no_data') })
   }
   /* 5) 侧向刚度比·刚重比·倾覆力矩比·轴压比·嵌固端刚度比 (cnReviewExtra.ts) */
-  const fg = RC.deriveFloorGroups(p)
+  const fg = deriveFloorGroups(p)
   let nb = 0
   for (let s = 1; s <= p.stories; s++) if (fg[s] && fg[s].role === 'BASEMENT') nb = s
   items.push(...cnExtraItems(p, data, ctx.model, { sys, tall, H, frameGrade: sg.frame, grav: ctx.grav || { D: [], L: [] }, nb }))

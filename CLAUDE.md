@@ -18,20 +18,24 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 | `src/agent/` | `parse.ts`(parseCommand) · `local.ts`(handleLocal·confirmBuild) · `llm.ts`(TOOLS·handleLLM) · `session.ts`(send·setLang·testConn) · `editor.ts`(편집카드 상태↔스펙) · `plan.ts` · `results.ts` · `guide.ts` |
 | `src/mapi/client.ts` | midas-nx `MidasClient` 래퍼 — `mapi(method,path,body)` 바닐라 시그니처 유지, 타임아웃 15분 |
 | `src/components/` | Header·Drawers·Guide·Chat·PlanCard·PlanEditor·Panels·View3D(Plotly 동적 import) |
-| `src/engine/` | `shared/rc_engine.js` 브리지(side-effect import → `RC`) + `types.ts` 점진 타입화 |
-| `src/i18n/` | `shared/i18n.js` 브리지 — plain `t()`/`tl()`/`tv()`/`pick()` (S.lang 기준, 액션에서도 사용) |
-| `shared/rc_engine.js` | 구조 계산 로직 단일 소스 (React 앱·Wizard 공용, 이전 완료 전까지 유지) |
+| `src/engine/` | 순수 TS 모듈 — spec·geometry·story·dynamic·design·draw, 명시적 import, 브라우저 전역 없음 |
+| `src/i18n/` | 언어별 TS 사전 + `dictionaries.ts`; `t()`/`tl()`/`tv()`는 S.lang 기준 |
+| `archive/MIDAS_RC_Modeling_Wizard.html` | 폐기된 Wizard의 기록용 보관본(빌드·사용 경로에서 제외) |
 | `shared/i18n.js` | 다국어 사전 (window.I18N ~550키, ko/en/zh-TW/zh-CN) |
-| `shared/app.css` | 스타일 단일 소스 (React 앱이 import, 바닐라 클래스명 유지) |
+| `src/styles/` | Tailwind 진입점·테마 토큰·기본 스타일·컴포넌트 유틸리티·HTML 메시지 스타일 |
 | `archive/vanilla-v1.2.1/` | 바닐라 단일 HTML 백업 (git tag `vanilla-v1.2.1`) |
 | `archive/` | 구버전 동결 — 수정 금지 |
 
 - 명령: `npm run dev` / `npm run build`(= `tsc -b && vite build`) / `npm run typecheck`.
-- 빌드는 멀티페이지: `MIDAS_RC_Modeling_Wizard.html`, `gen_nx_api_validation.html`도 `dist/`에 포함, `shared/*`는 `dist/shared/`로 복사(vite.config.ts 플러그인).
+- 빌드는 React 진입점과 `gen_nx_api_validation.html`만 포함한다. Wizard와 `shared/*` 레거시 복사는 제거했다.
 - 이전 현황(2026-10-11): **전 기능 이전 완료** — 채팅·NLP·가이드·편집카드·로그·모델·3D·결과·LLM·QA검증. 바닐라 동작 원본은 `archive/vanilla-v1.2.1/index.html`.
 - 등가성 검증: jsdom(바닐라) vs Vite SSR(React)에 가짜 MIDAS 서버를 물려 10개 시나리오의 API 호출·페이로드·메시지·로그·모델 상태 비교 → 동일. 하네스는 비커밋(scratchpad).
 - 액션은 `S`를 직접 변경 후 `notify()` — 로직을 바닐라와 1:1로 유지하기 위한 의도적 설계. API 호출은 아직 `client.request` 원시 호출(SDK 타입 리소스 전환은 차기).
 - MAPI-Key는 바닐라와 같이 메모리(state)에만 보관, 저장 금지.
+
+## 스타일 이전 후 현재 구조
+
+UI는 `components/ui/`의 shadcn/Radix 프리미티브와 Tailwind를 사용한다. Preflight는 사용하지 않고 기존 테마·CJK 토큰과 HTML 클래스 계약을 보존한다. `shared/app.css`는 제거했다. 모바일 헤더는 두 줄로 배치한다. `npm run test:ui`는 Chromium 브라우저 QA이며 실제 Gen NX·LLM 요청을 차단한다. 아래 과거 작업 기록의 shared 엔진·사전 경로는 현재 TS 모듈로 대체되었다.
 
 ## 보안·커밋 규칙 (항상 준수)
 
@@ -107,7 +111,7 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 ## i18n 패턴
 
 - 모든 UI 문자열은 `t('key')` / `tl('log_key')` 로 호출. **키는 타입 검사됨**(`I18nKey`/`LogKey`, `src/i18n/keys.gen.ts` 자동 생성) — 오타는 컴파일 오류.
-- **UI 문구는 전부 `shared/i18n.js`에만** — GUIDE(`g_*`)·HELP(`help_html`)·공급자 키 힌트(`prov_hint_*`)·건물유형(`bt_<type>_label|desc|tip`) 포함. 코드/엔진에 `{ko,en,…}` 인라인 객체 금지.
+- **UI 문구는 전부 `src/i18n/{ko,en,zh-TW,zh-CN}.ts`에만** — GUIDE(`g_*`)·HELP(`help_html`)·공급자 키 힌트(`prov_hint_*`)·건물유형(`bt_<type>_label|desc|tip`) 포함. 코드/엔진에 `{ko,en,…}` 인라인 객체 금지.
 - 새 문자열 = `ko:{}` / `en:{}` / `'zh-TW':{}` 블록에 동시 추가 → `npm run i18n:check -- --write`(keys.gen.ts 갱신).
 - **언어 레지스트리** `src/i18n/types.ts` `LANG_DEFS` = 지원 언어 단일 출처(code·label·html lang). 언어 추가 = 여기 한 줄 + 사전 블록.
 - 대만 번체 코드 = **`zh-TW`**(구 `zh`는 `normalizeLang`이 localStorage 값 자동 변환). 폴백 = `en`.

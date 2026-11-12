@@ -1,0 +1,56 @@
+{
+  "hc": [
+    "src/i18n/ko.ts",
+    "src/i18n/en.ts",
+    "src/i18n/zh-TW.ts",
+    "src/i18n/zh-CN.ts"
+  ],
+  "help": [
+    "src/i18n/ko.ts",
+    "src/i18n/en.ts",
+    "src/i18n/zh-TW.ts",
+    "src/i18n/zh-CN.ts"
+  ],
+  "hk": [
+    "src/i18n/ko.ts",
+    "src/i18n/en.ts",
+    "src/i18n/zh-TW.ts",
+    "src/i18n/zh-CN.ts"
+  ],
+  "hn": [
+    "src/i18n/ko.ts",
+    "src/i18n/en.ts",
+    "src/i18n/zh-TW.ts",
+    "src/i18n/zh-CN.ts"
+  ],
+  "hr": [
+    "src/i18n/ko.ts",
+    "src/i18n/en.ts",
+    "src/i18n/zh-TW.ts",
+    "src/i18n/zh-CN.ts"
+  ],
+  "hv": [
+    "src/i18n/ko.ts",
+    "src/i18n/en.ts",
+    "src/i18n/zh-TW.ts",
+    "src/i18n/zh-CN.ts"
+  ],
+  "info": ["src/components/icons.ts"],
+  "k": [
+    "src/agent/plan.ts",
+    "src/i18n/ko.ts",
+    "src/i18n/en.ts",
+    "src/i18n/zh-TW.ts",
+    "src/i18n/zh-CN.ts"
+  ],
+  "ng": ["src/components/icons.ts"],
+  "ok": ["src/components/icons.ts"],
+  "pe-head": ["src/components/PlanEditor.tsx"],
+  "plan": ["src/agent/plan.ts"],
+  "plan-desc": ["src/agent/plan.ts"],
+  "plan-sub": ["src/agent/plan.ts"],
+  "plan-tip": ["src/agent/plan.ts"],
+  "plan-type": ["src/agent/plan.ts"],
+  "sb": ["src/components/icons.ts"],
+  "warn": ["src/components/icons.ts"]
+}

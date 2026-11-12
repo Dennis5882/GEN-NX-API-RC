@@ -1,9 +1,23 @@
-/* A0: 기존 기본 스타일을 유지한다. Preflight와 전역 shadcn base reset은 A1/A2에서 검토한다. */
+/* 기존 기본 스타일·테마를 Tailwind 레이어로 유지한다. Preflight는 사용하지 않는다. */
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities) source('../');
 @import "./tokens.css";
-@import "../../shared/app.css";
+@import "./components.css";
+@import "tw-animate-css";
+@import "./base.css";
+@import "./content.css";
+
+@layer base {
+  [data-slot="button"],
+  [data-slot="tabs-trigger"] {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
+  }
+}
 
 @custom-variant dark (
   &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *)

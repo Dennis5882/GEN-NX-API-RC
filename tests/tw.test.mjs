@@ -1,6 +1,6 @@
 /* TW 프로필 검증 — 耐震規範(113)·耐風規範(2014)·混凝土規範(112) 식을 테스트 안에서 원문대로 독립 재구현해 앱 값과 대조 (`npm test`) */
 import { describe } from 'vitest'
-import { RC } from '../src/engine/index.ts'
+import * as RC from '../src/engine/index.ts'
 import { S } from '../src/state/store.ts'
 import * as T from '../src/codes/tw.ts'
 import { modelDeadWeights, heightAboveGround } from '../src/codes/selfweight.ts'

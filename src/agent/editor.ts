@@ -4,7 +4,7 @@
 ════════════════════════════════════════════════════════════ */
 import { profileOf, type LateralGroup } from '../codes'
 import { slabThk } from '../codes/selfweight'
-import { RC, type BuildingSpec, type Palette } from '../engine'
+import { specToGroupRows, specWalls, type BuildingSpec, type Palette } from '../engine'
 import type { CoreInput } from '../engine/types'
 import { editorPalette } from './plan'
 
@@ -86,7 +86,7 @@ export function initEditor(p: BuildingSpec): EditorState {
   const matCat = Object.keys(prof.materials)
   pal.mats.forEach(m => { if (!matCat.includes(m)) matCat.unshift(m) })
   const c: any = p.core || {}
-  const rows = RC.specToGroupRows(p).slice().reverse().map(g => {
+  const rows = specToGroupRows(p).slice().reverse().map(g => {
     const sel = effectiveSel(pal, { col: g.col || '', beam: g.beam || '', mat: g.mat || '' })
     return { key: newKey(), role: g.role, from: str(g.from), to: str(g.to), h: str(g.h), use: g.use, ...sel }
   })
@@ -198,7 +198,7 @@ export function editorToSpec(st: EditorState, base: BuildingSpec): BuildingSpec 
   const bt = parseFloat(st.bearing.thick)
   p.bearing = st.bearing.on ? { on: true, thick: isNaN(bt) ? 200 : bt } : undefined
   if (!p.bearing) delete p.bearing
-  p.walls = RC.specWalls(p)   // 코어 + 내력벽(base.bearing 보존)
+  p.walls = specWalls(p)   // 코어 + 내력벽(base.bearing 보존)
   return p
 }
 

@@ -1,5 +1,7 @@
+import { Button } from './ui/button'
+import { uiClass } from '@/styles/component-classes'
 /* GUIDE 사이드바 — 섹션 접기/펼치기, 클릭 = 입력창 타이핑 후 실행(runCmd). 실행 중인 항목은 .running 으로 강조 */
-import { useRef, useState } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
 import { GUIDE, type GuideItem, type GuideSection } from '../agent/guide'
 import { runCmd } from '../agent/session'
 import { profileOf } from '../codes'
@@ -16,21 +18,21 @@ function Section({ sec, running, onRun }: { sec: GuideSection; running: string |
   const items = sec.items.filter(visible)
 
   return (
-    <div className={`gsec${open ? '' : ' closed'}`} data-acc={sec.acc}>
-      <div className="gsec-hd" onClick={() => setOpen(o => !o)}>
-        <span className="gsec-ic">{sec.icon}</span><span style={{ flex: 1 }}>{t(`g_${sec.id}`)}</span>
-        <span className="garrow" aria-hidden />
-      </div>
-      <div className="gsec-items" ref={itemsRef} style={{ maxHeight: maxH }}>
+    <div className={uiClass(`gsec${open ? '' : ' closed'}`)} data-acc={sec.acc}>
+      <Button variant="plain" size="plain" className={uiClass("gsec-hd w-full")} aria-expanded={open} onClick={() => setOpen(o => !o)}>
+        <span className={uiClass("gsec-ic")}>{sec.icon}</span><span className={uiClass("[flex:1]!")} >{t(`g_${sec.id}`)}</span>
+        <span className={uiClass("garrow")} aria-hidden />
+      </Button>
+      <div className={uiClass("gsec-items max-h-[var(--guide-height)]")} ref={itemsRef} style={{ '--guide-height': maxH } as CSSProperties}>
         {items.map((it, i) => {
-          if ('div' in it) return <div key={i} className="gsec-div" />
-          if ('note' in it) return <div key={i} className="gsec-note">{t(it.note)}</div>
+          if ('div' in it) return <div key={i} className={uiClass("gsec-div")} />
+          if ('note' in it) return <div key={i} className={uiClass("gsec-note")}>{t(it.note)}</div>
           const label = t(it.key), cmd = t(`${it.key}_cmd`)
           return (
-            <button key={i} className={`gcmd${running === it.key ? ' running' : ''}`} title={`↵ ${cmd}`} onClick={() => onRun(it.key, cmd)}>
-              <i className="gicon">{it.icon}</i><span className="glabel">{label}</span>
-              <span className="gsend">↵</span>
-            </button>
+            <Button variant="plain" size="plain" key={i} className={uiClass(`gcmd${running === it.key ? ' running' : ''}`)} title={`↵ ${cmd}`} onClick={() => onRun(it.key, cmd)}>
+              <i className={uiClass("gicon")}>{it.icon}</i><span className={uiClass("glabel")}>{label}</span>
+              <span className={uiClass("gsend")}>↵</span>
+            </Button>
           )
         })}
       </div>
@@ -47,14 +49,14 @@ export function Guide({ collapsed, onToggle }: { collapsed: boolean; onToggle():
     void runCmd(cmd).finally(() => setRunning(null))
   }
   return (
-    <aside className={`guide${collapsed ? ' collapsed' : ''}${running || s.busy ? ' busy' : ''}`}>
-      <div className="guide-hd">
+    <aside className={uiClass(`guide${collapsed ? ' collapsed' : ''}${running || s.busy ? ' busy' : ''}`)}>
+      <div className={uiClass("guide-hd")}>
         <span>{t('guide_title')}</span>
-        <button className="guide-tog" onClick={onToggle} title={collapsed ? t('guide_open') : t('guide_close')}>
+        <Button variant="plain" size="plain" className={uiClass("guide-tog")} onClick={onToggle} title={collapsed ? t('guide_open') : t('guide_close')}>
           {collapsed ? '⟩' : '⟨'}
-        </button>
+        </Button>
       </div>
-      <div className="guide-body">
+      <div className={uiClass("guide-body")}>
         {GUIDE.map(sec => <Section key={sec.id} sec={sec} running={running} onRun={onRun} />)}
       </div>
     </aside>

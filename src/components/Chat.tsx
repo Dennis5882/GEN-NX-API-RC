@@ -1,3 +1,9 @@
+import { Textarea } from './ui/textarea'
+import { Badge } from './ui/badge'
+import { cn } from '../lib/utils'
+import { Button } from './ui/button'
+import { Card } from './ui/card'
+import { uiClass } from '@/styles/component-classes'
 /* 채팅 — 메시지 목록 + 입력창(모드바). plan 메시지는 PlanCard 로 렌더. */
 import { useEffect, useRef, useState } from 'react'
 import { PROVIDERS } from '../agent/llm'
@@ -11,12 +17,12 @@ import { plainIcons } from './icons'
 function Message({ m }: { m: ChatMsg }) {
   const who = m.role === 'user' ? t('who_user') : t('who_agent')
   let body
-  if (m.kind === 'thinking') body = <div className="bubble"><span className="typing"><span /><span /><span /></span></div>
-  else if (m.kind === 'plan') body = <div className="bubble"><PlanCard msg={m} /></div>
-  else body = <div className="bubble" dangerouslySetInnerHTML={{ __html: plainIcons(m.html) }} />
+  if (m.kind === 'thinking') body = <Card plain className={uiClass("bubble")}><span className={uiClass("typing")}><span /><span /><span /></span></Card>
+  else if (m.kind === 'plan') body = <Card plain className={uiClass("bubble")}><PlanCard msg={m} /></Card>
+  else body = <Card plain className={uiClass("bubble")} dangerouslySetInnerHTML={{ __html: plainIcons(m.html) }} />
   return (
-    <div className={`msg ${m.role}`}>
-      {m.kind !== 'thinking' && <div className="who"><span className="who-n">{who}</span>{m.ts && <span className="who-t">{m.ts}</span>}</div>}
+    <div className={uiClass(`msg ${m.role}`)}>
+      {m.kind !== 'thinking' && <div className={uiClass("who")}><span className={uiClass("who-n")}>{who}</span>{m.ts && <span className={uiClass("who-t")}>{m.ts}</span>}</div>}
       {body}
     </div>
   )
@@ -71,16 +77,16 @@ function Composer() {
   const llm = llmActive()
   const label = PROVIDERS[s.provider].label
   return (
-    <div className="composer">
-      <div className="modebar">
+    <div className={uiClass("composer")}>
+      <div className={uiClass("modebar")}>
         <span>{t('mode')}</span>
-        <span className={`tag ${llm ? 'llm' : 'local'}`}>{llm ? `LLM · ${label} · ${s.provModel}` : t('mode_local')}</span>
-        <span style={{ flex: 1 }} />
-        <span style={{ opacity: 0.6 }}>{llm ? label + t('brain') : s.llm ? t('mode_nokey') : ''}</span>
-        <button className="clearchat" onClick={clearChat} title={t('clearchat_tip')}>{t('clearchat')}</button>
+        <Badge plain className={uiClass(`tag ${llm ? 'llm' : 'local'}`)}>{llm ? `LLM · ${label} · ${s.provModel}` : t('mode_local')}</Badge>
+        <span className={uiClass("[flex:1]!")}  />
+        <span className={uiClass("[opacity:0.6]!")} >{llm ? label + t('brain') : s.llm ? t('mode_nokey') : ''}</span>
+        <Button variant="plain" size="plain" className={uiClass("clearchat")} onClick={clearChat} title={t('clearchat_tip')}>{t('clearchat')}</Button>
       </div>
-      <div className="row">
-        <textarea
+      <div className={uiClass("row")}>
+        <Textarea plain
           ref={ref}
           rows={1}
           value={text}
@@ -88,7 +94,7 @@ function Composer() {
           onChange={e => { setText(e.target.value); autosize() }}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void onSend() } }}
         />
-        <button className="send" disabled={s.busy} onClick={() => void onSend()}>➤</button>
+        <Button variant="plain" size="plain" className={uiClass("send")} disabled={s.busy} onClick={() => void onSend()}>➤</Button>
       </div>
     </div>
   )
@@ -105,10 +111,10 @@ export function Chat({ guideCollapsed, onOpenGuide }: { guideCollapsed: boolean;
   }, [count])
 
   return (
-    <div className={`chat-inner${guideCollapsed ? ' g-closed' : ''}`}>
-      <button className="guide-open" style={{ display: guideCollapsed ? 'block' : 'none' }}
-        onClick={onOpenGuide} title={t('guide_open')}>{t('guide_open_txt')}</button>
-      <div className="msgs" ref={msgsRef}>
+    <div className={uiClass(`chat-inner${guideCollapsed ? ' g-closed' : ''}`)}>
+      <Button variant="plain" size="plain" className={uiClass(cn("guide-open", guideCollapsed ? 'block!' : 'hidden!'))}
+        onClick={onOpenGuide} title={t('guide_open')}>{t('guide_open_txt')}</Button>
+      <div className={uiClass("msgs")} ref={msgsRef}>
         {s.msgs.map(m => <Message key={m.id} m={m} />)}
       </div>
       <Composer />

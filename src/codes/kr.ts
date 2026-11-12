@@ -22,7 +22,7 @@
      SPFC 네이티브 "KDS(41-17-00:2019)" 생성 곡선 = S_a·I_E/R_ (전 구간 오차 0%) → IE·R_ 1.0(탄성)으로 등록, R/I_E 는 SPLC SCALE.
      DCON "KDS 41 20 : 2022" 수용. RC 단위중량 24 kN/m³ 는 실무값(KDS 41 12 00 에 수치 없음)
 ════════════════════════════════════════════════════════════ */
-import { RC } from '../engine'
+import { asSpans, deriveFloorGroups, planAreaM2, storyElevations } from '../engine'
 import type { BuildingSpec, MaterialProps } from '../engine/types'
 import { t } from '../i18n'
 import { num as numOf } from '../mapi/tables'
@@ -102,7 +102,7 @@ export type ImpKR = 'S' | '1' | '2' | '3'
 export const IE_KR: Record<ImpKR, number> = { S: 1.5, 1: 1.2, 2: 1.0, 3: 1.0 }
 
 function basementCount(p: BuildingSpec): number {
-  const g = RC.deriveFloorGroups(p)
+  const g = deriveFloorGroups(p)
   let nb = 0
   for (let s = 1; s <= p.stories; s++) if (g[s] && g[s].role === 'BASEMENT') nb = s
   return nb
@@ -116,7 +116,7 @@ export function impKR(p: BuildingSpec, imp?: string): ImpKR {
   if (p.bldgType === 'hospital') return 'S'
   if (p.bldgType === 'school') return '1'
   if (p.bldgType === 'apartment' && storiesAbove(p) >= 5) return '1'
-  if (p.bldgType === 'commercial' && RC.planAreaM2(p) * (p.buildings || 1) * p.stories >= 5000) return '1'
+  if (p.bldgType === 'commercial' && planAreaM2(p) * (p.buildings || 1) * p.stories >= 5000) return '1'
   return '2'
 }
 
@@ -194,8 +194,8 @@ export function cuKR(SD1: number): number {
 export function storyWeightsKR(p: BuildingSpec, sp: Record<string, any>): number[] {
   const D = sp.w0 != null ? null : modelDeadWeights(p, KR)
   const lr = sp.liveRatio != null ? +sp.liveRatio : 0
-  const area = RC.planAreaM2(p) * (p.buildings || 1)
-  const g = RC.deriveFloorGroups(p)
+  const area = planAreaM2(p) * (p.buildings || 1)
+  const g = deriveFloorGroups(p)
   const nb = basementCount(p)
   const W: number[] = []
   for (let s = 1; s <= p.stories; s++) {
@@ -209,8 +209,8 @@ export function storyWeightsKR(p: BuildingSpec, sp: Record<string, any>): number
 /** P-Δ 안정계수용 층별 수직하중(7.2.8.2 — 하중계수 1.0): D = 모델 고정하중, L = 바닥 활하중(지붕 Lr 제외) */
 export function storyGravityKR(p: BuildingSpec): { D: number[]; L: number[] } {
   const D = modelDeadWeights(p, KR)
-  const area = RC.planAreaM2(p) * (p.buildings || 1)
-  const g = RC.deriveFloorGroups(p)
+  const area = planAreaM2(p) * (p.buildings || 1)
+  const g = deriveFloorGroups(p)
   const L: number[] = []
   for (let s = 1; s <= p.stories; s++) {
     const fu = FLOOR_USE[(g[s] && g[s].use) || 'Residential'] || FLOOR_USE.Residential
@@ -232,7 +232,7 @@ export function seismicKR(p: BuildingSpec, sp: Record<string, any>, opt: { T?: n
   const imp = impKR(p, sp.imp), Ie = IE_KR[imp]
   const sys = SYSTEMS[systemKR(p, sp)]
   const W = storyWeightsKR(p, sp)
-  const elev = RC.storyElevations(p)
+  const elev = storyElevations(p)
   const nb = basementCount(p)
   const Wtot = W.reduce((a, b) => a + (b || 0), 0)
   const Ta = periodKR(p, sp), Cu = cuKR(st.SD1)
@@ -309,7 +309,7 @@ export function windKR(p: BuildingSpec, wp: Record<string, any>) {
   const V0 = wp.V0 != null ? +wp.V0 : 28
   const cat = ROUGH[wp.exposure] ? wp.exposure : 'C'
   const r = ROUGH[cat]
-  const elev = RC.storyElevations(p)
+  const elev = storyElevations(p)
   const nbs = basementCount(p)
   const z = (s: number) => ((elev[s] || 0) - (elev[nbs] || 0)) / 1000
   const H = Math.max(z(p.stories), 0.1)
@@ -317,8 +317,8 @@ export function windKR(p: BuildingSpec, wp: Record<string, any>) {
   const Iw = storiesAbove(p) >= 50 || H >= 200 ? 1.05 : ({ S: 1.0, 1: 1.0, 2: 0.95, 3: 0.90 } as Record<ImpKR, number>)[imp]
   const VH = V0 * kzrKR(H, cat) * Iw                                         // K_D = K_zt = 1.0
   const qH = 0.5 * 1.225 * VH * VH / 1000                                     // kN/m²
-  const Lx = RC.asSpans(p.spanX, p.bayX).reduce((a: number, b: number) => a + b, 0) / 1000
-  const Ly = RC.asSpans(p.spanY, p.bayY).reduce((a: number, b: number) => a + b, 0) / 1000
+  const Lx = asSpans(p.spanX, p.bayX).reduce((a: number, b: number) => a + b, 0) / 1000
+  const Ly = asSpans(p.spanY, p.bayY).reduce((a: number, b: number) => a + b, 0) / 1000
   const nD = +wp.nD > 0 ? +wp.nD : 1 / periodKR(p, wp)
   const zeta = +wp.zetaD > 0 ? +wp.zetaD : 0.02
   const beta = hasWalls(p) ? 1.0 : 0.5                                        // 5.6-1 β: 코어 有 1.0, 모멘트골조 0.5
@@ -387,12 +387,12 @@ const FY_KR = 400, RHO_KR = 0.01, COL_UTIL_KR = 0.9
 export const phiPnMaxKR = (fck: number, Ag: number) => 0.8 * 0.65 * (0.85 * fck * Ag * (1 - RHO_KR) + FY_KR * RHO_KR * Ag) / 1000   // kN
 export function sizeColumnKR(p: BuildingSpec): { side: number; pu: number; cap: number } | null {
   const fck = +(toKR(p.matName).match(/\d+/)?.[0] || 0); if (!(fck > 0)) return null
-  const mx = (s: number | number[], n: number) => Math.max(...RC.asSpans(s, n)) / 1000
+  const mx = (s: number | number[], n: number) => Math.max(...asSpans(s, n)) / 1000
   const trib = mx(p.spanX, p.bayX) * mx(p.spanY, p.bayY)
-  const g = RC.deriveFloorGroups(p)
+  const g = deriveFloorGroups(p)
   const Pu = (side: number) => {
     const q = { ...p, colH: side, colB: side, colName: `C${side}x${side}` }
-    const D = modelDeadWeights(q, KR), area = RC.planAreaM2(q) * (q.buildings || 1)
+    const D = modelDeadWeights(q, KR), area = planAreaM2(q) * (q.buildings || 1)
     let w = 0
     for (let s = 1; s <= q.stories; s++) {
       const fu = FLOOR_USE[(g[s] && g[s].use) || 'Residential'] || FLOOR_USE.Residential
@@ -512,7 +512,7 @@ export const KR: CodeProfile = {
         const Cm = Vt < 0.85 * st.V ? 0.85 * st.V / Vt : 1
         scale[d] = ctx.scale0[d] * Cm
         chk[d] = { T: st.T, Vt, V: st.V, Cm }
-        lines.push(`${t('kr_rs_line', d, st.T.toFixed(3), Math.round(Vt), Math.round(st.V), Cm.toFixed(3))} ${Cm > 1 ? `<b style="color:var(--amber)">→ ×${Cm.toFixed(3)}</b>` : '✓'}`)
+        lines.push(`${t('kr_rs_line', d, st.T.toFixed(3), Math.round(Vt), Math.round(st.V), Cm.toFixed(3))} ${Cm > 1 ? `<b class="[color:var(--amber)]!">→ ×${Cm.toFixed(3)}</b>` : '✓'}`)
       }
       return { scale, chk, lines }
     },

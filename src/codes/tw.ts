@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════
    대만 프로필 — 建築物耐震設計規範及解說(113年) / 混凝土結構設計規範(112) / 建築物耐風設計規範(2014).
-   2026-10-12 원문 대조 재구현 (이전: shared/rc_engine.js 의 ASCE 7 형식 — Wizard 는 여전히 그쪽 사용).
+   2026-10-12 원문 대조 재구현 (이전: shared/rc_engine.js 의 ASCE 7 형식 — Wizard는 archive에 보관하고 활성 빌드에서 제외).
    근거 KB: E:/MIDAS PROGRAM/COde/TW/knowledge/{seismic-design-code,concrete-design-code-112,wind-load-2014}
    - 지진: 2.2 V = I/(1.4αy)·(SaD/Fu)m·W (2-2 수정), 2.10.1 V* = I·Fu/(4.2αy)·(SaD/Fu)m·W(분지 3.5), 2.10.2 VM(SMS·SM1 입력 시)
            2.9 Ra = 1+(R−1)/1.5(분지 2.0), Fu(T) (2-12) / 2.6 T = 0.070hn^¾(RC 골조)·0.050hn^¾(벽), 해석주기 ≤ 1.4×경험
@@ -13,7 +13,7 @@
    알려진 단순화: 지하층 지진력(2.12) 미산정(지상만 분배), 2.14 Ax 증폭·± 편심 2케이스 미구현(+ 방향 1개),
    VM 지배 시 RS 는 SaD 형상 × (VM 계수/SaD(T₁)) 근사, 풍 가로·비틀림(2.10~2.13)·유연건물 G 미구현.
 ════════════════════════════════════════════════════════════ */
-import { RC } from '../engine'
+import { FLOOR_USE as engineFLOOR_USE, MATERIALS, SEISMIC_ZONES, _CNS_CONC, _MPA2CNS, asSpans, deriveFloorGroups, planAreaM2, storyElevations } from '../engine'
 import type { BuildingSpec } from '../engine/types'
 import { t } from '../i18n'
 import { num as numOf } from '../mapi/tables'
@@ -26,12 +26,12 @@ const PARTITION = 75 * KGF              // 활동칸막이 75 kgf/m² (2.2 W) �
 const ALPHA_Y = 1.0                     // RC 극한강도설계 (112 5.3 해설)
 
 /** 바닥하중 — 활하중은 엔진 표(대만 건축기술규칙 값), SDL 에 칸막이 75kgf/m² 가산(지붕 제외) */
-const FLOOR_USE: CodeProfile['floorUse'] = Object.fromEntries(Object.entries(RC.FLOOR_USE as CodeProfile['floorUse'])
+const FLOOR_USE: CodeProfile['floorUse'] = Object.fromEntries(Object.entries(engineFLOOR_USE as CodeProfile['floorUse'])
   .map(([u, v]) => [u, { ...v, sdl: u === 'Roof' ? v.sdl : +(v.sdl + PARTITION).toFixed(4) }]))
 
 /** 112 19.2.2.1(b) Ec = 12,000√fc' (kgf/cm²) → MPa. Gen CNS560(RC) DB 는 구판식(≈15,000√fc')이라 1.241배 — 라이브 2026-10-14 */
 const ecMPa = (grade: string) => Math.round(12000 * Math.sqrt(+String(grade).replace(/\D/g, '')) * 0.0980665)
-const MATERIALS112: CodeProfile['materials'] = Object.fromEntries(Object.entries(RC.MATERIALS as CodeProfile['materials'])
+const MATERIALS112: CodeProfile['materials'] = Object.fromEntries(Object.entries(MATERIALS as CodeProfile['materials'])
   .map(([k, v]) => [k, { ...v, E: ecMPa(k) }]))
 
 /* ── 지진 ─────────────────────────────────────────────── */
@@ -104,7 +104,7 @@ export function coefTW(T: number, sp: Record<string, any>) {
 
 /** 지하층(BASEMENT) 수 — 지진력·풍력은 지상만 */
 function basementCount(p: BuildingSpec): number {
-  const g = RC.deriveFloorGroups(p)
+  const g = deriveFloorGroups(p)
   let nb = 0
   for (let s = 1; s <= p.stories; s++) if (g[s] && g[s].role === 'BASEMENT') nb = s
   return nb
@@ -114,8 +114,8 @@ function basementCount(p: BuildingSpec): number {
 export function storyWeightsTW(p: BuildingSpec, sp: Record<string, any>): number[] {
   const D = sp.w0 != null ? null : modelDeadWeights(p, TW)
   const lr = sp.liveRatio != null ? +sp.liveRatio : 0
-  const area = RC.planAreaM2(p) * (p.buildings || 1)
-  const g = RC.deriveFloorGroups(p)
+  const area = planAreaM2(p) * (p.buildings || 1)
+  const g = deriveFloorGroups(p)
   const nb = basementCount(p)
   const W: number[] = []
   for (let s = 1; s <= p.stories; s++) {
@@ -128,12 +128,12 @@ export function storyWeightsTW(p: BuildingSpec, sp: Record<string, any>): number
 
 /** 2.13 P-Δ 용 중력 — D = 지진 W 의 고정하중(w0 우선), L = 면적×활하중(지붕 제외) */
 export function storyGravityTW(p: BuildingSpec, sp: Record<string, any>): { D: number[]; L: number[] } {
-  const area = RC.planAreaM2(p) * (p.buildings || 1)
+  const area = planAreaM2(p) * (p.buildings || 1)
   const nb = basementCount(p)
   const D = sp.w0 != null
     ? Array.from({ length: p.stories + 1 }, (_, s) => (s > nb ? area * sp.w0 : 0))
     : modelDeadWeights(p, TW)
-  const g = RC.deriveFloorGroups(p)
+  const g = deriveFloorGroups(p)
   const L: number[] = []
   for (let s = 1; s <= p.stories; s++) {
     const fu = FLOOR_USE[(g[s] && g[s].use) || 'Residential'] || FLOOR_USE.Residential
@@ -176,13 +176,13 @@ export function thetaTW(p: BuildingSpec, side?: number): number | null {
   const q: BuildingSpec = side ? { ...p, colH: side, colB: side, colName: `C${side}x${side}` } : p
   const E = MATERIALS112[q.matName]?.E || q.E
   const Ic = q.colH * q.colB ** 3 / 12, Ib = q.beamB * q.beamH ** 3 / 12
-  const sx = RC.asSpans(q.spanX, q.bayX), sy = RC.asSpans(q.spanY, q.bayY)
+  const sx = asSpans(q.spanX, q.bayX), sy = asSpans(q.spanY, q.bayY)
   const Lavg = (sx.reduce((a: number, b: number) => a + b, 0) / sx.length + sy.reduce((a: number, b: number) => a + b, 0) / sy.length) / 2
   const nbm = q.bayX * (q.bayY + 1) + q.bayY * (q.bayX + 1)
   const ncol = (q.bayX + 1) * (q.bayY + 1)
-  const elev = RC.storyElevations(q), nb = basementCount(q)
-  const D = modelDeadWeights(q, TW), area = RC.planAreaM2(q) * (q.buildings || 1)
-  const g = RC.deriveFloorGroups(q)
+  const elev = storyElevations(q), nb = basementCount(q)
+  const D = modelDeadWeights(q, TW), area = planAreaM2(q) * (q.buildings || 1)
+  const g = deriveFloorGroups(q)
   let worst = 0
   for (let s = nb + 1; s <= q.stories; s++) {
     let P = 0
@@ -201,12 +201,12 @@ export function thetaTW(p: BuildingSpec, side?: number): number | null {
 /** 기둥 크기 — 내부 기둥 부담면적 Pu = Σ max(1.4D, 1.2D+1.6L) ≤ 0.9·φPn,max 를 만족하는 정사각(50mm 단위) */
 export function sizeColumnTW(p: BuildingSpec): { side: number; H: number; B: number; pu: number; cap: number } | null {
   const fc = fcMPa(p.matName); if (!(fc > 0)) return null
-  const mx = (s: number | number[], n: number) => Math.max(...RC.asSpans(s, n)) / 1000
+  const mx = (s: number | number[], n: number) => Math.max(...asSpans(s, n)) / 1000
   const trib = mx(p.spanX, p.bayX) * mx(p.spanY, p.bayY)
-  const g = RC.deriveFloorGroups(p)
+  const g = deriveFloorGroups(p)
   const Pu = (H: number, B: number) => {
     const q = { ...p, colH: H, colB: B, colName: `C${H}x${B}` }
-    const D = modelDeadWeights(q, TW), area = RC.planAreaM2(q) * (q.buildings || 1), nb = basementCount(q)
+    const D = modelDeadWeights(q, TW), area = planAreaM2(q) * (q.buildings || 1), nb = basementCount(q)
     let w = 0
     for (let s = nb + 1; s <= q.stories; s++) {
       const fu = FLOOR_USE[(g[s] && g[s].use) || 'Residential'] || FLOOR_USE.Residential
@@ -229,7 +229,7 @@ export function sizeColumnTW(p: BuildingSpec): { side: number; H: number; B: num
 /** 2.11 수직분포 — Ft = 0.07TV (≤0.25V, T≤0.7s 이면 0) 정상부 + (V−Ft)·W_x h_x / ΣW h. h = 기면(지상) 기준 */
 export function seismicTW(p: BuildingSpec, sp: Record<string, any>, opt: { T?: number } = {}) {
   const W = storyWeightsTW(p, sp)
-  const elev = RC.storyElevations(p)
+  const elev = storyElevations(p)
   const nb = basementCount(p)
   const Wtot = W.reduce((a, b) => a + (b || 0), 0)
   const { Ta, T } = designT(p, sp, opt.T)
@@ -321,10 +321,10 @@ export function windTW(p: BuildingSpec, wp: Record<string, any>) {
   const G = wp.G != null ? +wp.G : 1.88
   const cat = wp.exposure || 'C'
   const q = (z: number) => 0.06 * kzTW(z, cat) * Math.pow(I * V10, 2) * KGF          // kN/m²
-  const Lx = RC.asSpans(p.spanX, p.bayX).reduce((a: number, b: number) => a + b, 0) / 1000
-  const Ly = RC.asSpans(p.spanY, p.bayY).reduce((a: number, b: number) => a + b, 0) / 1000
+  const Lx = asSpans(p.spanX, p.bayX).reduce((a: number, b: number) => a + b, 0) / 1000
+  const Ly = asSpans(p.spanY, p.bayY).reduce((a: number, b: number) => a + b, 0) / 1000
   const nb = p.buildings || 1
-  const elev = RC.storyElevations(p)
+  const elev = storyElevations(p)
   const nbs = basementCount(p)
   const z = (s: number) => ((elev[s] || 0) - (elev[nbs] || 0)) / 1000
   const h = z(p.stories)
@@ -357,7 +357,7 @@ export const TW: CodeProfile = {
   defaultMat: 'C280',
   /* M1.7: Taiwan material - concrete CNS560(RC) (live-verified). MPa 등급명은 CNS 표기로 정규화. */
   concreteMatl(name) {
-    const shown = RC._MPA2CNS[name] || (RC._CNS_CONC.includes(name) ? name : 'C280')
+    const shown = _MPA2CNS[name] || (_CNS_CONC.includes(name) ? name : 'C280')
     return { TYPE: 'CONC', NAME: shown, PARAM: [{ P_TYPE: 1, STANDARD: 'CNS560(RC)', DB: shown, bELAST: true, ELAST: ecMPa(shown) }] }
   },
   comboRefs: { seismic: 'cLCB 1.2D+1.0E+1.0L · 0.9D+1.0E', wind: 'cLCB 1.6W · 0.8W' },
@@ -373,7 +373,7 @@ export const TW: CodeProfile = {
     massLiveRatio: 0,          // 2.2 W 와 일치 — 활하중은 창고·서고만 (liveRatio 입력 시 finalizeLateral 이 질량원에도 반영)
     massLiveTypes: ['L', 'LR'],
     toggleKey: 'apply_equivalent_static_se',
-    tipHtml: () => `<a href="https://seaport.ncree.org/sederes/" target="_blank" rel="noopener" style="color:var(--cyan);font-weight:600">↗ Sederes</a> ${t('look_up_site_sds_sd1_or_t0')} ${t('tw_seis_tip')} ${t('w0_auto_tip')}`,
+    tipHtml: () => `<a href="https://seaport.ncree.org/sederes/" target="_blank" rel="noopener" class="[color:var(--cyan)]! [font-weight:600]!">↗ Sederes</a> ${t('look_up_site_sds_sd1_or_t0')} ${t('tw_seis_tip')} ${t('w0_auto_tip')}`,
     fields: [
       num('SDS', () => 'SDS', () => 0.6),
       num('SD1', () => 'SD1', () => 0.35),
@@ -399,7 +399,7 @@ export const TW: CodeProfile = {
     ],
     presets: {
       labelKey: 'site_preset',
-      list: () => RC.SEISMIC_ZONES.map(z => ({ label: `${z.city} ${z.dist} · SDS ${z.SDS}`, values: { SDS: z.SDS, SD1: z.SD1, T0: z.T0, SMS: z.SMS, SM1: z.SM1 } })),
+      list: () => SEISMIC_ZONES.map(z => ({ label: `${z.city} ${z.dist} · SDS ${z.SDS}`, values: { SDS: z.SDS, SD1: z.SD1, T0: z.T0, SMS: z.SMS, SM1: z.SM1 } })),
     },
     storyForces: (p, sp, opt = {}) => seismicTW(p, sp, opt),
     storyWeights: (p, sp) => storyWeightsTW(p, sp),
@@ -439,7 +439,7 @@ export const TW: CodeProfile = {
         const eta = Vrs < ratio * Vst ? ratio * Vst / Vrs : 1
         scale[d] = C * eta
         chk[d] = { T, Tcap: Math.min(T, 1.4 * Ta), C, Vrs, Vst, eta }
-        lines.push(`${t('tw_rs_line', d, T.toFixed(3), C.toFixed(4), Math.round(Vrs), ratio * 100, Math.round(Vst))} ${eta > 1 ? `<b style="color:var(--amber)">→ ×${eta.toFixed(3)}</b>` : '✓'}`)
+        lines.push(`${t('tw_rs_line', d, T.toFixed(3), C.toFixed(4), Math.round(Vrs), ratio * 100, Math.round(Vst))} ${eta > 1 ? `<b class="[color:var(--amber)]!">→ ×${eta.toFixed(3)}</b>` : '✓'}`)
       }
       return { scale, chk, lines }
     },

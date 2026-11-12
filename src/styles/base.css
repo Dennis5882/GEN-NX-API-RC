@@ -1,0 +1,112 @@
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    font-family: "IBM Plex Sans", var(--cjk), sans-serif;
+    background: var(--bg);
+    color: var(--txt);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 32px 32px;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, var(--split, 49%)) 6px minmax(0, 1fr);
+    background: var(--border);
+    overflow: hidden;
+  }
+  main.splitting .splitter {
+    background: var(--cyan);
+  }
+  main.splitting {
+    cursor: col-resize;
+    user-select: none;
+  }
+  main.splitting .right,
+  main.splitting .chat {
+    pointer-events: none;
+  }
+  @media (max-width: 880px) {
+    main {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 1px;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes blink {
+    0%,
+    60%,
+    100% {
+      opacity: 0.25;
+    }
+    30% {
+      opacity: 1;
+    }
+  }
+  @keyframes gpulse {
+    50% {
+      opacity: 0.35;
+    }
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    font-family: "IBM Plex Mono", var(--cjk);
+  }
+  th {
+    background: var(--panel);
+    color: var(--cyan);
+    text-align: left;
+    padding: 7px 9px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+  }
+  td {
+    padding: 6px 9px;
+    border-bottom: 1px solid var(--line);
+    color: var(--txt);
+  }
+  td.pos {
+    color: var(--green);
+  }
+  td.neg {
+    color: var(--red);
+  }
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 5px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--dim);
+  }
+}

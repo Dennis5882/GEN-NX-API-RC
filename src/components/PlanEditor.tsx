@@ -1,14 +1,19 @@
+import { Button } from './ui/button'
+import { NativeSelect } from './ui/native-select'
+import { Input } from './ui/input'
+import { uiClass } from '@/styles/component-classes'
+import { cn } from '@/lib/utils'
 /* 편집 가능 규격 카드 — 상단 그리드 · 단면/재료 팔레트 · 표준층 표 · 내진 · 풍 · 코어.
    상태(EditorState)가 바뀔 때마다 onChange(spec) — 부모가 미리보기 갱신(디바운스). */
 import { profileOf, type LateralGroup } from '../codes'
-import { RC, type BuildingSpec } from '../engine'
+import { FG_ROLES, FG_USES, coreLayout, useOf, type BuildingSpec } from '../engine'
 import {
   applyTop, coreInput, effectiveSel, newKey, paletteOf, renumber, TOP_KEYS,
   type CoreState, type EditorState, type FgRow, type LateralState, type PalRow, type TopKey,
 } from '../agent/editor'
 import { typeHeadHTML } from '../agent/plan'
 import { roleLbl, t, tv, useLbl } from '../i18n'
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 
 interface Props {
   base: BuildingSpec
@@ -20,7 +25,7 @@ interface Props {
 const TOP_UNIT: Partial<Record<TopKey, string>> = { spanX: 'mm', spanY: 'mm', gap: 'mm' }
 const TOP_TEXT: Partial<Record<TopKey, boolean>> = { spanX: true, spanY: true }
 
-function Unit({ u }: { u?: string }) { return u ? <span className="pe-u">{u}</span> : null }
+function Unit({ u }: { u?: string }) { return u ? <span className={uiClass("pe-u")}>{u}</span> : null }
 
 const TOWER = ['A', 'B', 'C', 'D']
 const SIZES: [number, number][] = [[1, 1], [2, 1], [1, 2], [2, 2]]
@@ -31,7 +36,7 @@ function CoreSection({ base, st, setSt }: Pick<Props, 'base' | 'st' | 'setSt'>) 
   const [ed, setEd] = useState(0)
   const set = (fn: (c: CoreState) => CoreState) => setSt(s => ({ ...s, core: fn(s.core) }))
   const geo = applyTop({ ...base }, st)
-  const L = RC.coreLayout(geo, coreInput(c))
+  const L = coreLayout(geo, coreInput(c))
   const nb = L.towers.length
   const edit = c.layout === 'each' && ed < nb ? ed : 0
   const cur = L.towers[edit] || L.towers[0]
@@ -42,60 +47,58 @@ function CoreSection({ base, st, setSt }: Pick<Props, 'base' | 'st' | 'setSt'>) 
     const pos = k.pos.slice(); pos[edit] = { ix, iy }; return { ...k, pos }
   })
   const centerAll = () => set(k => (edit === 0 ? { ...k, ix: null, iy: null } : { ...k, pos: k.pos.map((q, i) => (i === edit ? null : q)) }))
-  const btn = { padding: '2px 8px', minWidth: 28 } as const
+  const btn = 'px-[8px]! py-[2px]! min-w-[28px]!'
   const cell = Math.max(14, Math.min(26, Math.floor(220 / Math.max(L.nbx, L.nby))))
   return (
-    <div style={{ marginTop: 12, borderTop: '1px dashed var(--border)', paddingTop: 12 }}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '.82rem', color: 'var(--cyan)', fontWeight: 600 }}>
-        <input type="checkbox" checked={c.on} onChange={e => set(k => ({ ...k, on: e.target.checked }))} /> 🧱 {t('central_shear_wall_core_au')}
+    <div className={uiClass("[margin-top:12px]! [border-top:1px_dashed_var(--border)]! [padding-top:12px]!")} >
+      <label className={uiClass("[display:flex]! [align-items:center]! [gap:8px]! [cursor:pointer]! [font-size:.82rem]! [color:var(--cyan)]! [font-weight:600]!")} >
+        <Input plain type="checkbox" checked={c.on} onChange={e => set(k => ({ ...k, on: e.target.checked }))} /> 🧱 {t('central_shear_wall_core_au')}
       </label>
-      <div className="pe-grid" style={{ marginTop: 10 }}>
-        <div className="pe-f"><label>{t('wall_thick')}</label><div className="pe-in">
-          <input type="number" step="any" value={c.thick} onChange={e => set(k => ({ ...k, thick: e.target.value }))} /><Unit u="mm" /></div></div>
-        {c.on && <div className="pe-f"><label>{t('core_size')}</label><div className="pe-in">
-          <select value={`${L.nx}x${L.ny}`} onChange={e => { const [nx, ny] = e.target.value.split('x').map(Number); set(k => ({ ...k, nx, ny })) }}>
+      <div className={uiClass("pe-grid [margin-top:10px]!")} >
+        <div className={uiClass("pe-f")}><label>{t('wall_thick')}</label><div className={uiClass("pe-in")}>
+          <Input plain type="number" step="any" value={c.thick} onChange={e => set(k => ({ ...k, thick: e.target.value }))} /><Unit u="mm" /></div></div>
+        {c.on && <div className={uiClass("pe-f")}><label>{t('core_size')}</label><div className={uiClass("pe-in")}>
+          <NativeSelect plain value={`${L.nx}x${L.ny}`} onChange={e => { const [nx, ny] = e.target.value.split('x').map(Number); set(k => ({ ...k, nx, ny })) }}>
             {SIZES.filter(([x, y]) => x <= L.nbx && y <= L.nby).map(([x, y]) => <option key={`${x}x${y}`} value={`${x}x${y}`}>{x}×{y}</option>)}
-          </select></div></div>}
-        {c.on && nb > 1 && <div className="pe-f"><label>{t('core_layout')}</label><div className="pe-in">
-          <select value={c.layout} onChange={e => set(k => ({ ...k, layout: e.target.value as CoreState['layout'] }))}>
+          </NativeSelect></div></div>}
+        {c.on && nb > 1 && <div className={uiClass("pe-f")}><label>{t('core_layout')}</label><div className={uiClass("pe-in")}>
+          <NativeSelect plain value={c.layout} onChange={e => set(k => ({ ...k, layout: e.target.value as CoreState['layout'] }))}>
             {(['same', 'mirror', 'each'] as const).map(v => <option key={v} value={v}>{t(`core_layout_${v}`)}</option>)}
-          </select></div></div>}
-        {c.on && nb > 1 && <div className="pe-f"><label>{t('core_towers')}</label><div className="pe-in" style={{ gap: 10 }}>
-          {L.towers.map(tw => <label key={tw.building} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, cursor: 'pointer' }}>
-            <input type="checkbox" checked={tw.on} onChange={e => set(k => ({ ...k, skip: e.target.checked ? k.skip.filter(b => b !== tw.building) : [...k.skip, tw.building] }))} />{TOWER[tw.building]}
+          </NativeSelect></div></div>}
+        {c.on && nb > 1 && <div className={uiClass("pe-f")}><label>{t('core_towers')}</label><div className={uiClass("pe-in [gap:10px]!")} >
+          {L.towers.map(tw => <label className={uiClass("[display:inline-flex]! [align-items:center]! [gap:3px]! [cursor:pointer]!")} key={tw.building} >
+            <Input plain type="checkbox" checked={tw.on} onChange={e => set(k => ({ ...k, skip: e.target.checked ? k.skip.filter(b => b !== tw.building) : [...k.skip, tw.building] }))} />{TOWER[tw.building]}
           </label>)}
         </div></div>}
       </div>
-      {c.on && <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap', marginTop: 10 }}>
+      {c.on && <div className={uiClass("[display:flex]! [gap:14px]! [align-items:flex-start]! [flex-wrap:wrap]! [margin-top:10px]!")} >
         <div>
-          <div style={{ fontSize: '.74rem', color: 'var(--txt-2)', marginBottom: 4 }}>
+          <div className={uiClass("[font-size:.74rem]! [color:var(--txt-2)]! [margin-bottom:4px]!")} >
             {t('core_pos')}{nb > 1 ? ` · ${TOWER[edit]}` : ''} ({cur.ix + 1}, {cur.iy + 1})
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${L.nbx}, ${cell}px)`, gap: 2 }} role="grid">
+          <div className={uiClass("grid grid-cols-[repeat(var(--core-cols),var(--core-cell))] gap-[2px]")} style={{ '--core-cols': L.nbx, '--core-cell': `${cell}px` } as CSSProperties} role="grid">
             {Array.from({ length: L.nby }, (_, r) => L.nby - 1 - r).flatMap(iy => Array.from({ length: L.nbx }, (_, ix) => {
               const inCore = cur.on && ix >= cur.ix && ix < cur.ix + L.nx && iy >= cur.iy && iy < cur.iy + L.ny
-              return <button key={`${ix}_${iy}`} type="button" title={`X${ix + 1}–X${ix + 2} · Y${iy + 1}–Y${iy + 2}`}
+              return <Button variant="plain" size="plain" className={uiClass("size-[var(--core-cell)]! bg-transparent! opacity-100! data-[active=true]:bg-primary! data-[active=true]:opacity-85! [padding:0]! [border:1px_solid_var(--border)]! [border-radius:2px]! [cursor:pointer]!")} key={`${ix}_${iy}`} type="button" title={`X${ix + 1}–X${ix + 2} · Y${iy + 1}–Y${iy + 2}`}
                 onClick={() => place(ix, iy)}
-                style={{ width: cell, height: cell, padding: 0, border: '1px solid var(--border)', borderRadius: 2, cursor: 'pointer',
-                  background: inCore ? 'var(--cyan)' : 'transparent', opacity: inCore ? 0.85 : 1 }} />
+                data-active={inCore} />
             }))}
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, auto)', gap: 3, alignSelf: 'center' }}>
-          <span /><button type="button" style={btn} onClick={() => place(cur.ix, cur.iy + 1)}>▲</button><span />
-          <button type="button" style={btn} onClick={() => place(cur.ix - 1, cur.iy)}>◀</button>
-          <button type="button" style={{ ...btn, fontSize: '.7rem' }} onClick={centerAll}>{t('core_center')}</button>
-          <button type="button" style={btn} onClick={() => place(cur.ix + 1, cur.iy)}>▶</button>
-          <span /><button type="button" style={btn} onClick={() => place(cur.ix, cur.iy - 1)}>▼</button><span />
+        <div className={uiClass("[display:grid]! [grid-template-columns:repeat(3,_auto)]! [gap:3px]! [align-self:center]!")} >
+          <span /><Button variant="plain" size="plain" type="button" className={uiClass(btn)} onClick={() => place(cur.ix, cur.iy + 1)}>▲</Button><span />
+          <Button variant="plain" size="plain" type="button" className={uiClass(btn)} onClick={() => place(cur.ix - 1, cur.iy)}>◀</Button>
+          <Button variant="plain" size="plain" type="button" className={uiClass(cn(btn, 'text-[.7rem]!'))} onClick={centerAll}>{t('core_center')}</Button>
+          <Button variant="plain" size="plain" type="button" className={uiClass(btn)} onClick={() => place(cur.ix + 1, cur.iy)}>▶</Button>
+          <span /><Button variant="plain" size="plain" type="button" className={uiClass(btn)} onClick={() => place(cur.ix, cur.iy - 1)}>▼</Button><span />
         </div>
-        {c.layout === 'each' && nb > 1 && <div style={{ alignSelf: 'center' }}>
-          <div style={{ fontSize: '.74rem', color: 'var(--txt-2)', marginBottom: 4 }}>{t('core_edit')}</div>
-          <div style={{ display: 'flex', gap: 4 }}>{L.towers.map(tw => <button key={tw.building} type="button" style={{ ...btn, fontWeight: edit === tw.building ? 700 : 400,
-            borderColor: edit === tw.building ? 'var(--cyan)' : undefined }} onClick={() => setEd(tw.building)}>{TOWER[tw.building]}</button>)}</div>
+        {c.layout === 'each' && nb > 1 && <div className={uiClass("[align-self:center]!")} >
+          <div className={uiClass("[font-size:.74rem]! [color:var(--txt-2)]! [margin-bottom:4px]!")} >{t('core_edit')}</div>
+          <div className={uiClass("[display:flex]! [gap:4px]!")} >{L.towers.map(tw => <Button variant="plain" size="plain" key={tw.building} type="button" className={uiClass(cn(btn, edit === tw.building ? 'font-bold! border-primary!' : 'font-normal!'))} onClick={() => setEd(tw.building)}>{TOWER[tw.building]}</Button>)}</div>
         </div>}
       </div>}
-      {c.on && <div className="pe-tip">{t('core_grid_tip')}{c.layout === 'mirror' && nb > 1 ? ` · ${t('core_mirror_tip')}` : ''}</div>}
-      <div className="pe-tip">{t('places_4_sided_plate_shear')}</div>
+      {c.on && <div className={uiClass("pe-tip")}>{t('core_grid_tip')}{c.layout === 'mirror' && nb > 1 ? ` · ${t('core_mirror_tip')}` : ''}</div>}
+      <div className={uiClass("pe-tip")}>{t('places_4_sided_plate_shear')}</div>
     </div>
   )
 }
@@ -113,29 +116,29 @@ function LateralSection({ g, icon, st, set, first }: {
     set({ ...st, vals })
   }
   return (
-    <div style={{ marginTop: first ? 14 : 12, borderTop: '1px dashed var(--border)', paddingTop: 12 }}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '.82rem', color: 'var(--cyan)', fontWeight: 600 }}>
-        <input type="checkbox" checked={st.on} onChange={e => set({ ...st, on: e.target.checked })} /> {icon} {t(g.toggleKey)}
+    <div className={uiClass(cn("[border-top:1px_dashed_var(--border)]! [padding-top:12px]!", first ? 'mt-[14px]!' : 'mt-[12px]!'))}>
+      <label className={uiClass("[display:flex]! [align-items:center]! [gap:8px]! [cursor:pointer]! [font-size:.82rem]! [color:var(--cyan)]! [font-weight:600]!")} >
+        <Input plain type="checkbox" checked={st.on} onChange={e => set({ ...st, on: e.target.checked })} /> {icon} {t(g.toggleKey)}
       </label>
-      <div className="pe-grid" style={{ marginTop: 10 }}>
+      <div className={uiClass("pe-grid [margin-top:10px]!")} >
         {presets && g.presets && (
-          <div className="pe-f pe-full"><label>{t(g.presets.labelKey)}</label><div className="pe-in">
-            <select defaultValue="" onChange={e => applyPreset(e.target.value)}>
+          <div className={uiClass("pe-f pe-full")}><label>{t(g.presets.labelKey)}</label><div className={uiClass("pe-in")}>
+            <NativeSelect plain defaultValue="" onChange={e => applyPreset(e.target.value)}>
               <option value="">{t('manual')}</option>
               {presets.map((z, i) => <option key={i} value={i}>{z.label}</option>)}
-            </select></div></div>
+            </NativeSelect></div></div>
         )}
         {g.fields.map(f => (
-          <div className="pe-f" key={f.key}><label>{f.label()}</label><div className="pe-in">
+          <div className={uiClass("pe-f")} key={f.key}><label>{f.label()}</label><div className={uiClass("pe-in")}>
             {f.kind === 'select'
-              ? <select value={st.vals[f.key] ?? ''} onChange={e => setVal(f.key, e.target.value)}>
+              ? <NativeSelect plain value={st.vals[f.key] ?? ''} onChange={e => setVal(f.key, e.target.value)}>
                   {f.options!().map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              : <input type="number" step="any" value={st.vals[f.key] ?? ''} onChange={e => setVal(f.key, e.target.value)} />}
+                </NativeSelect>
+              : <Input plain type="number" step="any" value={st.vals[f.key] ?? ''} onChange={e => setVal(f.key, e.target.value)} />}
             <Unit u={f.unit} /></div></div>
         ))}
       </div>
-      <div className="pe-tip" dangerouslySetInnerHTML={{ __html: g.tipHtml() }} />
+      <div className={uiClass("pe-tip")} dangerouslySetInnerHTML={{ __html: g.tipHtml() }} />
     </div>
   )
 }
@@ -179,7 +182,7 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
     if (dir === 'above' && i === 0) role = 'ROOF'
     else if (dir === 'below' && i === s.rows.length - 1) role = 'BASEMENT'
     const h = row.h && +row.h ? row.h : String(base.hTyp || 3200)
-    const nr: FgRow = { key: newKey(), role, from: '1', to: '1', h, use: row.use || RC.useOf(base), col: row.col, beam: row.beam, mat: row.mat }
+    const nr: FgRow = { key: newKey(), role, from: '1', to: '1', h, use: row.use || useOf(base), col: row.col, beam: row.beam, mat: row.mat }
     const rows = s.rows.slice()
     rows.splice(dir === 'above' ? i : i + 1, 0, nr)
     return { ...s, rows: renumber(rows) }
@@ -189,15 +192,15 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
   const prof = profileOf(base)
 
   return (
-    <fieldset disabled={disabled} style={{ border: 'none', padding: 0, margin: 0, minWidth: 0 }}>
-      <div className="plan-editor">
+    <fieldset className={uiClass("[border:none]! [padding:0]! [margin:0]! [min-width:0]!")} disabled={disabled} >
+      <div className={uiClass("plan-editor")}>
         <div dangerouslySetInnerHTML={{ __html: typeHeadHTML(base, '<div class="pe-head">') }} />
-        <div className="pe-grid">
+        <div className={uiClass("pe-grid")}>
           {TOP_KEYS.map(k => (
-            <div className="pe-f" key={k}>
+            <div className={uiClass("pe-f")} key={k}>
               <label>{PE[k]}</label>
-              <div className="pe-in">
-                <input type={TOP_TEXT[k] ? 'text' : 'number'} value={st.top[k]} onChange={e => setTop(k, e.target.value)} />
+              <div className={uiClass("pe-in")}>
+                <Input plain type={TOP_TEXT[k] ? 'text' : 'number'} value={st.top[k]} onChange={e => setTop(k, e.target.value)} />
                 <Unit u={TOP_UNIT[k]} />
               </div>
             </div>
@@ -205,46 +208,46 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
         </div>
 
         {/* ── 단면·재료 팔레트 ── */}
-        <div className="palette" style={{ marginTop: 14, borderTop: '1px dashed var(--border)', paddingTop: 12 }}>
-          <div style={{ fontSize: '.82rem', color: 'var(--cyan)', fontWeight: 600, marginBottom: 8 }}>◫ {t('pal_title')}</div>
+        <div className={uiClass("palette [margin-top:14px]! [border-top:1px_dashed_var(--border)]! [padding-top:12px]!")} >
+          <div className={uiClass("[font-size:.82rem]! [color:var(--cyan)]! [font-weight:600]! [margin-bottom:8px]!")} >◫ {t('pal_title')}</div>
           {palKinds.map(([kind, lbl, d], ki) => (
-            <div className="pal-sec" key={kind} style={ki ? { marginTop: 8 } : undefined}>
-              <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginBottom: 4 }}>
-                {t(lbl)} <button className="btn btn-ghost" style={{ padding: '0 7px' }} onClick={() => palAdd(kind, d)}>＋</button>
+            <div className={uiClass(cn("pal-sec", ki ? "[margin-top:8px]!" : ""))} key={kind} >
+              <div className={uiClass("[font-size:.76rem]! [color:var(--muted)]! [margin-bottom:4px]!")} >
+                {t(lbl)} <Button variant="plain" size="plain" className={uiClass("btn btn-ghost [padding:0_7px]!")}  onClick={() => palAdd(kind, d)}>＋</Button>
               </div>
-              <div className="pal-rows">
+              <div className={uiClass("pal-rows")}>
                 {st[kind].map(r => (
-                  <div className="pal-row" key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-                    <input className="pal-h" type="number" value={r.H} style={{ width: 54 }} onChange={e => palSet(kind, r.key, 'H', e.target.value)} />
-                    <span style={{ color: 'var(--dim)' }}>×</span>
-                    <input className="pal-b" type="number" value={r.B} style={{ width: 54 }} onChange={e => palSet(kind, r.key, 'B', e.target.value)} />
-                    <span className="pal-nm" style={{ fontSize: '.78rem', color: 'var(--cyan)', minWidth: 78 }}>{palName(kind, r)}</span>
-                    <button className="btn btn-ghost" style={{ padding: '1px 7px' }} title={t('delete')} onClick={() => palDel(kind, r.key)}>×</button>
+                  <div className={uiClass("pal-row [display:flex]! [align-items:center]! [gap:4px]! [margin-bottom:4px]!")} key={r.key} >
+                    <Input plain className={uiClass("pal-h [width:54px]!")} type="number" value={r.H}  onChange={e => palSet(kind, r.key, 'H', e.target.value)} />
+                    <span className={uiClass("[color:var(--dim)]!")} >×</span>
+                    <Input plain className={uiClass("pal-b [width:54px]!")} type="number" value={r.B}  onChange={e => palSet(kind, r.key, 'B', e.target.value)} />
+                    <span className={uiClass("pal-nm [font-size:.78rem]! [color:var(--cyan)]! [min-width:78px]!")} >{palName(kind, r)}</span>
+                    <Button variant="plain" size="plain" className={uiClass("btn btn-ghost [padding:1px_7px]!")}  title={t('delete')} onClick={() => palDel(kind, r.key)}>×</Button>
                   </div>
                 ))}
               </div>
             </div>
           ))}
-          <div className="pal-sec" style={{ marginTop: 8 }}>
-            <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginBottom: 4 }}>{t('pal_mats')}</div>
-            <div className="pal-rows pal-mats">
+          <div className={uiClass("pal-sec [margin-top:8px]!")} >
+            <div className={uiClass("[font-size:.76rem]! [color:var(--muted)]! [margin-bottom:4px]!")} >{t('pal_mats')}</div>
+            <div className={uiClass("pal-rows pal-mats")}>
               {st.matCat.map(m => (
-                <label key={m} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, margin: '0 9px 4px 0', fontSize: '.8rem', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={st.mats.includes(m)} onChange={e => toggleMat(m, e.target.checked)} /> {m}
+                <label className={uiClass("[display:inline-flex]! [align-items:center]! [gap:4px]! [margin:0_9px_4px_0]! [font-size:.8rem]! [cursor:pointer]!")} key={m} >
+                  <Input plain type="checkbox" checked={st.mats.includes(m)} onChange={e => toggleMat(m, e.target.checked)} /> {m}
                 </label>
               ))}
             </div>
           </div>
-          <div className="pe-tip" style={{ marginTop: 6 }}>{t('pal_hint')}</div>
+          <div className={uiClass("pe-tip [margin-top:6px]!")} >{t('pal_hint')}</div>
         </div>
 
         {/* ── 표준층 표 (위=지붕 → 아래=지하) ── */}
-        <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: '.7rem', color: 'var(--amber)', fontFamily: "'IBM Plex Mono',var(--cjk)", letterSpacing: '.5px', marginBottom: 6 }}>
+        <div className={uiClass("[margin-top:14px]!")} >
+          <div className={uiClass("[font-size:.7rem]! [color:var(--amber)]! [font-family:'IBM_Plex_Mono',var(--cjk)]! [letter-spacing:.5px]! [margin-bottom:6px]!")} >
             {t('floor_stack_top_roof_botto')}
           </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="fgtable" style={{ width: '100%', minWidth: 560 }}>
+          <div className={uiClass("[overflow-x:auto]!")} >
+            <table className={uiClass("fgtable [width:100%]! [min-width:560px]!")} >
               <thead><tr>
                 <th>{t('role')}</th><th>{t('from')}</th><th>{t('to')}</th><th>{t('ht')}</th><th>{t('use')}</th>
                 <th>{t('fg_col')}</th><th>{t('fg_beam')}</th><th>{t('fg_mat')}</th><th>{t('add_del')}</th>
@@ -253,24 +256,24 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
                 {st.rows.map(r => {
                   const sel = effectiveSel(pal, r)
                   return (
-                    <tr className="fg-row" key={r.key}>
-                      <td><select value={r.role} onChange={e => setRow(r.key, { role: e.target.value })}>
-                        {RC.FG_ROLES.map(x => <option key={x} value={x}>{roleLbl(x)}</option>)}</select></td>
-                      <td><input type="number" value={r.from} style={{ width: 44 }} onChange={e => setRow(r.key, { from: e.target.value })} /></td>
-                      <td><input type="number" value={r.to} style={{ width: 44 }} onChange={e => setRow(r.key, { to: e.target.value })} /></td>
-                      <td><input type="number" value={r.h} style={{ width: 58 }} onChange={e => setRow(r.key, { h: e.target.value })} /></td>
-                      <td><select value={r.use} onChange={e => setRow(r.key, { use: e.target.value })}>
-                        {RC.FG_USES.map(x => <option key={x} value={x}>{useLbl(x)}</option>)}</select></td>
-                      <td><select value={sel.col} onChange={e => setRow(r.key, { col: e.target.value })}>
-                        {pal.cols.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}</select></td>
-                      <td><select value={sel.beam} onChange={e => setRow(r.key, { beam: e.target.value })}>
-                        {pal.beams.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}</select></td>
-                      <td><select value={sel.mat} onChange={e => setRow(r.key, { mat: e.target.value })}>
-                        {pal.mats.map(m => <option key={m} value={m}>{m}</option>)}</select></td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        <button className="btn btn-ghost" style={{ padding: '2px 6px' }} title={t('insert_above_higher')} onClick={() => fgInsert(r.key, 'above')}>↑</button>
-                        <button className="btn btn-ghost" style={{ padding: '2px 6px' }} title={t('insert_below_lower')} onClick={() => fgInsert(r.key, 'below')}>↓</button>
-                        <button className="btn btn-ghost" style={{ padding: '2px 6px' }} title={t('delete')} onClick={() => fgDel(r.key)}>×</button>
+                    <tr className={uiClass("fg-row")} key={r.key}>
+                      <td><NativeSelect plain value={r.role} onChange={e => setRow(r.key, { role: e.target.value })}>
+                        {FG_ROLES.map(x => <option key={x} value={x}>{roleLbl(x)}</option>)}</NativeSelect></td>
+                      <td><Input plain className={uiClass("[width:44px]!")} type="number" value={r.from}  onChange={e => setRow(r.key, { from: e.target.value })} /></td>
+                      <td><Input plain className={uiClass("[width:44px]!")} type="number" value={r.to}  onChange={e => setRow(r.key, { to: e.target.value })} /></td>
+                      <td><Input plain className={uiClass("[width:58px]!")} type="number" value={r.h}  onChange={e => setRow(r.key, { h: e.target.value })} /></td>
+                      <td><NativeSelect plain value={r.use} onChange={e => setRow(r.key, { use: e.target.value })}>
+                        {FG_USES.map(x => <option key={x} value={x}>{useLbl(x)}</option>)}</NativeSelect></td>
+                      <td><NativeSelect plain value={sel.col} onChange={e => setRow(r.key, { col: e.target.value })}>
+                        {pal.cols.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}</NativeSelect></td>
+                      <td><NativeSelect plain value={sel.beam} onChange={e => setRow(r.key, { beam: e.target.value })}>
+                        {pal.beams.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}</NativeSelect></td>
+                      <td><NativeSelect plain value={sel.mat} onChange={e => setRow(r.key, { mat: e.target.value })}>
+                        {pal.mats.map(m => <option key={m} value={m}>{m}</option>)}</NativeSelect></td>
+                      <td className={uiClass("[white-space:nowrap]!")} >
+                        <Button variant="plain" size="plain" className={uiClass("btn btn-ghost [padding:2px_6px]!")}  title={t('insert_above_higher')} onClick={() => fgInsert(r.key, 'above')}>↑</Button>
+                        <Button variant="plain" size="plain" className={uiClass("btn btn-ghost [padding:2px_6px]!")}  title={t('insert_below_lower')} onClick={() => fgInsert(r.key, 'below')}>↓</Button>
+                        <Button variant="plain" size="plain" className={uiClass("btn btn-ghost [padding:2px_6px]!")}  title={t('delete')} onClick={() => fgDel(r.key)}>×</Button>
                       </td>
                     </tr>
                   )
@@ -278,50 +281,50 @@ export function PlanEditor({ base, st, setSt, disabled }: Props) {
               </tbody>
             </table>
           </div>
-          <div className="pe-tip">{t('use_above_below_on_a_row_t')}</div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, fontSize: '.82rem', cursor: 'pointer' }}>
-            <input type="checkbox" checked={st.storyData} onChange={e => setSt(s => ({ ...s, storyData: e.target.checked }))} />
+          <div className={uiClass("pe-tip")}>{t('use_above_below_on_a_row_t')}</div>
+          <label className={uiClass("[display:flex]! [align-items:center]! [gap:7px]! [margin-top:8px]! [font-size:.82rem]! [cursor:pointer]!")} >
+            <Input plain type="checkbox" checked={st.storyData} onChange={e => setSt(s => ({ ...s, storyData: e.target.checked }))} />
             <span>{t('auto_create_story_data_db_')}</span>
           </label>
-          <div className="pe-tip" style={{ opacity: 0.75 }}>{t('fills_the_story_data_table')}</div>
-          <div className="pe-f" style={{ marginTop: 8, alignItems: 'center', gap: 8, display: 'flex' }}>
-            <label style={{ fontSize: '.82rem', whiteSpace: 'nowrap' }}>{t('diaphragm_method')}</label>
-            <select value={st.diaMethod} style={{ flex: 1, fontSize: '.82rem' }}
+          <div className={uiClass("pe-tip [opacity:0.75]!")} >{t('fills_the_story_data_table')}</div>
+          <div className={uiClass("pe-f [margin-top:8px]! [align-items:center]! [gap:8px]! [display:flex]!")} >
+            <label className={uiClass("[font-size:.82rem]! [white-space:nowrap]!")} >{t('diaphragm_method')}</label>
+            <NativeSelect plain className={uiClass("[flex:1]! [font-size:.82rem]!")} value={st.diaMethod}
               onChange={e => setSt(s => ({ ...s, diaMethod: e.target.value as 'story' | 'rigd' }))}>
               <option value="story">{t('story_floor_diaphragm_db_s')}</option>
               <option value="rigd">{t('rigid_link_db_rigd')}</option>
-            </select>
+            </NativeSelect>
           </div>
-          <div className="pe-tip" style={{ opacity: 0.75 }}>{t('rigd_db_rigd_rigid_link_man')}</div>
-          <div className="pe-grid" style={{ marginTop: 8 }}>
-            <div className="pe-f"><label>{t('slab_thk')}</label><div className="pe-in">
-              <input type="number" step="any" min={0} value={st.slabThk} onChange={e => setSt(s => ({ ...s, slabThk: e.target.value }))} /><Unit u="mm" /></div></div>
+          <div className={uiClass("pe-tip [opacity:0.75]!")} >{t('rigd_db_rigd_rigid_link_man')}</div>
+          <div className={uiClass("pe-grid [margin-top:8px]!")} >
+            <div className={uiClass("pe-f")}><label>{t('slab_thk')}</label><div className={uiClass("pe-in")}>
+              <Input plain type="number" step="any" min={0} value={st.slabThk} onChange={e => setSt(s => ({ ...s, slabThk: e.target.value }))} /><Unit u="mm" /></div></div>
           </div>
-          <div className="pe-tip" style={{ opacity: 0.75 }}>{t('slab_tip')}</div>
+          <div className={uiClass("pe-tip [opacity:0.75]!")} >{t('slab_tip')}</div>
         </div>
 
         {/* ── M2-A1 지진 · M2-A2 풍하중 (설계기준 프로필) ── */}
-        {prof.unverified && <div className="pe-tip" style={{ marginTop: 12, color: 'var(--amber)' }}>{t(`code_${prof.id}`)} — {t('code_unverified')}</div>}
+        {prof.unverified && <div className={uiClass("pe-tip [margin-top:12px]! [color:var(--amber)]!")} >{t(`code_${prof.id}`)} — {t('code_unverified')}</div>}
         <LateralSection g={prof.seismic} icon="🌐" st={st.seis} set={v => setSt(s => ({ ...s, seis: v }))} first />
         <LateralSection g={prof.wind} icon="🌬" st={st.wind} set={v => setSt(s => ({ ...s, wind: v }))} />
 
         {/* ── 내력벽(벽식) — 한국 기준 또는 이미 켜진 스펙 ── */}
-        {(prof.id === 'KR' || st.bearing.on) && <div style={{ marginTop: 12, borderTop: '1px dashed var(--border)', paddingTop: 12 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '.82rem', color: 'var(--cyan)', fontWeight: 600 }}>
-            <input type="checkbox" checked={st.bearing.on} onChange={e => setSt(s => ({ ...s, bearing: { ...s.bearing, on: e.target.checked } }))} /> 🏢 {t('bw_toggle')}
+        {(prof.id === 'KR' || st.bearing.on) && <div className={uiClass("[margin-top:12px]! [border-top:1px_dashed_var(--border)]! [padding-top:12px]!")} >
+          <label className={uiClass("[display:flex]! [align-items:center]! [gap:8px]! [cursor:pointer]! [font-size:.82rem]! [color:var(--cyan)]! [font-weight:600]!")} >
+            <Input plain type="checkbox" checked={st.bearing.on} onChange={e => setSt(s => ({ ...s, bearing: { ...s.bearing, on: e.target.checked } }))} /> 🏢 {t('bw_toggle')}
           </label>
-          {st.bearing.on && <div className="pe-grid" style={{ marginTop: 10 }}>
-            <div className="pe-f"><label>{t('wall_thick')}</label><div className="pe-in">
-              <input type="number" step="any" value={st.bearing.thick} onChange={e => setSt(s => ({ ...s, bearing: { ...s.bearing, thick: e.target.value } }))} /><Unit u="mm" /></div></div>
+          {st.bearing.on && <div className={uiClass("pe-grid [margin-top:10px]!")} >
+            <div className={uiClass("pe-f")}><label>{t('wall_thick')}</label><div className={uiClass("pe-in")}>
+              <Input plain type="number" step="any" value={st.bearing.thick} onChange={e => setSt(s => ({ ...s, bearing: { ...s.bearing, thick: e.target.value } }))} /><Unit u="mm" /></div></div>
           </div>}
-          <div className="pe-tip">{t('bw_tip')}</div>
+          <div className={uiClass("pe-tip")}>{t('bw_tip')}</div>
         </div>}
 
         {/* ── M2-A3 전단벽 코어 (위치·크기·동별) ── */}
         <CoreSection base={base} st={st} setSt={setSt} />
 
-        <div className="pe-tip">{t('edit_role_range_height_use')}</div>
-        <div className="pe-tip" style={{ marginTop: 4 }}>{t('spanHint')}</div>
+        <div className={uiClass("pe-tip")}>{t('edit_role_range_height_use')}</div>
+        <div className={uiClass("pe-tip [margin-top:4px]!")} >{t('spanHint')}</div>
       </div>
     </fieldset>
   )

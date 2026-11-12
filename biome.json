@@ -1,6 +1,10 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "includes": [
       "src/**",
@@ -26,7 +30,20 @@
       "tests/_assertions.mjs",
       "components.json",
       "src/lib/utils.ts",
-      "src/styles/*.css"
+      "src/styles/*.css",
+      "src/components/ui/**",
+      "src/styles/component-classes.ts",
+      "src/styles/html-classes.json",
+      "tests/ui-migration.test.tsx",
+      "playwright.config.ts",
+      "tests/browser/**",
+      "tests/engine.golden.test.mjs",
+      "src/engine/**",
+      "tests/engine-domains.golden.test.mjs",
+      "tests/engine-pure.test.mjs",
+      "src/i18n/**",
+      "tests/i18n.test.mjs",
+      "scripts/i18n-check.mjs"
     ],
     "indentStyle": "space",
     "indentWidth": 2,
@@ -47,14 +64,26 @@
       "src/lib/utils.ts"
     ]
   },
-  "css": { "parser": { "tailwindDirectives": true } },
-  "tailwind": { "stylesheet": "./src/styles/globals.css" },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "tailwind": {
+    "stylesheet": "./src/styles/globals.css"
+  },
   "linter": {
     "rules": {
       "preset": "recommended",
-      "nursery": { "useTailwindSortedClasses": "warn" },
-      "suspicious": { "noExplicitAny": "warn" },
-      "style": { "noNonNullAssertion": "warn" }
+      "nursery": {
+        "useTailwindSortedClasses": "warn"
+      },
+      "suspicious": {
+        "noExplicitAny": "warn"
+      },
+      "style": {
+        "noNonNullAssertion": "warn"
+      }
     }
   },
   "overrides": [
@@ -77,7 +106,9 @@
             "useExhaustiveDependencies": "warn",
             "useHookAtTopLevel": "warn"
           },
-          "security": { "noDangerouslySetInnerHtml": "warn" },
+          "security": {
+            "noDangerouslySetInnerHtml": "warn"
+          },
           "suspicious": {
             "noArrayIndexKey": "warn",
             "noAssignInExpressions": "warn",

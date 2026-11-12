@@ -1,4 +1,26 @@
 {
+  "v3_13_0": {
+    "ko": [
+      "설정과 릴리즈 노트 창에서 키보드 닫기와 포커스 복귀를 개선했습니다.",
+      "탭과 AI 모드 스위치를 키보드로 조작할 수 있습니다.",
+      "편집 카드의 입력·코어 배치·미리보기 흐름을 유지하며 화면 구성 요소를 정리했습니다. 모바일 헤더가 화면 폭에 맞게 두 줄로 배치됩니다."
+    ],
+    "en": [
+      "Improved keyboard dismissal and focus restoration in settings and release notes.",
+      "Tabs and the AI mode switch support keyboard operation.",
+      "Refined the interface while preserving plan inputs, core placement, and preview behavior. The mobile header wraps to fit the screen."
+    ],
+    "zh-TW": [
+      "改善設定與版本更新說明視窗的鍵盤關閉及焦點還原。",
+      "頁籤與 AI 模式開關支援鍵盤操作。",
+      "整理介面元件，同時保留規格輸入、核心配置及預覽流程。 行動版頁首會換行以配合螢幕寬度。"
+    ],
+    "zh-CN": [
+      "改进设置和版本更新说明窗口的键盘关闭及焦点恢复。",
+      "选项卡和 AI 模式开关支持键盘操作。",
+      "整理界面组件，同时保留参数输入、核心布置和预览流程。 移动版页眉会换行以适应屏幕宽度。"
+    ]
+  },
   "v3_12_1": {
     "ko": [
       "대만: 비틀림 증폭(A_x) 재해석이 실패하면 증폭 하중을 되돌려 하중과 결과가 어긋나지 않게 하고, 해석할 때마다 새로 산정해 편집 뒤에도 낡은 값이 남지 않게 했습니다.",

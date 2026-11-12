@@ -4,7 +4,7 @@
    ⚠ Gen GUI "Auto Generate Story Data" 선행 필수(순수 API + ope/STOR 만으론 Wrong Key).
 ════════════════════════════════════════════════════════════ */
 import { profileOf } from '../codes'
-import { RC } from '../engine'
+import { sseisDiff, sseisProfileToStoryProp, sseisSelfProfile, storyElevations, storyWeightDiff, swindSelfPressures } from '../engine'
 import { t, tv } from '../i18n'
 import { mapi } from '../mapi/client'
 import { S } from '../state/store'
@@ -12,13 +12,13 @@ import { log } from '../state/ui'
 import { setUnit } from './model'
 
 const f0 = (x: number | null | undefined) => x == null ? '–' : (Math.abs(x) >= 1e6 ? (x / 1e6).toFixed(2) + 'e6' : Math.round(x))
-const pe = (c: any) => c == null ? '<span style="opacity:.4">–</span>'
-  : `<b style="color:${c.ok ? 'var(--green,#3c3)' : 'var(--red,#e55)'}">${(c.err * 100).toFixed(1)}%</b>`
-const TD = 'padding:1px 8px 1px 0'
+const pe = (c: any) => c == null ? '<span class="[opacity:.4]!">–</span>'
+  : `<b class="${c.ok ? 'text-[var(--green,#3c3)]!' : 'text-[var(--red,#e55)]!'}">${(c.err * 100).toFixed(1)}%</b>`
+const TD = '[padding:1px_8px_1px_0]!'
 
 function tableHead(hdr: string[]): string {
-  return '<table style="font-size:11px;border-collapse:collapse;margin:4px 0"><tr>' +
-    hdr.map(h => `<th style="text-align:left;${TD};border-bottom:1px solid var(--border)">${h}</th>`).join('') + '</tr>'
+  return '<table class="[font-size:11px]! [border-collapse:collapse]! [margin:4px_0]!"><tr>' +
+    hdr.map(h => `<th class="text-left! ${TD} border-b! border-border!">${h}</th>`).join('') + '</tr>'
 }
 
 /** GET db/STOR → 등록 층 목록 */
@@ -76,16 +76,16 @@ export async function actSseisVerify(spec?: any): Promise<string> {
   }
   log('▸ db/SSEIS USER TYPE PUT <b>' + seisForce.length + '</b> ' + t('forces_registered_stories'), 'ok')
   const genResp = unwrapAssign(await mapi('GET', 'SSEIS'), 'SSEIS')
-  const self = RC.sseisSelfProfile(mapped, 0.05)
+  const self = sseisSelfProfile(mapped, 0.05)
   const tol = (sp.verifyTol != null ? sp.verifyTol : 0.05)
-  const d = RC.sseisDiff(self, genResp, 'X', tol)
+  const d = sseisDiff(self, genResp, 'X', tol)
   S.model.sseisQA = { dir: d.dir, tol: d.tol, matched: d.matched, pass: d.pass, worstShear: d.worstShear, base: self.base }
   let html = tableHead(tv<string[]>('hdr_shear'))
   d.rows.forEach((rw: any) => {
-    html += `<tr><td style="${TD}">${rw.name}</td>` +
-      `<td style="${TD}">${rw.shear ? f0(rw.shear.self) + '/' + f0(rw.shear.gen) + ' ' + pe(rw.shear) : '–'}</td>` +
-      `<td style="${TD}">${rw.otm ? f0(rw.otm.self) + '/' + f0(rw.otm.gen) + ' ' + pe(rw.otm) : '–'}</td>` +
-      `<td style="${TD}">${rw.torsion && rw.torsion.gen != null ? '<span style="opacity:.7">Gen ' + f0(rw.torsion.gen) + '</span>' : '–'}</td></tr>`
+    html += `<tr><td class="${TD}">${rw.name}</td>` +
+      `<td class="${TD}">${rw.shear ? f0(rw.shear.self) + '/' + f0(rw.shear.gen) + ' ' + pe(rw.shear) : '–'}</td>` +
+      `<td class="${TD}">${rw.otm ? f0(rw.otm.self) + '/' + f0(rw.otm.gen) + ' ' + pe(rw.otm) : '–'}</td>` +
+      `<td class="${TD}">${rw.torsion && rw.torsion.gen != null ? '<span class="[opacity:.7]!">Gen ' + f0(rw.torsion.gen) + '</span>' : '–'}</td></tr>`
   })
   html += '</table>'
   log(t('sseis_cross_check_x_dir') +
@@ -110,7 +110,7 @@ export async function actSwindVerify(spec?: any): Promise<string> {
   if (!reg.length) throw new Error(t('err_swind_nostory'))
   const mapped = mapToStories(r.forcesX, reg)
   if (!mapped.length) throw new Error(t('err_level_mismatch'))
-  const pr = RC.swindSelfPressures(mapped, regAll)
+  const pr = swindSelfPressures(mapped, regAll)
   if (!pr.press.length) throw new Error(t('pressure_conversion_failed'))
   try {
     await mapi('PUT', 'SWIND', { Assign: { 1: {
@@ -123,15 +123,15 @@ export async function actSwindVerify(spec?: any): Promise<string> {
   }
   log('▸ db/SWIND USER TYPE PUT <b>' + pr.press.length + '</b> ' + t('stories_pressure_from_forc'), 'ok')
   const genResp = unwrapAssign(await mapi('GET', 'SWIND'), 'SWIND')
-  const self = RC.sseisSelfProfile(mapped, 0)
+  const self = sseisSelfProfile(mapped, 0)
   const tol = (wp.verifyTol != null ? wp.verifyTol : 0.05)
-  const d = RC.sseisDiff(self, genResp, 'X', tol)
+  const d = sseisDiff(self, genResp, 'X', tol)
   S.model.swindQA = { dir: d.dir, tol: d.tol, matched: d.matched, pass: d.pass, worstShear: d.worstShear, base: self.base }
   let html = tableHead(tv<string[]>('hdr_shear_otm'))
   d.rows.forEach((rw: any) => {
-    html += `<tr><td style="${TD}">${rw.name}</td>` +
-      `<td style="${TD}">${rw.shear ? f0(rw.shear.self) + '/' + f0(rw.shear.gen) + ' ' + pe(rw.shear) : '–'}</td>` +
-      `<td style="${TD}">${rw.otm ? f0(rw.otm.self) + '/' + f0(rw.otm.gen) + ' ' + pe(rw.otm) : '–'}</td></tr>`
+    html += `<tr><td class="${TD}">${rw.name}</td>` +
+      `<td class="${TD}">${rw.shear ? f0(rw.shear.self) + '/' + f0(rw.shear.gen) + ' ' + pe(rw.shear) : '–'}</td>` +
+      `<td class="${TD}">${rw.otm ? f0(rw.otm.self) + '/' + f0(rw.otm.gen) + ' ' + pe(rw.otm) : '–'}</td></tr>`
   })
   html += '</table>'
   log(t('swind_cross_check_x_dir_wi') +
@@ -151,7 +151,7 @@ export async function actStoryWeightVerify(spec?: any): Promise<string> {
   await setUnit('KN', 'MM')                                           // STORY_WEIGHT kN, STORY_LEVEL mm
   const sp = p.seismic || {}
   const W = profileOf(p).seismic.storyWeights(p, sp)
-  const elev = RC.storyElevations(p)
+  const elev = storyElevations(p)
   const selfStories: { level: number; weight: number }[] = []
   for (let s = 1; s <= p.stories; s++) { if ((elev[s] || 0) > 0) selfStories.push({ level: elev[s], weight: W[s] || 0 }) }
   if (!selfStories.length) throw new Error(t('no_stories_above_g_l'))
@@ -169,18 +169,18 @@ export async function actStoryWeightVerify(spec?: any): Promise<string> {
   } finally {
     try { await mapi('DELETE', 'SSEIS') } catch { /* QA 흔적 제거 실패 무시 */ }
   }
-  const genResp = RC.sseisProfileToStoryProp(gen)
-  const d = RC.storyWeightDiff(selfStories, genResp, 0.10)
+  const genResp = sseisProfileToStoryProp(gen)
+  const d = storyWeightDiff(selfStories, genResp, 0.10)
   if (!d.matched) throw new Error(t('err_weight_mismatch'))
   const fw = (x: number | null) => x == null ? '–' : Math.round(x)
-  const pw = (c: any) => `<b style="color:${c.ok ? 'var(--green,#3c3)' : 'var(--amber,#d90)'}">${(c.err * 100).toFixed(1)}%</b>`
+  const pw = (c: any) => `<b class="${c.ok ? 'text-[var(--green,#3c3)]!' : 'text-[var(--amber,#d90)]!'}">${(c.err * 100).toFixed(1)}%</b>`
   let html = tableHead(tv<string[]>('hdr_weight'))
   d.rows.forEach((rw: any) => {
-    html += `<tr><td style="${TD}">${rw.name}</td>` +
-      `<td style="${TD}">${fw(rw.self)}</td><td style="${TD}">${fw(rw.gen)}</td>` +
-      `<td style="${TD}">${pw(rw)}</td></tr>`
+    html += `<tr><td class="${TD}">${rw.name}</td>` +
+      `<td class="${TD}">${fw(rw.self)}</td><td class="${TD}">${fw(rw.gen)}</td>` +
+      `<td class="${TD}">${pw(rw)}</td></tr>`
   })
-  html += `<tr><td style="padding:2px 8px 1px 0;border-top:1px solid var(--border)"><b>Σ</b></td><td style="border-top:1px solid var(--border)">${fw(d.totalSelf)}</td><td style="border-top:1px solid var(--border)">${fw(d.totalGen)}</td><td style="border-top:1px solid var(--border)"><b>${(d.totalErr * 100).toFixed(1)}%</b></td></tr></table>`
+  html += `<tr><td class="[padding:2px_8px_1px_0]! [border-top:1px_solid_var(--border)]!"><b>Σ</b></td><td class="[border-top:1px_solid_var(--border)]!">${fw(d.totalSelf)}</td><td class="[border-top:1px_solid_var(--border)]!">${fw(d.totalGen)}</td><td class="[border-top:1px_solid_var(--border)]!"><b>${(d.totalErr * 100).toFixed(1)}%</b></td></tr></table>`
   log(t('story_weight_check_self_es') + ` — ΣΔ ${(d.totalErr * 100).toFixed(1)}%` + html, 'ok')
   return `Story weight check (via db/SSEIS PROFILE): ${d.matched} stories. Self ΣW=${Math.round(d.totalSelf)} kN vs Gen ΣW=${Math.round(d.totalGen)} kN (Δ${(d.totalErr * 100).toFixed(1)}%). Informational — self = model dead load (members+slab+finishes) when w0 is blank, or area×w0 when w0 is given; Gen is model-derived.`
 }

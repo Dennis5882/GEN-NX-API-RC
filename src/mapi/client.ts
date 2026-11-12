@@ -45,7 +45,7 @@ export function apiErrorMessage(e: unknown): string {
 
 export async function mapi<T = any>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: Record<string, any>): Promise<T> {
   const ep = path.startsWith('/') ? path : `/db/${path}`
-  log(`<span style="color:var(--blue)">${method}</span> ${ep}`, 'api')
+  log(`<span class="[color:var(--blue)]!">${method}</span> ${ep}`, 'api')
   try {
     const clear = method === 'DELETE' && CLEARABLE.has(ep.replace(/^\/db\//i, '').toLowerCase())
     return (await getClient().request(method, ep, body as JsonObject | undefined,
