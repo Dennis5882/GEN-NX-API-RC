@@ -21,13 +21,12 @@ MIDAS IT 소속 Dennis(sjj0507@midasit.com)가 개발하는 **MIDAS Gen NX 대�
 | `src/engine/` | 순수 TS 모듈 — spec·geometry·story·dynamic·design·draw, 명시적 import, 브라우저 전역 없음 |
 | `src/i18n/` | 언어별 TS 사전 + `dictionaries.ts`; `t()`/`tl()`/`tv()`는 S.lang 기준 |
 | `archive/MIDAS_RC_Modeling_Wizard.html` | 폐기된 Wizard의 기록용 보관본(빌드·사용 경로에서 제외) |
-| `shared/i18n.js` | 다국어 사전 (window.I18N ~550키, ko/en/zh-TW/zh-CN) |
 | `src/styles/` | Tailwind 진입점·테마 토큰·기본 스타일·컴포넌트 유틸리티·HTML 메시지 스타일 |
 | `archive/vanilla-v1.2.1/` | 바닐라 단일 HTML 백업 (git tag `vanilla-v1.2.1`) |
 | `archive/` | 구버전 동결 — 수정 금지 |
 
 - 명령: `npm run dev` / `npm run build`(= `tsc -b && vite build`) / `npm run typecheck`.
-- 빌드는 React 진입점과 `gen_nx_api_validation.html`만 포함한다. Wizard와 `shared/*` 레거시 복사는 제거했다.
+- 빌드는 React 진입점과 `gen_nx_api_validation.html`만 포함한다. Wizard와 `shared/*`(rc_engine.js·i18n.js·app.css)는 v3.14.0에서 제거했다 — 엔진·사전은 `src/engine/`·`src/i18n/` TS 모듈, 테스트는 Vitest(`npm test`), 린트/포맷은 Biome.
 - 이전 현황(2026-10-11): **전 기능 이전 완료** — 채팅·NLP·가이드·편집카드·로그·모델·3D·결과·LLM·QA검증. 바닐라 동작 원본은 `archive/vanilla-v1.2.1/index.html`.
 - 등가성 검증: jsdom(바닐라) vs Vite SSR(React)에 가짜 MIDAS 서버를 물려 10개 시나리오의 API 호출·페이로드·메시지·로그·모델 상태 비교 → 동일. 하네스는 비커밋(scratchpad).
 - 액션은 `S`를 직접 변경 후 `notify()` — 로직을 바닐라와 1:1로 유지하기 위한 의도적 설계. API 호출은 아직 `client.request` 원시 호출(SDK 타입 리소스 전환은 차기).
@@ -47,7 +46,7 @@ UI는 `components/ui/`의 shadcn/Radix 프리미티브와 Tailwind를 사용한�
 ## 설계기준 프로필 (2026-10-11, `src/codes/`)
 
 - **UI 언어와 독립된 축.** 기준 의존 로직(재료 DB·용도하중·하중조합·지진/풍 층력·층중량·응답스펙트럼·편집카드 지진/풍 입력항목·지역 프리셋)은 전부 `CodeProfile`(`src/codes/types.ts`)을 거친다. 액션/편집기에서 `RC.taiwanCombos`·`RC.seismicStoryForces` 등 **직접 호출 금지** → `profileOf(spec)` / `profile()`.
-- `TW`(`src/codes/tw.ts`) — 2026-10-12 대만 규범 원문 기준 재구현(아래 '해석 신뢰성 보강' 참조). 재료·용도하중·지역 프리셋만 `shared/rc_engine.js` 공유.
+- `TW`(`src/codes/tw.ts`) — 2026-10-12 대만 규범 원문 기준 재구현(아래 '해석 신뢰성 보강' 참조). 재료·용도하중·지역 프리셋은 `src/engine/`(구 rc_engine.js를 TS로 이전)을 공유.
 - `CN`(`src/codes/cn.ts`, 2026-10-12) — **해석 범위만**(배근·도면 제외, 사용자 결정). 조합 GB 55001/55002(γG 1.3, γQ 1.5, γEh 1.4, 지진조합 방향별), 지진 GB 50011 底部剪力法(설방열도·분조·장지류별 select, 감쇠보정, δn, 최소전단계수 0.2αmax), 풍 GB 50009 wk=βz·μs·μz·w0, 응답스펙트럼 Gen NX 네이티브 `CH2010`, 질량원 활하중 0.5·不上人屋面 제외.
   - **원문 대조 완료(2026-10-12)** — KB `E:/MIDAS PROGRAM/COde/CN/knowledge/{gb50009-2012,gb50011-2010,gb55001-2021,gb55002-2021,gb50010-2010}/chunks.jsonl`: 활하중(55001 表4.2.2·4.2.8), γG·γQ(55001 3.1.13), 풍 ψc 0.6(50009 8.1.4), G_E 조합값(55002 表4.1.3), αmax·Tg(55002 表4.2.2), 곡선·감쇠(50011 5.1.5), Geq·δn(50011 5.2.1), γEh 1.4(55002 4.3.2 = 50011 2024 局部修订 5.4.1), μz(50009 表8.2.1 — 식이 표 재현), μs(表8.3.1-30), RC 단위중량 24~25(50009 附录A), Ec·νc·αc(50010).
   - 원문 대조로 고친 것: **최소 지진전단계수 = 층별 검사 + 주기보정**(55002 4.2.3, 미달 시 전 층력 증폭), **경험주기 T1 = 0.25+0.53e-3·H²/∛B**(50009 F.2.2-1, B=평면 장변 → 보수적), **βz ≥ 1.2·w0 ≥ 0.30 강제**(55001 4.6.5·4.6.2).
@@ -122,7 +121,7 @@ UI는 `components/ui/`의 shadcn/Radix 프리미티브와 Tailwind를 사용한�
 - **간체 `zh-CN`(2026-10)**: 사전은 zh-TW 블록을 OpenCC `tw2sp` + 구조 용어집(荷载·截面·构件·位移·框架·跨度·层高·振型…) + 대륙식 후처리(列→行, 登录→注册, 分页→选项卡 등)로 생성 후 검수. **현지 엔지니어 검수 전 초안.**
 - **언어 ≠ 설계기준**: UI 언어와 설계기준(TW/CN/KR 프로필)은 독립 축 — 기준 미선택 시에만 언어를 따라 자동 선택(위 '설계기준 프로필').
 - 로컬 NLP: `parse.ts` `normalizeZh()` 가 간체 전용 글자→번체 + 대륙 어휘(创建→建立, 添加→新增, 运行→执行…) 정규화 후 기존 번체 정규식 사용 → **정규식엔 번체만 추가**하면 간체도 인식.
-- 폰트: `app.css` `--cjk` 변수 — `:lang(zh-Hans)` SC 우선, `:lang(zh-Hant)` TC 우선, 그 외 KR 우선. 새 CJK 언어는 여기와 index.html Google Fonts 링크에 추가.
+- 폰트: `src/styles/` 의 `--cjk` 변수 — `:lang(zh-Hans)` SC 우선, `:lang(zh-Hant)` TC 우선, 그 외 KR 우선. 새 CJK 언어는 여기와 index.html Google Fonts 링크에 추가.
 - `npm run i18n:check`(build·typecheck 에 포함): 함수 인자 수·타입 불일치, 폴백 누락, keys.gen 불일치 = 오류 / 일부 언어 키 누락 = 경고(`--strict` 시 오류).
 - **공유 링크 언어**: `/zh-CN/`·`/zh-TW/`·`/en/`·`/ko/`(빌드 시 언어별 정적 index.html + og 메타 = i18n `meta_title`/`meta_desc`, `vite.config.ts` langPages — 메신저 미리보기는 JS 미실행이라 정적 메타 필수). 링크·`?lang=` 언어 > 저장값, 언어 변경 시 주소 동기화(`syncLangUrl`).
 - 언어 영속성: `localStorage('nx_lang')`. 첫 방문은 **브라우저 언어**(`detectLang`: zh-TW/HK/MO·Hant→zh-TW, 그 밖의 zh→zh-CN, ko, en, 미지원→en). IP 기반 아님.
@@ -165,7 +164,7 @@ GUIDE 패널: `GUIDE` 배열(`src/agent/guide.ts`) → `Guide.tsx`. 그룹(2026-
 
 - **팔레트**: 편집 카드에서 기둥/보 단면(H×B) 정의 + 재료(MATERIALS 카탈로그) 체크. **첫 항목 = 기본(대표) 단면**.
 - **배정**: 표준층 표 각 행에 `기둥·보·재료` 드롭다운 → 구역별 단면 선택.
-- **엔진** `shared/rc_engine.js`:
+- **엔진** `src/engine/`(구 `shared/rc_engine.js`):
   - `paletteFor(p)` → `{cols,beams,mats}` (없으면 최상위 colName/beamName/matName 폴백).
   - `specSections(p)` → distinct 단면/재료 dedup → `{sections[](sect id), mats[](matl id), storyAssign{story:{colSect,beamSect,mat}}, def}`.
   - `deriveFloorGroups`/`specToGroupRows` = 그룹 행에 `col/beam/mat/h` 패스스루(단면/재료 차이로도 행 분리).

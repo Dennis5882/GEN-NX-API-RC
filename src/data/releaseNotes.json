@@ -1,4 +1,26 @@
 {
+  "v3_14_0": {
+    "ko": [
+      "화면을 새 구성 요소로 교체해 버튼·카드·패널의 모양과 동작을 통일했고, 모바일 화면도 다듬었습니다.",
+      "설계기준 계산과 번역 사전을 TypeScript로 옮겨 안정성을 높였습니다. 모델 생성·해석 결과는 이전과 같습니다.",
+      "더 이상 쓰지 않는 구형 위저드 화면을 제거했습니다."
+    ],
+    "en": [
+      "Replaced the interface with a new component set so buttons, cards, and panels look and behave consistently, with refined mobile layouts.",
+      "Moved the design-code calculations and translations to TypeScript for better reliability. Modeling and analysis results are unchanged.",
+      "Removed the legacy Wizard page, which is no longer used."
+    ],
+    "zh-TW": [
+      "以新的元件重做介面，按鈕、卡片與面板的外觀和操作更一致，並調整了手機版面。",
+      "將設計規範計算與翻譯字典改寫為 TypeScript，提升穩定性。建模與分析結果與先前相同。",
+      "移除已不再使用的舊版精靈頁面。"
+    ],
+    "zh-CN": [
+      "以新的组件重做界面，按钮、卡片与面板的外观和操作更一致，并调整了手机版面。",
+      "将设计规范计算与翻译词典改写为 TypeScript，提升稳定性。建模与分析结果与此前相同。",
+      "移除已不再使用的旧版向导页面。"
+    ]
+  },
   "v3_13_1": {
     "ko": [
       "전송·코어 제어 버튼의 정렬, 테두리와 크기를 기존 화면과 맞췄습니다.",
