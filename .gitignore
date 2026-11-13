@@ -45,6 +45,5 @@ dist/
 /playwright-report/
 archive/TW_ncsea_RC_standard_drawings_*/
 
-# 설명용 그림(MAPI 흐름도·개발 프레임워크) — 로컬 전용, 배포 대상 아님
-docs/*mapi-flow*
-docs/*architecture*
+# 개발 문서·계획서·설명용 그림 — 로컬 전용(배포 대상 아님, 2026-11-13 사용자 결정)
+docs/
